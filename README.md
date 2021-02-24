@@ -12,6 +12,14 @@ conda env create --file install/imageseg.yml
 conda activate imageseg
 ```
 
+If you get errors associated with loading the model weights you may need to:
+
+```
+pip install 'h5py==2.10.0' --force-reinstall
+```
+
+and just ignore the errors. Worked for me anyway when I ran into it on a windows machine
+
 
 ## <a name="resunet"></a>Residual UNet for Image Segmentation
 
