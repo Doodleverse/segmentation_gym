@@ -413,11 +413,9 @@ with open(configfile) as f:
 for k in config.keys():
     exec(k+'=config["'+k+'"]')
 
-do_crf_refine
-
 
 #=======================================================
-model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], 3), BATCH_SIZE, nclasses)
+model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], 3), BATCH_SIZE, NCLASSES)
 model.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics = [mean_iou, dice_coef])
 
 model.load_weights(weights)
@@ -434,7 +432,7 @@ for counter,f in enumerate(sample_filenames):
     image = seg_file2tensor(f)/255
 
     est_label = model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
-    if nclasses>1:
+    if NCLASSES>1:
         est_label = tf.argmax(est_label, axis=-1)
     else:
         est_label[est_label<1] = 0
@@ -442,13 +440,13 @@ for counter,f in enumerate(sample_filenames):
     image = seg_file2tensor_noresize(f)/255
     nx,ny,nz = image.shape
 
-    est_label = np.round(resize(est_label/nclasses,(nx,ny))*nclasses).astype(np.uint8)
+    est_label = np.round(resize(est_label/NCLASSES,(nx,ny))*NCLASSES).astype(np.uint8)
 
-    if do_crf_refine:
+    if DO_CRF_REFINE:
         est_label = crf_refine(est_label, (255*image.numpy().astype(np.uint8)),
-                                theta_col=40, mu=40, theta_spat=1, mu_spat=1, nclasses = nclasses+1)
+                                theta_col=40, mu=40, theta_spat=1, mu_spat=1, nclasses = NCLASSES+1)
 
-    if nclasses==1:
+    if NCLASSES==1:
         imsave(f.replace('.jpg', '_predseg.png'), (est_label*255).astype(np.uint8))
         cmd = 'convert '+f+' \( '+f.replace('.jpg', '_predseg.png')+' -normalize +level 0,50% \) -compose screen -composite '+f.replace('.jpg', '_segoverlay.png')
         os.system(cmd)
