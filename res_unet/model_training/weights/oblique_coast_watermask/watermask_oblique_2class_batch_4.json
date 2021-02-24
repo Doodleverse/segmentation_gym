@@ -1,0 +1,20 @@
+{
+  "TARGET_SIZE": [768,1024],
+  "NCLASSES": 1,
+  "BATCH_SIZE": 4,
+  "N_DATA_BANDS": 3,
+  "DO_CRF_REFINE": true,
+  "DO_TRAIN": false,
+  "PATIENCE": 25,
+  "IMS_PER_SHARD": 50,
+  "MAX_EPOCHS": 200,
+  "VALIDATION_SPLIT": 0.75,
+  "RAMPUP_EPOCHS": 20,
+  "SUSTAIN_EPOCHS": 0.0,
+  "EXP_DECAY": 0.9,
+  "START_LR":  1e-7,
+  "MIN_LR": 1e-7,
+  "MAX_LR": 1e-5,
+  "MEDIAN_FILTER_VALUE": 3,
+  "DOPLOT": true
+}

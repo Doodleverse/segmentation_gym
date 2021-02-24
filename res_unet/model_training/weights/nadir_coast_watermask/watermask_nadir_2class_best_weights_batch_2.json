@@ -1,0 +1,6 @@
+{
+  "TARGET_SIZE": [768,1024],
+  "nclasses": 1,
+  "BATCH_SIZE": 2,
+  "do_crf_refine": true
+}

@@ -392,7 +392,7 @@ def seg_file2tensor(f):
 #====================================================
 
 root = Tk()
-root.filename =  filedialog.askopenfilename(initialdir = "/weights",title = "Select file",filetypes = (("weights file","*.h5"),("all files","*.*")))
+root.filename =  filedialog.askopenfilename(initialdir = "/model_training/weights",title = "Select file",filetypes = (("weights file","*.h5"),("all files","*.*")))
 weights = root.filename
 print(weights)
 root.withdraw()
