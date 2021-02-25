@@ -1,10 +1,11 @@
 {
   "TARGET_SIZE": [768,1024],
+  "KERNEL_SIZE": 7,
   "NCLASSES": 1,
   "BATCH_SIZE": 4,
   "N_DATA_BANDS": 3,
   "DO_CRF_REFINE": true,
-  "DO_TRAIN": false,
+  "DO_TRAIN": true,
   "PATIENCE": 25,
   "IMS_PER_SHARD": 50,
   "MAX_EPOCHS": 200,

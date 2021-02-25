@@ -128,9 +128,9 @@ def read_seg_tfrecord_multiclass(example):
     # decode the TFRecord
     example = tf.io.parse_single_example(example, features)
 
-    image = tf.image.decode_jpeg(example['image'], channels=N_DATA_BANDS)
+    image = tf.image.decode_jpeg(example['image'], channels=3)
     image = tf.cast(image, tf.float32)/ 255.0
-    image = tf.reshape(image, [TARGET_SIZE[0],TARGET_SIZE[1], N_DATA_BANDS])
+    image = tf.reshape(image, [TARGET_SIZE[0],TARGET_SIZE[1], 3])
     # print(image.shape)
 
     label = tf.image.decode_jpeg(example['label'], channels=1)
@@ -200,6 +200,30 @@ def get_validation_dataset(validation_filenames):
     """
     return get_batched_dataset(validation_filenames)
 
+#---------------------------------------------------
+# learning rate function
+def lrfn(epoch):
+    """
+    lrfn(epoch)
+    This function creates a custom piecewise linear-exponential learning rate function for a custom learning rate scheduler. It is linear to a max, then exponentially decays
+
+    * INPUTS: current `epoch` number
+    * OPTIONAL INPUTS: None
+    * GLOBAL INPUTS:`START_LR`, `MIN_LR`, `MAX_LR`, `RAMPUP_EPOCHS`, `SUSTAIN_EPOCHS`, `EXP_DECAY`
+    * OUTPUTS:  the function lr with all arguments passed
+
+    """
+    def lr(epoch, START_LR, MIN_LR, MAX_LR, RAMPUP_EPOCHS, SUSTAIN_EPOCHS, EXP_DECAY):
+        if epoch < RAMPUP_EPOCHS:
+            lr = (MAX_LR - START_LR)/RAMPUP_EPOCHS * epoch + START_LR
+        elif epoch < RAMPUP_EPOCHS + SUSTAIN_EPOCHS:
+            lr = MAX_LR
+        else:
+            lr = (MAX_LR - MIN_LR) * EXP_DECAY**(epoch-RAMPUP_EPOCHS-SUSTAIN_EPOCHS) + MIN_LR
+        return lr
+    return lr(epoch, START_LR, MIN_LR, MAX_LR, RAMPUP_EPOCHS, SUSTAIN_EPOCHS, EXP_DECAY)
+
+
 
 #-------------------------------------------------
 filenames = sorted(tf.io.gfile.glob(data_path+os.sep+'*.tfrec'))
@@ -243,7 +267,7 @@ if DO_TRAIN:
       for count,(im,lab) in enumerate(zip(imgs, lbls)):
          plt.subplot(int(BATCH_SIZE/2),2,count+1)
          plt.imshow(im)
-         plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=1)
+         plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
          plt.axis('off')
          print(np.unique(lab))
     # plt.show()
@@ -259,7 +283,7 @@ if DO_TRAIN:
       for count,(im,lab) in enumerate(zip(imgs, lbls)):
          plt.subplot(int(BATCH_SIZE/2),2,count+1) #int(BATCH_SIZE/2)
          plt.imshow(im)
-         plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=1)
+         plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
          plt.axis('off')
          print(np.unique(lab))
     # plt.show()
@@ -271,7 +295,7 @@ if DO_TRAIN:
 print('.....................................')
 print('Creating and compiling model ...')
 
-model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), BATCH_SIZE, NCLASSES)
+model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), BATCH_SIZE, NCLASSES, (KERNEL_SIZE, KERNEL_SIZE))
 model.compile(optimizer = 'adam', loss =dice_coef_loss, metrics = [mean_iou, dice_coef])
 
 
@@ -324,30 +348,32 @@ counter = 0
 for i,l in val_ds.take(10):
 
     for img,lbl in zip(i,l):
-        est_label = model.predict(tf.expand_dims(img, 0) , batch_size=1).squeeze() #tf.expand_dims(i, 0) , batch_size=1).squeeze()
-        est_label[est_label<1] = 0
+        est_label = model.predict(tf.expand_dims(img, 0) , batch_size=1).squeeze() 
+        if NCLASSES==1:
+            est_label[est_label<1] = 0
 
         if DO_CRF_REFINE:
             est_label,_ = crf_refine(est_label.astype(np.uint8), img.numpy().astype(np.uint8), theta_col=100, theta_spat=3)
 
         if MEDIAN_FILTER_VALUE>1:
             est_label = np.round(median(est_label, disk(MEDIAN_FILTER_VALUE))).astype(np.uint8)
-            est_label[est_label<1] = 0
-            est_label[est_label>1] = 1
+            if NCLASSES==1:
+                est_label[est_label<1] = 0
+                est_label[est_label>1] = 1
 
         lbl = lbl.numpy().squeeze()
 
-        iouscore = iou(lbl, est_label, 2)
+        iouscore = iou(lbl, est_label, NCLASSES+1)
 
         if DOPLOT:
             plt.subplot(221)
             plt.imshow(img)
-            plt.imshow(lbl, alpha=0.3, cmap=plt.cm.bwr, vmin=0, vmax=1)
+            plt.imshow(lbl, alpha=0.3, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES)
             plt.axis('off')
 
             plt.subplot(222)
             plt.imshow(img)
-            plt.imshow(est_label, alpha=0.3, cmap=plt.cm.bwr, vmin=0, vmax=1)
+            plt.imshow(est_label, alpha=0.3, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES)
             plt.axis('off')
             plt.title('iou = '+str(iouscore)[:5], fontsize=6)
             IOUc.append(iouscore)

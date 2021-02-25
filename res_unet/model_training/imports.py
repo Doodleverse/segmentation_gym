@@ -211,7 +211,7 @@ def iou(obs, est,nclasses):
     return IOU
 
 #-----------------------------------
-def res_unet(sz, f, nclasses=1):
+def res_unet(sz, f, nclasses=1, kernel_size=(7,7)):
     """
     res_unet(sz, f, nclasses=1)
     This function creates a custom residual U-Net model for image segmentation
@@ -221,7 +221,7 @@ def res_unet(sz, f, nclasses=1):
         * flag: [string] if 'binary', the model will expect 2D masks and uses sigmoid. If 'multiclass', the model will expect 3D masks and uses softmax
         * nclasses [int]: number of classes
     OPTIONAL INPUTS:
-        * `kernel_size`=(3, 3): tuple of kernel size (x, y) - this is the size in pixels of the kernel to be convolved with the image
+        * `kernel_size`=(7, 7): tuple of kernel size (x, y) - this is the size in pixels of the kernel to be convolved with the image
         * `padding`="same":  see tf.keras.layers.Conv2D
         * `strides`=1: see tf.keras.layers.Conv2D
     GLOBAL INPUTS: None
@@ -231,28 +231,35 @@ def res_unet(sz, f, nclasses=1):
     inputs = tf.keras.layers.Input(sz)
 
     ## downsample
-    e1 = bottleneck_block(inputs, f); f = int(f*2)
-    e2 = res_block(e1, f, strides=2); f = int(f*2)
-    e3 = res_block(e2, f, strides=2); f = int(f*2)
-    e4 = res_block(e3, f, strides=2); f = int(f*2)
-    _ = res_block(e4, f, strides=2)
+    e1 = bottleneck_block(inputs, f); 
+    f = int(f*2)
+    e2 = res_block(e1, f, strides=2,  kernel_size = kernel_size)
+    f = int(f*2)
+    e3 = res_block(e2, f, strides=2,  kernel_size = kernel_size)
+    f = int(f*2)
+    e4 = res_block(e3, f, strides=2,  kernel_size = kernel_size)
+    f = int(f*2)
+    _ = res_block(e4, f, strides=2, kernel_size = kernel_size)
 
     ## bottleneck
-    b0 = conv_block(_, f, strides=1)
-    _ = conv_block(b0, f, strides=1)
+    b0 = conv_block(_, f, strides=1,  kernel_size = kernel_size)
+    _ = conv_block(b0, f, strides=1,  kernel_size = kernel_size)
 
     ## upsample
     _ = upsamp_concat_block(_, e4)
-    _ = res_block(_, f); f = int(f/2)
+    _ = res_block(_, f, kernel_size = kernel_size)
+    f = int(f/2)
 
     _ = upsamp_concat_block(_, e3)
-    _ = res_block(_, f); f = int(f/2)
+    _ = res_block(_, f, kernel_size = kernel_size)
+    f = int(f/2)
 
     _ = upsamp_concat_block(_, e2)
-    _ = res_block(_, f); f = int(f/2)
+    _ = res_block(_, f, kernel_size = kernel_size)
+    f = int(f/2)
 
     _ = upsamp_concat_block(_, e1)
-    _ = res_block(_, f)
+    _ = res_block(_, f, kernel_size = kernel_size)
 
     # ## classify
     if nclasses==1:
@@ -353,28 +360,6 @@ def dice_coef_loss(y_true, y_pred):
     """
     return 1.0 - dice_coef(y_true, y_pred)
 
-#---------------------------------------------------
-# learning rate function
-def lrfn(epoch):
-    """
-    lrfn(epoch)
-    This function creates a custom piecewise linear-exponential learning rate function for a custom learning rate scheduler. It is linear to a max, then exponentially decays
-
-    * INPUTS: current `epoch` number
-    * OPTIONAL INPUTS: None
-    * GLOBAL INPUTS:`START_LR`, `MIN_LR`, `MAX_LR`, `RAMPUP_EPOCHS`, `SUSTAIN_EPOCHS`, `EXP_DECAY`
-    * OUTPUTS:  the function lr with all arguments passed
-
-    """
-    def lr(epoch, START_LR, MIN_LR, MAX_LR, RAMPUP_EPOCHS, SUSTAIN_EPOCHS, EXP_DECAY):
-        if epoch < RAMPUP_EPOCHS:
-            lr = (MAX_LR - START_LR)/RAMPUP_EPOCHS * epoch + START_LR
-        elif epoch < RAMPUP_EPOCHS + SUSTAIN_EPOCHS:
-            lr = MAX_LR
-        else:
-            lr = (MAX_LR - MIN_LR) * EXP_DECAY**(epoch-RAMPUP_EPOCHS-SUSTAIN_EPOCHS) + MIN_LR
-        return lr
-    return lr(epoch, START_LR, MIN_LR, MAX_LR, RAMPUP_EPOCHS, SUSTAIN_EPOCHS, EXP_DECAY)
 
 
 ###############################################################

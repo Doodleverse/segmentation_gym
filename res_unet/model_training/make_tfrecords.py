@@ -239,28 +239,40 @@ def resize_and_crop_seg_image(image, label):
 n_im = len(glob(imdir+os.sep+'*.jpg'))
 print(n_im)
 
-os.mkdir('images/images')
-os.mkdir('images/aug_images')
+try:
+    os.mkdir(imdir+os.sep+'images')
+    os.mkdir(imdir+os.sep+'aug_images')
+except:
+    pass
 
-for file in glob(os.getcwd()+os.sep+'images/*.jpg'):
-    shutil.move(file,'images/images')
 
-imdir += os.sep+'aug_images'
+for file in glob(imdir+os.sep+'*.jpg'):
+    shutil.move(file,imdir+os.sep+'images')
+
+#imdir += os.sep+'images'
 
 if USEMASK:
-    os.mkdir('masks/masks')
-    os.mkdir('masks/aug_masks')
-    for file in glob(os.getcwd()+os.sep+'masks/*.jpg'):
-        shutil.move(file,'masks/masks')
-    lab_path += os.sep+'aug_masks'
+    try:
+        os.mkdir(lab_path+os.sep+'masks')
+        os.mkdir(lab_path+os.sep+'aug_masks')
+    except:
+        pass
+    for file in glob(lab_path+os.sep+'*.jpg'):
+        shutil.move(file,lab_path+os.sep+'masks')
+    #lab_path += os.sep+'masks'
 
 else:
-    os.mkdir('labels/labels')
-    os.mkdir('labels/aug_labels')
-    for file in glob(os.getcwd()+os.sep+'labels/*.jpg'):
-        shutil.move(file,'labels/labels')
-    lab_path += os.sep+'labels'
+    try:
+        os.mkdir(lab_path+os.sep+'labels')
+        os.mkdir(lab_path+os.sep+'aug_labels')
+    except:
+        pass
+    for file in glob(lab_path+os.sep+'*.jpg'):
+        shutil.move(file,lab_path+os.sep+'labels')
+    #lab_path += os.sep+'labels'
 
+print(imdir)
+print(lab_path)
 
 # we create two instances with the same arguments
 data_gen_args = dict(featurewise_center=False,
@@ -274,14 +286,14 @@ image_datagen = tf.keras.preprocessing.image.ImageDataGenerator(**data_gen_args)
 mask_datagen = tf.keras.preprocessing.image.ImageDataGenerator(**data_gen_args)
 
 img_generator = image_datagen.flow_from_directory(
-        imdir,
+        os.path.normpath(imdir),
         target_size=(TARGET_SIZE[0], TARGET_SIZE[1]),
         batch_size=n_im,
         class_mode=None, seed=SEED, shuffle=True)
 
 #the seed must be the same as for the training set to get the same images
 mask_generator = mask_datagen.flow_from_directory(
-        lab_path,
+        os.path.normpath(lab_path),
         target_size=(TARGET_SIZE[0], TARGET_SIZE[1]),
         batch_size=n_im,
         class_mode=None, seed=SEED, shuffle=True)
@@ -302,8 +314,12 @@ for k in range(3):
             l[l>0]=1 #null is water
             print(np.unique(l.flatten()))
 
-        imsave(imdir+os.sep+'aug_images/augimage_000000'+str(i)+'.jpg', im.astype(np.uint8))
-        imsave(lab_path+os.sep+'aug_labels/augimage_000000'+str(i)+'.jpg', l)
+        imsave(imdir+os.sep+'aug_images'+os.sep+'augimage_000000'+str(i)+'.jpg', im.astype(np.uint8))
+        if USEMASK:
+            imsave(lab_path+os.sep+os.sep+'aug_masks'+os.sep+'augimage_000000'+str(i)+'.jpg', l)
+        else:
+            imsave(lab_path+os.sep+os.sep+'aug_labels'+os.sep+'augimage_000000'+str(i)+'.jpg', l)
+        
         i += 1
 
     #save memory
@@ -311,7 +327,7 @@ for k in range(3):
     #get a new batch
 
 
-images = sorted(tf.io.gfile.glob(imdir+os.sep+'*.jpg'))
+images = sorted(tf.io.gfile.glob(imdir+os.sep+'aug_images'+os.sep+'*.jpg'))
 
 nb_images=len(images)
 print(nb_images)
@@ -320,7 +336,10 @@ SHARDS = int(nb_images / IMS_PER_SHARD) + (1 if nb_images % IMS_PER_SHARD != 0 e
 
 shared_size = int(np.ceil(1.0 * nb_images / SHARDS))
 
-dataset = get_seg_dataset_for_tfrecords(imdir, lab_path, shared_size)
+if USEMASK:
+    dataset = get_seg_dataset_for_tfrecords(imdir+os.sep+'aug_images', lab_path+os.sep+'aug_masks', shared_size)
+else:
+    dataset = get_seg_dataset_for_tfrecords(imdir+os.sep+'aug_images', lab_path+os.sep+'aug_labels', shared_size)
 
 counter = 0
 # view a batch

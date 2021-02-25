@@ -48,14 +48,20 @@ and just ignore the errors.
 ## <a name="data"></a>Provided datasets
 
 ### Oblique aircraft coastal imagery (R, G, B)
+
+579 (as of 2/24/2021) images and associated binary (2-class land and water) masks. Prototype version, research in progress. Full version forthcoming
+
 Thanks to Andy Ritchie and Jon Warrick for creating label images. Additional labels were created by Daniel Buscombe
 
 ### Nadir aircraft/UAV coastal imagery (R, G, B)
+
+Prototype version, research in progress. Full version forthcoming
+
 Thanks to Stephen Bosse, Jin-Si Over, Christine Kranenberg, Chris Sherwood, and Phil Wernette for creating label images. Additional labels were created by Daniel Buscombe
 
 
 ### Sentinel2 satellite coastal imagery (R, G, B)
-Labels were created by Daniel Buscombe
+Labels were created by Daniel Buscombe. Prototype version, research in progress. Full version forthcoming
 
 
 
@@ -80,7 +86,7 @@ When the program has completed, go to the folder of samples you asked the model 
 
 ### Example: Watermasker for oblique aircraft coastal imagery (R, G, B)
 
-Prototype version, research in progress
+
 
 * Select the weights file 'weights/oblique_coast_watermask/watermask_oblique_2class_batch_4.h5'
 
@@ -143,7 +149,9 @@ python train_resunet.py
 
 ## <a name="train"></a>Train a model for image segmentation using your own datasets
 
-Change directory, download images
+Example workflow using the data encoded in the tfrecords for the "oblique coastal watermasker" dataset
+
+1. Change directory, download images
 
 ```
 cd res_unet/model_training/data/watermask_oblique_jpegs
@@ -151,11 +159,61 @@ python download_jpegs.py
 cd ../..
 ```
 
-create TF-Records from your images/labels files
+2. create TF-Records from your images/labels files
 
 ```
 python make_tfrecords.py
 ```
+
+3. Create a config file. An example:
+
+```
+{
+  "TARGET_SIZE": [768,1024],
+  "KERNEL_SIZE": [7,7],
+  "NCLASSES": 1,
+  "BATCH_SIZE": 4,
+  "N_DATA_BANDS": 3,
+  "DO_CRF_REFINE": true,
+  "DO_TRAIN": false,
+  "PATIENCE": 25,
+  "IMS_PER_SHARD": 50,
+  "MAX_EPOCHS": 200,
+  "VALIDATION_SPLIT": 0.75,
+  "RAMPUP_EPOCHS": 20,
+  "SUSTAIN_EPOCHS": 0.0,
+  "EXP_DECAY": 0.9,
+  "START_LR":  1e-7,
+  "MIN_LR": 1e-7,
+  "MAX_LR": 1e-5,
+  "MEDIAN_FILTER_VALUE": 3,
+  "DOPLOT": true,
+  "ROOT_STRING": "watermask-oblique-data",
+  "USEMASK": true
+}
+```
+
+* TARGET_SIZE: list of integer image dimensions to write to tfrecord and use to build and use models. This doesn't have to be the sample image dimension (it would typically be significantly smaller due to memory constraints) but it should ideally have the same aspect ratio
+* KERNEL_SIZE: (integer) convolution kernel dimension
+* NCLASSES: (integer) number of classes (1 = binary e.g water/no water)
+* BATCH_SIZE: (integer) number of images to use in a batch. Typically better to use larger batch sizes but also uses more memory 
+* N_DATA_BANDS: (integer) number of input image bands. Typically 3 (for an RGB image, for example) or 4
+* DO_CRF_REFINE: (bool) `true` to apply CRF post-processing to model outputs
+* DO_TRAIN: (bool) `true` to retrain model from scratch. Otherwise, program will use existing model weights and evaluate the model based on the validation set
+* PATIENCE: (integer) the number of epochs with no improvement in validation loss to wait before exiting model training
+* IMS_PER_SHARD: (integer) the number of images to encode in each tfrecord file, when calling `make_tfrecords.py`
+* MAX_EPOCHS: (integer) the maximum number of epochs to train the model over. Early stopping should ensure this maximum is never reached
+* VALIDATION_SPLIT: (float) the proportion of the dataset to use for validation. The rest will be used for model training
+* RAMPUP_EPOCHS: (integer) The number of epochs to increase from START_LR to MAX_LR
+* SUSTAIN_EPOCHS: (float) The number of epochs to remain at MAX_LR
+* EXP_DECAY: (float) The rate of decay in learning rate from MAX_LR
+* START_LR: (float) The starting learning rate
+* MIN_LR: (float) The minimum learning rate, usually equals START_LR, must be < MAX_LR
+* MAX_LR: (float) The maximum learning rate, must be > MIN_LR
+* MEDIAN_FILTER_VALUE: (integer) radius of disk used to apply median filter, if > 1
+* DOPLOT: (bool) `true` to make plots
+* ROOT_STRING: (string) string to prepend the tfrecords with, if running `make_tfrecords.py`
+* USEMASK: (bool) `true` if the files use 'mask' instead of 'label' in the folder/filename. if `false`, 'label' is assumed
 
 
 
