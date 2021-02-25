@@ -405,7 +405,7 @@ print(sample_direc)
 root.withdraw()
 
 
-configfile = weights.replace('.h5','.json')
+configfile = weights.replace('.h5','.json').replace('weights', 'config')
 
 with open(configfile) as f:
     config = json.load(f)

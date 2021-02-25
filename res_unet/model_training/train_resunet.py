@@ -26,7 +26,6 @@
 import json, os
 from tkinter import filedialog
 from tkinter import *
-import matplotlib.pyplot as plt
 
 ###############################################################
 ## VARIABLES
@@ -44,7 +43,7 @@ data_path = root.filename
 print(data_path)
 root.withdraw()
 
-weights = configfile.replace('.json','.h5')
+weights = configfile.replace('.json','.h5').replace('config', 'weights')
 
 
 with open(configfile) as f:
