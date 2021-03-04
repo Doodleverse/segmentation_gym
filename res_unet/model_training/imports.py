@@ -84,7 +84,7 @@ def plot_seg_history_iou(history, train_hist_fig):
     plt.savefig(train_hist_fig, dpi=200, bbox_inches='tight')
 
 #-----------------------------------
-def crf_refine(label, img, nclasses = 2, theta_col=100, theta_spat=3):
+def crf_refine(label, img, nclasses = 2, theta_col=100, theta_spat=3, compat=120):
     """
     "crf_refine(label, img)"
     This function refines a label image based on an input label image and the associated image
@@ -114,7 +114,7 @@ def crf_refine(label, img, nclasses = 2, theta_col=100, theta_spat=3):
                           img=img,
                           chdim=2)
 
-    d.addPairwiseEnergy(feats, compat=120,kernel=dcrf.DIAG_KERNEL,normalization=dcrf.NORMALIZE_SYMMETRIC)
+    d.addPairwiseEnergy(feats, compat=compat,kernel=dcrf.DIAG_KERNEL,normalization=dcrf.NORMALIZE_SYMMETRIC)
     Q = d.inference(20)
     kl1 = d.klDivergence(Q)
     return np.argmax(Q, axis=0).reshape((H, W)).astype(np.uint8), kl1

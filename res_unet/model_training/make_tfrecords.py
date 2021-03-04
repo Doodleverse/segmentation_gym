@@ -355,6 +355,9 @@ data_gen_args = dict(featurewise_center=False,
 
 # AUG_LOOPS = 3
 
+NX = 148 #TARGET_SIZE[0]
+NY = 144 #TARGET_SIZE[1]
+
 i = 0
 for copy in range(AUG_COPIES):
     for k in range(AUG_LOOPS):
@@ -367,21 +370,21 @@ for copy in range(AUG_COPIES):
 
         img_generator = image_datagen.flow_from_directory(
                 imdir,
-                target_size=(TARGET_SIZE[0], TARGET_SIZE[1]),
+                target_size=(NX, NY),
                 batch_size=int(n_im/AUG_LOOPS),
                 class_mode=None, seed=SEED, shuffle=True)
 
         #the seed must be the same as for the training set to get the same images
         mask_generator = mask_datagen.flow_from_directory(
                 lab_path,
-                target_size=(TARGET_SIZE[0], TARGET_SIZE[1]),
+                target_size=(NX, NY),
                 batch_size=int(n_im/AUG_LOOPS),
-                class_mode=None, seed=SEED, shuffle=True)
+                class_mode=None, seed=SEED, shuffle=True, color_mode="grayscale", interpolation="nearest")
 
         if N_DATA_BANDS==4:
             img_generator2 = image_datagen2.flow_from_directory(
                     imdir2,
-                    target_size=(TARGET_SIZE[0], TARGET_SIZE[1]),
+                    target_size=(NX, NY),
                     batch_size=int(n_im/AUG_LOOPS),
                     class_mode=None, seed=SEED, shuffle=True)
 
@@ -394,13 +397,18 @@ for copy in range(AUG_COPIES):
             # wrute them to file and increment the counter
             for im,lab in zip(x,y):
                 l = np.round(lab[:,:,0]).astype(np.uint8)
+
                 if NCLASSES==1:
                     l[l>0]=1 #null is water
                 else:
                     l[l==0]=1
-                    l[l>NCLASSES]=NCLASSES
+                    l[l>NCLASSES-1]=NCLASSES-1
 
-                #print(np.unique(l.flatten()))
+                if DO_CRF_REFINE:
+                    l, _ = crf_refine(l, im, nclasses = NCLASSES, theta_col=10, theta_spat=3, compat=10)
+                    print(np.unique(l.flatten()))
+
+                l = np.round(median(l, disk(MEDIAN_FILTER_VALUE))).astype(np.uint8)
 
                 imsave(imdir+os.sep+'aug_images'+os.sep+'augimage_000000'+str(i)+'.jpg', im.astype(np.uint8))
                 if USEMASK:
@@ -418,11 +426,18 @@ for copy in range(AUG_COPIES):
             # wrute them to file and increment the counter
             for im,nir,lab in zip(x,ii,y):
                 l = np.round(lab[:,:,0]).astype(np.uint8)
+
                 if NCLASSES==1:
                     l[l>0]=1 #null is water
                 else:
-                    l[l==0]=1
+                    #l[l==0]=1
                     l[l>NCLASSES-1]=NCLASSES-1
+
+                if DO_CRF_REFINE:
+                    l, _ = crf_refine(l, im, nclasses = NCLASSES, theta_col=10, theta_spat=3, compat=10)
+                    print(np.unique(l.flatten()))
+
+                l = np.round(median(l, disk(MEDIAN_FILTER_VALUE))).astype(np.uint8)
 
                 imsave(imdir+os.sep+'aug_images'+os.sep+'augimage_000000'+str(i)+'.jpg', im.astype(np.uint8))
                 imsave(imdir2+os.sep+'aug_nir'+os.sep+'augimage_000000'+str(i)+'.jpg', nir.astype(np.uint8))
@@ -453,16 +468,16 @@ SHARDS = int(nb_images / IMS_PER_SHARD) + (1 if nb_images % IMS_PER_SHARD != 0 e
 
 shared_size = int(np.ceil(1.0 * nb_images / SHARDS))
 
-if USEMASK:
-    if N_DATA_BANDS<=3:
-        dataset = get_seg_dataset_for_tfrecords(imdir+os.sep+'aug_images', shared_size) # [], lab_path+os.sep+'aug_masks'
-    elif N_DATA_BANDS==4:
-        dataset = get_seg_dataset_for_tfrecords(imdir+os.sep+'aug_images',shared_size) # imdir2+os.sep+'aug_images', lab_path+os.sep+'aug_masks',
-else:
-    if N_DATA_BANDS<=3:
-        dataset = get_seg_dataset_for_tfrecords(imdir+os.sep+'aug_images',  shared_size) #[], lab_path+os.sep+'aug_labels',
-    elif N_DATA_BANDS==4:
-        dataset = get_seg_dataset_for_tfrecords(imdir.replace('images', 'nir')+os.sep+'aug_nir',  shared_size) #imdir2+os.sep+'aug_images', lab_path+os.sep+'aug_labels',
+# if USEMASK:
+#     if N_DATA_BANDS<=3:
+#         dataset = get_seg_dataset_for_tfrecords(imdir+os.sep+'aug_images', shared_size) # [], lab_path+os.sep+'aug_masks'
+#     elif N_DATA_BANDS==4:
+#         dataset = get_seg_dataset_for_tfrecords(imdir+os.sep+'aug_images',shared_size) # imdir2+os.sep+'aug_images', lab_path+os.sep+'aug_masks',
+# else:
+    # if N_DATA_BANDS<=3:
+dataset = get_seg_dataset_for_tfrecords(imdir+os.sep+'aug_images',  shared_size) #[], lab_path+os.sep+'aug_labels',
+    # elif N_DATA_BANDS==4:
+    #     dataset = get_seg_dataset_for_tfrecords(imdir.replace('images', 'nir')+os.sep+'aug_nir',  shared_size) #imdir2+os.sep+'aug_images', lab_path+os.sep+'aug_labels',
 
 
 #visualize some examples
@@ -476,7 +491,10 @@ if N_DATA_BANDS<=3:
       lbls = lbls[:4]
       for count,(im,lab) in enumerate(zip(imgs,lbls)):
          plt.imshow(tf.image.decode_jpeg(im, channels=3))
-         plt.imshow(tf.image.decode_jpeg(lab, channels=1), alpha=0.3, cmap='bwr',vmin=0, vmax=NCLASSES)
+         if NCLASSES==1:
+             plt.imshow(tf.image.decode_jpeg(lab, channels=1), alpha=0.3, cmap='bwr',vmin=0, vmax=NCLASSES)
+         else:
+             plt.imshow(tf.image.decode_jpeg(lab, channels=1), alpha=0.3, cmap='bwr',vmin=0, vmax=NCLASSES-1)
          plt.axis('off')
          plt.savefig('ex'+str(counter)+'.png', dpi=200, bbox_inches='tight')
          counter +=1
@@ -490,13 +508,16 @@ elif N_DATA_BANDS==4:
       lbls = lbls[:4]
       for count,(im,ii,lab) in enumerate(zip(imgs,nirs,lbls)):
          plt.imshow(tf.image.decode_jpeg(im, channels=3))
-         plt.imshow(tf.image.decode_jpeg(lab, channels=1), alpha=0.3, cmap='bwr',vmin=0, vmax=NCLASSES)
+         if NCLASSES==1:
+             plt.imshow(tf.image.decode_jpeg(lab, channels=1), alpha=0.3, cmap='bwr',vmin=0, vmax=NCLASSES)
+         else:
+             plt.imshow(tf.image.decode_jpeg(lab, channels=1), alpha=0.3, cmap='bwr',vmin=0, vmax=NCLASSES-1)
          plt.axis('off')
          plt.savefig('ex'+str(counter)+'.png', dpi=200, bbox_inches='tight')
          plt.close('all')
 
          plt.imshow(tf.image.decode_jpeg(ii, channels=1), cmap='gray')
-         plt.imshow(tf.image.decode_jpeg(lab, channels=1), alpha=0.3, cmap='bwr',vmin=0, vmax=NCLASSES)
+         plt.imshow(tf.image.decode_jpeg(lab, channels=1), alpha=0.3, cmap='bwr',vmin=0, vmax=NCLASSES-1)
          plt.axis('off')
          plt.savefig('ex'+str(counter)+'_band4.png', dpi=200, bbox_inches='tight')
          plt.close('all')
