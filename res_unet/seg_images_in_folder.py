@@ -355,8 +355,9 @@ def seg_file2tensor_noresize(f):
     return image
 
 
+
 #-----------------------------------
-def seg_file2tensor(f):
+def seg_file2tensor_3band(f):
     """
     "seg_file2tensor(f)"
     This function reads a jpeg image from file into a cropped and resized tensor,
@@ -389,6 +390,46 @@ def seg_file2tensor(f):
     return image
 
 
+#-----------------------------------
+def seg_file2tensor_4band(f, fir):
+    """
+    "seg_file2tensor(f)"
+    This function reads a jpeg image from file into a cropped and resized tensor,
+    for use in prediction with a trained segmentation model
+    INPUTS:
+        * f [string] file name of jpeg
+    OPTIONAL INPUTS: None
+    OUTPUTS:
+        * image [tensor array]: unstandardized image
+    GLOBAL INPUTS: TARGET_SIZE
+    """
+    bits = tf.io.read_file(f)
+    image = tf.image.decode_jpeg(bits)
+
+    bits = tf.io.read_file(fir)
+    nir = tf.image.decode_jpeg(bits)
+
+    image = tf.concat([image, nir],-1)[:,:,:4]
+
+    w = tf.shape(image)[0]
+    h = tf.shape(image)[1]
+    tw = TARGET_SIZE[0]
+    th = TARGET_SIZE[1]
+    resize_crit = (w * th) / (h * tw)
+    image = tf.cond(resize_crit < 1,
+                  lambda: tf.image.resize(image, [w*tw/w, h*tw/w]), # if true
+                  lambda: tf.image.resize(image, [w*th/h, h*th/h])  # if false
+                 )
+
+    nw = tf.shape(image)[0]
+    nh = tf.shape(image)[1]
+    image = tf.image.crop_to_bounding_box(image, (nw - tw) // 2, (nh - th) // 2, tw, th)
+    # image = tf.cast(image, tf.uint8) #/ 255.0
+
+    return image
+
+
+
 #====================================================
 
 root = Tk()
@@ -415,7 +456,7 @@ for k in config.keys():
 
 
 #=======================================================
-model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], 3), BATCH_SIZE, NCLASSES)
+model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), BATCH_SIZE, NCLASSES)
 model.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics = [mean_iou, dice_coef])
 
 model.load_weights(weights)
@@ -429,7 +470,10 @@ sample_filenames = sorted(tf.io.gfile.glob(sample_direc+os.sep+'*.jpg'))
 print('Number of samples: %i' % (len(sample_filenames)))
 
 for counter,f in enumerate(sample_filenames):
-    image = seg_file2tensor(f)/255
+    if N_DATA_BANDS<=3:
+        image = seg_file2tensor_3band(f)/255
+    else:
+        image = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir') )/255
 
     est_label = model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
     if NCLASSES>1:
