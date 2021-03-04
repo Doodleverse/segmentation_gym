@@ -170,10 +170,12 @@ def read_seg_tfrecord_multiclass(example):
         image = tf.reshape(image, [TARGET_SIZE[0],TARGET_SIZE[1], 3])
         # print(image.shape)
 
-        nir = tf.image.decode_jpeg(example['nir'], channels=1)
-        nir = tf.cast(nir, tf.uint8)#/ 255.0
-        nir = tf.reshape(nir, [TARGET_SIZE[0],TARGET_SIZE[1], 1])
-        # print(label.shape)
+        nir = tf.image.decode_jpeg(example['nir'], channels=3)
+        nir = tf.cast(nir, tf.float32)/ 255.0
+        nir = tf.reshape(nir, [TARGET_SIZE[0],TARGET_SIZE[1], 3])
+        #print(nir.shape)
+
+        image = tf.concat([image, nir],-1)[:,:,:4]
 
         label = tf.image.decode_jpeg(example['label'], channels=1)
         label = tf.cast(label, tf.uint8)#/ 255.0
@@ -186,7 +188,7 @@ def read_seg_tfrecord_multiclass(example):
 
         image = tf.reshape(image, (image.shape[0], image.shape[1], image.shape[2]))
 
-    return image, nir, label
+    return image, label
 
 
 #-----------------------------------
@@ -362,7 +364,7 @@ if DO_TRAIN:
                      plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
                  else:
                      lab = np.argmax(lab,-1)
-                     plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES-1)
+                     plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES)
 
                  plt.axis('off')
                  print(np.unique(lab))
@@ -383,7 +385,7 @@ if DO_TRAIN:
                      plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
                  else:
                      lab = np.argmax(lab,-1)
-                     plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES-1)
+                     plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES)
                  plt.axis('off')
                  print(np.unique(lab))
             # plt.show()
