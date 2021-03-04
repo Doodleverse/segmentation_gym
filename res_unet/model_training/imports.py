@@ -52,8 +52,39 @@ print('GPU name: ', tf.config.experimental.list_physical_devices('GPU'))
 print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
 
 
+
 #-----------------------------------
-def crf_refine(label, img, theta_col=100, theta_spat=3):
+def plot_seg_history_iou(history, train_hist_fig):
+    """
+    "plot_seg_history_iou(history, train_hist_fig)"
+    This function plots the training history of a model
+    INPUTS:
+        * history [dict]: the output dictionary of the model.fit() process, i.e. history = model.fit(...)
+        * train_hist_fig [string]: the filename where the plot will be printed
+    OPTIONAL INPUTS: None
+    GLOBAL INPUTS: None
+    OUTPUTS: None (figure printed to file)
+    """
+    n = len(history.history['val_loss'])
+
+    plt.figure(figsize=(20,10))
+    plt.subplot(121)
+    plt.plot(np.arange(1,n+1), history.history['mean_iou'], 'b', label='train accuracy')
+    plt.plot(np.arange(1,n+1), history.history['val_mean_iou'], 'k', label='validation accuracy')
+    plt.xlabel('Epoch number', fontsize=10); plt.ylabel('Mean IoU Coefficient', fontsize=10)
+    plt.legend(fontsize=10)
+
+    plt.subplot(122)
+    plt.plot(np.arange(1,n+1), history.history['loss'], 'b', label='train loss')
+    plt.plot(np.arange(1,n+1), history.history['val_loss'], 'k', label='validation loss')
+    plt.xlabel('Epoch number', fontsize=10); plt.ylabel('Loss', fontsize=10)
+    plt.legend(fontsize=10)
+
+    # plt.show()
+    plt.savefig(train_hist_fig, dpi=200, bbox_inches='tight')
+
+#-----------------------------------
+def crf_refine(label, img, nclasses = 2, theta_col=100, theta_spat=3):
     """
     "crf_refine(label, img)"
     This function refines a label image based on an input label image and the associated image
@@ -66,7 +97,6 @@ def crf_refine(label, img, theta_col=100, theta_spat=3):
     OUTPUTS: label [ndarray]: label image 2D matrix of integers
     """
 
-    nclasses = 2
     H = label.shape[0]
     W = label.shape[1]
     U = unary_from_labels(1+label,nclasses,gt_prob=0.51)
@@ -231,7 +261,7 @@ def res_unet(sz, f, nclasses=1, kernel_size=(7,7)):
     inputs = tf.keras.layers.Input(sz)
 
     ## downsample
-    e1 = bottleneck_block(inputs, f); 
+    e1 = bottleneck_block(inputs, f);
     f = int(f*2)
     e2 = res_block(e1, f, strides=2,  kernel_size = kernel_size)
     f = int(f*2)
@@ -366,6 +396,123 @@ def dice_coef_loss(y_true, y_pred):
 ### TFRECORD/DATA FUNCTIONS
 ###############################################################
 #-----------------------------------
+#-----------------------------------
+def recompress_seg_image(image, label):
+    """
+    "recompress_seg_image"
+    This function takes an image and label encoded as a byte string
+    and recodes as an 8-bit jpeg
+    INPUTS:
+        * image [tensor array]
+        * label [tensor array]
+    OPTIONAL INPUTS: None
+    GLOBAL INPUTS: None
+    OUTPUTS:
+        * image [tensor array]
+        * label [tensor array]
+    """
+    image = tf.cast(image, tf.uint8)
+    image = tf.image.encode_jpeg(image, optimize_size=False, chroma_downsampling=False, quality=100)
+
+    label = tf.cast(label, tf.uint8)
+    label = tf.image.encode_jpeg(label, optimize_size=False, chroma_downsampling=False, quality=100)
+    return image, label
+
+#-----------------------------------
+def write_seg_records(dataset, tfrecord_dir, root_string):
+    """
+    "write_seg_records(dataset, tfrecord_dir)"
+    This function writes a tf.data.Dataset object to TFRecord shards
+    INPUTS:
+        * dataset [tf.data.Dataset]
+        * tfrecord_dir [string] : path to directory where files will be written
+    OPTIONAL INPUTS: None
+    GLOBAL INPUTS: None
+    OUTPUTS: None (files written to disk)
+    """
+    for shard, (image, label) in enumerate(dataset):
+      shard_size = image.numpy().shape[0]
+      filename = tfrecord_dir+os.sep+root_string + "{:02d}-{}.tfrec".format(shard, shard_size)
+
+      with tf.io.TFRecordWriter(filename) as out_file:
+        for i in range(shard_size):
+          example = to_seg_tfrecord(image.numpy()[i],label.numpy()[i])
+          out_file.write(example.SerializeToString())
+        print("Wrote file {} containing {} records".format(filename, shard_size))
+
+
+#-----------------------------------
+def write_seg_records_4bands(dataset, tfrecord_dir, root_string):
+    """
+    "write_seg_records(dataset, tfrecord_dir)"
+    This function writes a tf.data.Dataset object to TFRecord shards
+    INPUTS:
+        * dataset [tf.data.Dataset]
+        * tfrecord_dir [string] : path to directory where files will be written
+    OPTIONAL INPUTS: None
+    GLOBAL INPUTS: None
+    OUTPUTS: None (files written to disk)
+    """
+    for shard, (image, nir, label) in enumerate(dataset):
+      shard_size = image.numpy().shape[0]
+      filename = tfrecord_dir+os.sep+root_string + "{:02d}-{}.tfrec".format(shard, shard_size)
+
+      with tf.io.TFRecordWriter(filename) as out_file:
+        for i in range(shard_size):
+          example = to_seg_tfrecord_4bands(image.numpy()[i],nir.numpy()[i],label.numpy()[i])
+          out_file.write(example.SerializeToString())
+        print("Wrote file {} containing {} records".format(filename, shard_size))
+
+#-----------------------------------
+def _bytestring_feature(list_of_bytestrings):
+    """
+    "_bytestring_feature"
+    cast inputs into tf dataset 'feature' classes
+    INPUTS:
+        * list_of_bytestrings
+    OPTIONAL INPUTS:
+    GLOBAL INPUTS:
+    OUTPUTS: tf.train.Feature example
+    """
+    return tf.train.Feature(bytes_list=tf.train.BytesList(value=list_of_bytestrings))
+
+#-----------------------------------
+def to_seg_tfrecord(img_bytes, label_bytes):
+    """
+    "to_seg_tfrecord"
+    This function creates a TFRecord example from an image byte string and a label feature
+    INPUTS:
+        * img_bytes
+        * label_bytes
+    OPTIONAL INPUTS: None
+    GLOBAL INPUTS: None
+    OUTPUTS: tf.train.Feature example
+    """
+    feature = {
+      "image": _bytestring_feature([img_bytes]), # one image in the list
+      "label": _bytestring_feature([label_bytes]), # one label image in the list
+              }
+    return tf.train.Example(features=tf.train.Features(feature=feature))
+
+
+#-----------------------------------
+def to_seg_tfrecord_4bands(img_bytes, nir_bytes, label_bytes):
+    """
+    "to_seg_tfrecord"
+    This function creates a TFRecord example from an image byte string and a label feature
+    INPUTS:
+        * img_bytes
+        * label_bytes
+    OPTIONAL INPUTS: None
+    GLOBAL INPUTS: None
+    OUTPUTS: tf.train.Feature example
+    """
+    feature = {
+      "image": _bytestring_feature([img_bytes]), # one image in the list
+      "nir": _bytestring_feature([nir_bytes]), # one nir image in the list
+      "label": _bytestring_feature([label_bytes]), # one label image in the list
+              }
+    return tf.train.Example(features=tf.train.Features(feature=feature))
 
 #-----------------------------------
 def seg_file2tensor(f):

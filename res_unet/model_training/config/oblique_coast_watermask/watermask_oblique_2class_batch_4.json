@@ -19,5 +19,13 @@
   "MEDIAN_FILTER_VALUE": 3,
   "DOPLOT": true,
   "ROOT_STRING": "watermask-oblique-data",
-  "USEMASK": true
+  "USEMASK": true,
+  "AUG_ROT": 5,
+  "AUG_ZOOM": 0.05,
+  "AUG_WIDTHSHIFT": 0.05,
+  "AUG_HEIGHTSHIFT": 0.05,
+  "AUG_HFLIP": true,
+  "AUG_VFLIP": true,
+  "AUG_LOOPS": 3,
+  "AUG_COPIES": 3
 }

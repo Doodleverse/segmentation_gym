@@ -22,6 +22,16 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+#
+# import os
+# USE_GPU = False #True
+#
+# if USE_GPU == True:
+#    ##use the first available GPU
+#    os.environ['CUDA_VISIBLE_DEVICES'] = '0' #'1'
+# else:
+#    ## to use the CPU (not recommended):
+#    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 import json, os
 from tkinter import filedialog
@@ -121,30 +131,62 @@ def read_seg_tfrecord_multiclass(example):
         * class_label [tensor array]
     """
 
-    features = {
-        "image": tf.io.FixedLenFeature([], tf.string),  # tf.string = bytestring (not text string)
-        "label": tf.io.FixedLenFeature([], tf.string),   # shape [] means scalar
-    }
-    # decode the TFRecord
-    example = tf.io.parse_single_example(example, features)
+    if N_DATA_BANDS<=3:
+        features = {
+            "image": tf.io.FixedLenFeature([], tf.string),  # tf.string = bytestring (not text string)
+            "label": tf.io.FixedLenFeature([], tf.string),   # shape [] means scalar
+        }
+        # decode the TFRecord
+        example = tf.io.parse_single_example(example, features)
 
-    image = tf.image.decode_jpeg(example['image'], channels=3)
-    image = tf.cast(image, tf.float32)/ 255.0
-    image = tf.reshape(image, [TARGET_SIZE[0],TARGET_SIZE[1], 3])
-    # print(image.shape)
+        image = tf.image.decode_jpeg(example['image'], channels=3)
+        image = tf.cast(image, tf.float32)/ 255.0
+        image = tf.reshape(image, [TARGET_SIZE[0],TARGET_SIZE[1], 3])
+        # print(image.shape)
 
-    label = tf.image.decode_jpeg(example['label'], channels=1)
-    label = tf.cast(label, tf.uint8)#/ 255.0
-    label = tf.reshape(label, [TARGET_SIZE[0],TARGET_SIZE[1], 1])
-    # print(label.shape)
+        label = tf.image.decode_jpeg(example['label'], channels=1)
+        label = tf.cast(label, tf.uint8)#/ 255.0
+        label = tf.reshape(label, [TARGET_SIZE[0],TARGET_SIZE[1], 1])
+        # print(label.shape)
 
-    label = tf.one_hot(tf.cast(label, tf.uint8), NCLASSES)
+        label = tf.one_hot(tf.cast(label, tf.uint8), NCLASSES)
 
-    label = tf.squeeze(label)
+        label = tf.squeeze(label)
 
-    image = tf.reshape(image, (image.shape[0], image.shape[1], image.shape[2]))
+        image = tf.reshape(image, (image.shape[0], image.shape[1], image.shape[2]))
 
-    return image, label
+        nir = None
+    elif N_DATA_BANDS==4:
+        features = {
+            "image": tf.io.FixedLenFeature([], tf.string),  # tf.string = bytestring (not text string)
+            "nir": tf.io.FixedLenFeature([], tf.string),  # tf.string = bytestring (not text string)
+            "label": tf.io.FixedLenFeature([], tf.string),   # shape [] means scalar
+        }
+        # decode the TFRecord
+        example = tf.io.parse_single_example(example, features)
+
+        image = tf.image.decode_jpeg(example['image'], channels=3)
+        image = tf.cast(image, tf.float32)/ 255.0
+        image = tf.reshape(image, [TARGET_SIZE[0],TARGET_SIZE[1], 3])
+        # print(image.shape)
+
+        nir = tf.image.decode_jpeg(example['nir'], channels=1)
+        nir = tf.cast(nir, tf.uint8)#/ 255.0
+        nir = tf.reshape(nir, [TARGET_SIZE[0],TARGET_SIZE[1], 1])
+        # print(label.shape)
+
+        label = tf.image.decode_jpeg(example['label'], channels=1)
+        label = tf.cast(label, tf.uint8)#/ 255.0
+        label = tf.reshape(label, [TARGET_SIZE[0],TARGET_SIZE[1], 1])
+        # print(label.shape)
+
+        label = tf.one_hot(tf.cast(label, tf.uint8), NCLASSES)
+
+        label = tf.squeeze(label)
+
+        image = tf.reshape(image, (image.shape[0], image.shape[1], image.shape[2]))
+
+    return image, nir, label
 
 
 #-----------------------------------
@@ -254,42 +296,100 @@ train_ds = get_training_dataset(training_filenames)
 val_ds = get_validation_dataset(validation_filenames)
 
 if DO_TRAIN:
-    for imgs,lbls in train_ds.take(1):
-        print(imgs.shape)
-        print(lbls.shape)
+    if N_DATA_BANDS<=3:
+        for imgs,lbls in train_ds.take(1):
+            print(imgs.shape)
+            print(lbls.shape)
 
-    print('.....................................')
-    print('Printing examples to file ...')
+        print('.....................................')
+        print('Printing examples to file ...')
 
-    plt.figure(figsize=(16,16))
-    for imgs,lbls in train_ds.take(1):
-      #print(lbls)
-      for count,(im,lab) in enumerate(zip(imgs, lbls)):
-         plt.subplot(int(BATCH_SIZE/2),2,count+1)
-         plt.imshow(im)
-         plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
-         plt.axis('off')
-         print(np.unique(lab))
-    # plt.show()
-    plt.savefig(trainsamples_fig, dpi=200, bbox_inches='tight')
-    plt.close('all')
+        plt.figure(figsize=(16,16))
+        for imgs,lbls in train_ds.take(1):
+          #print(lbls)
+          for count,(im,lab) in enumerate(zip(imgs, lbls)):
+             plt.subplot(int(BATCH_SIZE/2),2,count+1)
+             plt.imshow(im)
+             if NCLASSES==1:
+                 plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
+             else:
+                 lab = np.argmax(lab,-1)
+                 plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES)
 
-    del imgs, lbls
+             plt.axis('off')
+             print(np.unique(lab))
+        # plt.show()
+        plt.savefig(trainsamples_fig, dpi=200, bbox_inches='tight')
+        plt.close('all')
 
-    plt.figure(figsize=(16,16))
-    for imgs,lbls in val_ds.take(1):
+        del imgs, lbls
 
-      #print(lbls)
-      for count,(im,lab) in enumerate(zip(imgs, lbls)):
-         plt.subplot(int(BATCH_SIZE/2),2,count+1) #int(BATCH_SIZE/2)
-         plt.imshow(im)
-         plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
-         plt.axis('off')
-         print(np.unique(lab))
-    # plt.show()
-    plt.savefig(valsamples_fig, dpi=200, bbox_inches='tight')
-    plt.close('all')
-    del imgs, lbls
+        plt.figure(figsize=(16,16))
+        for imgs,lbls in val_ds.take(1):
+
+          #print(lbls)
+          for count,(im,lab) in enumerate(zip(imgs, lbls)):
+             plt.subplot(int(BATCH_SIZE/2),2,count+1) #int(BATCH_SIZE/2)
+             plt.imshow(im)
+             if NCLASSES==1:
+                 plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
+             else:
+                 lab = np.argmax(lab,-1)
+                 plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES)
+             plt.axis('off')
+             print(np.unique(lab))
+        # plt.show()
+        plt.savefig(valsamples_fig, dpi=200, bbox_inches='tight')
+        plt.close('all')
+        del imgs, lbls
+
+    elif N_DATA_BANDS==4:
+            for imgs,nirs,lbls in train_ds.take(1):
+                print(imgs.shape)
+                print(lbls.shape)
+                print(nirs.shape)
+
+            print('.....................................')
+            print('Printing examples to file ...')
+
+            plt.figure(figsize=(16,16))
+            for imgs,nirs,lbls in train_ds.take(1):
+              #print(lbls)
+              for count,(im,nir,lab) in enumerate(zip(imgs,nirs, lbls)):
+                 plt.subplot(int(BATCH_SIZE/2),2,count+1)
+                 plt.imshow(nir, cmap='gray')
+                 if NCLASSES==1:
+                     plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
+                 else:
+                     lab = np.argmax(lab,-1)
+                     plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES-1)
+
+                 plt.axis('off')
+                 print(np.unique(lab))
+            # plt.show()
+            plt.savefig(trainsamples_fig, dpi=200, bbox_inches='tight')
+            plt.close('all')
+
+            del imgs, lbls, nirs
+
+            plt.figure(figsize=(16,16))
+            for imgs,nirs,lbls in val_ds.take(1):
+
+              #print(lbls)
+              for count,(im,nir,lab) in enumerate(zip(imgs, nirs,lbls)):
+                 plt.subplot(int(BATCH_SIZE/2),2,count+1) #int(BATCH_SIZE/2)
+                 plt.imshow(nir)
+                 if NCLASSES==1:
+                     plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
+                 else:
+                     lab = np.argmax(lab,-1)
+                     plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES-1)
+                 plt.axis('off')
+                 print(np.unique(lab))
+            # plt.show()
+            plt.savefig(valsamples_fig, dpi=200, bbox_inches='tight')
+            plt.close('all')
+            del imgs, lbls
 
 
 print('.....................................')
@@ -334,7 +434,7 @@ else:
 # # ##########################################################
 # ### evaluate
 print('.....................................')
-print('Evaluating model ...')
+print('Evaluating model on entire validation set ...')
 # # testing
 scores = model.evaluate(val_ds, steps=validation_steps)
 
@@ -348,12 +448,17 @@ counter = 0
 for i,l in val_ds.take(10):
 
     for img,lbl in zip(i,l):
-        est_label = model.predict(tf.expand_dims(img, 0) , batch_size=1).squeeze() 
+        #print(img.shape)
+        est_label = model.predict(tf.expand_dims(img, 0) , batch_size=1).squeeze()
         if NCLASSES==1:
-            est_label[est_label<1] = 0
+            est_label[est_label<.5] = 0
+            est_label[est_label>.5] = 1
+        else:
+            est_label = np.argmax(est_label, -1)
 
-        if DO_CRF_REFINE:
-            est_label,_ = crf_refine(est_label.astype(np.uint8), img.numpy().astype(np.uint8), theta_col=100, theta_spat=3)
+        if NCLASSES>1:
+            if DO_CRF_REFINE:
+                est_label,_ = crf_refine(est_label.astype(np.uint8), img.numpy().astype(np.uint8), nclasses=NCLASSES, theta_col=100, theta_spat=3)
 
         if MEDIAN_FILTER_VALUE>1:
             est_label = np.round(median(est_label, disk(MEDIAN_FILTER_VALUE))).astype(np.uint8)
@@ -361,19 +466,30 @@ for i,l in val_ds.take(10):
                 est_label[est_label<1] = 0
                 est_label[est_label>1] = 1
 
-        lbl = lbl.numpy().squeeze()
+        if NCLASSES==1:
+            lbl = lbl.numpy().squeeze()
+        else:
+            lbl = np.argmax(lbl.numpy(), -1)
 
         iouscore = iou(lbl, est_label, NCLASSES+1)
 
         if DOPLOT:
             plt.subplot(221)
             plt.imshow(img)
-            plt.imshow(lbl, alpha=0.3, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES)
+            if NCLASSES==1:
+                plt.imshow(lbl, alpha=0.3, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES)
+            else:
+                plt.imshow(lbl, alpha=0.3, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES-1)
+
             plt.axis('off')
 
             plt.subplot(222)
             plt.imshow(img)
-            plt.imshow(est_label, alpha=0.3, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES)
+            if NCLASSES==1:
+                plt.imshow(est_label, alpha=0.3, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES)
+            else:
+                plt.imshow(est_label, alpha=0.3, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES-1)
+
             plt.axis('off')
             plt.title('iou = '+str(iouscore)[:5], fontsize=6)
             IOUc.append(iouscore)
@@ -383,4 +499,4 @@ for i,l in val_ds.take(10):
             plt.close('all')
         counter += 1
 
-print('Mean IoU={mean_iou:0.3f}'.format(mean_iou=np.mean(IOUc)))
+print('Mean IoU (validation subset)={mean_iou:0.3f}'.format(mean_iou=np.mean(IOUc)))
