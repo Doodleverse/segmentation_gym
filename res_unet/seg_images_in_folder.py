@@ -435,7 +435,8 @@ for counter,f in enumerate(sample_filenames):
     if NCLASSES>1:
         est_label = tf.argmax(est_label, axis=-1)
     else:
-        est_label[est_label<1] = 0
+        est_label[est_label<0.5] = 0
+        est_label[est_label>0.5] = 1
 
     image = seg_file2tensor_noresize(f)/255
     nx,ny,nz = image.shape
