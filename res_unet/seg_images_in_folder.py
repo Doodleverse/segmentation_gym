@@ -24,6 +24,7 @@
 # SOFTWARE.
 
 import os
+
 USE_GPU = False #True
 
 if USE_GPU == True:
@@ -38,6 +39,8 @@ else:
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 import numpy as np
 import tensorflow as tf #numerical operations on gpu
+
+# from joblib import Parallel, delayed
 
 SEED=42
 np.random.seed(SEED)
@@ -267,9 +270,9 @@ def upsamp_concat_block(x, xskip):
     return tf.keras.layers.Concatenate()([u, xskip])
 
 #-----------------------------------
-def iou(obs, est):
+def iou(obs, est, nclasses):
     IOU=0
-    for n in range(1,5):
+    for n in range(1,nclasses+1):
         component1 = obs==n
         component2 = est==n
         overlap = component1*component2 # Logical AND
@@ -350,7 +353,10 @@ def seg_file2tensor_noresize(f):
     GLOBAL INPUTS: TARGET_SIZE
     """
     bits = tf.io.read_file(f)
-    image = tf.image.decode_jpeg(bits)
+    if 'jpg' in f:
+        image = tf.image.decode_jpeg(bits)
+    elif 'png' in f:
+        image = tf.image.decode_png(bits)
 
     return image
 
@@ -370,7 +376,10 @@ def seg_file2tensor_3band(f):
     GLOBAL INPUTS: TARGET_SIZE
     """
     bits = tf.io.read_file(f)
-    image = tf.image.decode_jpeg(bits)
+    if 'jpg' in f:
+        image = tf.image.decode_jpeg(bits)
+    elif 'png' in f:
+        image = tf.image.decode_png(bits)
 
     w = tf.shape(image)[0]
     h = tf.shape(image)[1]
@@ -404,10 +413,16 @@ def seg_file2tensor_4band(f, fir):
     GLOBAL INPUTS: TARGET_SIZE
     """
     bits = tf.io.read_file(f)
-    image = tf.image.decode_jpeg(bits)
+    if 'jpg' in f:
+        image = tf.image.decode_jpeg(bits)
+    elif 'png' in f:
+        image = tf.image.decode_png(bits)
 
     bits = tf.io.read_file(fir)
-    nir = tf.image.decode_jpeg(bits)
+    if 'jpg' in fir:
+        nir = tf.image.decode_jpeg(bits)
+    elif 'png' in f:
+        nir = tf.image.decode_png(bits)
 
     image = tf.concat([image, nir],-1)[:,:,:4]
 
@@ -428,6 +443,52 @@ def seg_file2tensor_4band(f, fir):
 
     return image
 
+##========================================================
+def fromhex(n):
+    """ hexadecimal to integer """
+    return int(n, base=16)
+
+##========================================================
+def label_to_colors(
+    img,
+    mask,
+    alpha,#=128,
+    colormap,#=class_label_colormap, #px.colors.qualitative.G10,
+    color_class_offset,#=0,
+    do_alpha,#=True
+):
+    """
+    Take MxN matrix containing integers representing labels and return an MxNx4
+    matrix where each label has been replaced by a color looked up in colormap.
+    colormap entries must be strings like plotly.express style colormaps.
+    alpha is the value of the 4th channel
+    color_class_offset allows adding a value to the color class index to force
+    use of a particular range of colors in the colormap. This is useful for
+    example if 0 means 'no class' but we want the color of class 1 to be
+    colormap[0].
+    """
+
+
+    colormap = [
+        tuple([fromhex(h[s : s + 2]) for s in range(0, len(h), 2)])
+        for h in [c.replace("#", "") for c in colormap]
+    ]
+
+    cimg = np.zeros(img.shape[:2] + (3,), dtype="uint8")
+    minc = np.min(img)
+    maxc = np.max(img)
+
+    for c in range(minc, maxc + 1):
+        cimg[img == c] = colormap[(c + color_class_offset) % len(colormap)]
+
+    cimg[mask==1] = (0,0,0)
+
+    if do_alpha is True:
+        return np.concatenate(
+            (cimg, alpha * np.ones(img.shape[:2] + (1,), dtype="uint8")), axis=2
+        )
+    else:
+        return cimg
 
 
 #====================================================
@@ -461,13 +522,20 @@ model.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics = [
 
 model.load_weights(weights)
 
+# class_label_colormap = ['#0b19d9','#ffffff','#8f6727','#6b2241']
+
 
 ### predict
 print('.....................................')
-print('Using model for prediction on jpeg images ...')
+print('Using model for prediction on images ...')
 
 sample_filenames = sorted(tf.io.gfile.glob(sample_direc+os.sep+'*.jpg'))
+if len(sample_filenames)==0:
+    sample_filenames = sorted(tf.io.gfile.glob(sample_direc+os.sep+'*.png'))
+
 print('Number of samples: %i' % (len(sample_filenames)))
+
+# Parallel()
 
 for counter,f in enumerate(sample_filenames):
     if N_DATA_BANDS<=3:
@@ -476,24 +544,52 @@ for counter,f in enumerate(sample_filenames):
         image = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir') )/255
 
     est_label = model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
+    K.clear_session()
+
+    #conf = np.zeros_like(est_label)
+    if NCLASSES==1:
+        conf = 1-est_label
+        conf[est_label<.5] = est_label[est_label<.5]
+        conf = 1-conf
+    else:
+        conf = np.max(est_label, -1)
+    model_conf = np.sum(conf)/np.prod(conf.shape)
+    print('Overall model confidence = %f'%(model_conf))
+
     if NCLASSES>1:
         est_label = tf.argmax(est_label, axis=-1)
     else:
         est_label[est_label<0.5] = 0
         est_label[est_label>0.5] = 1
 
-    image = seg_file2tensor_noresize(f)/255
+    #image = seg_file2tensor_noresize(f)/255
     nx,ny,nz = image.shape
 
     est_label = np.round(resize(est_label/NCLASSES,(nx,ny))*NCLASSES).astype(np.uint8)
 
     if DO_CRF_REFINE:
         est_label = crf_refine(est_label, (255*image.numpy().astype(np.uint8)),
-                                theta_col=40, mu=40, theta_spat=1, mu_spat=1, nclasses = NCLASSES+1)
+                                theta_col=10, mu=10, theta_spat=1, mu_spat=1, nclasses = NCLASSES+1)
+
+    #color_label = label_to_colors(est_label, image.numpy()[:,:,0]==0, alpha=128, colormap=class_label_colormap, color_class_offset=0, do_alpha=False)
+
 
     if NCLASSES==1:
-        imsave(f.replace('.jpg', '_predseg.png'), (est_label*255).astype(np.uint8))
-        cmd = 'convert '+f+' \( '+f.replace('.jpg', '_predseg.png')+' -normalize +level 0,50% \) -compose screen -composite '+f.replace('.jpg', '_segoverlay.png')
+        if 'jpg' in f:
+            imsave(f.replace('.jpg', '_predseg.png'), (est_label*255).astype(np.uint8), check_contrast=False)
+            # imsave(f.replace('.jpg', '_predseg_col.png'), (color_label).astype(np.uint8), check_contrast=False)
+            cmd = 'convert '+f+' \( '+f.replace('.jpg', '_predseg.png')+' -normalize +level 0,50% \) -compose screen -composite '+f.replace('.jpg', '_segoverlay.png')
+        elif 'png' in f:
+            imsave(f.replace('.png', '_predseg.png'), (est_label*255).astype(np.uint8), check_contrast=False)
+            # imsave(f.replace('.png', '_predseg_col.png'), (color_label).astype(np.uint8), check_contrast=False)
+            cmd = 'convert '+f+' \( '+f.replace('.png', '_predseg.png')+' -normalize +level 0,50% \) -compose screen -composite '+f.replace('.png', '_segoverlay.png')
         os.system(cmd)
     else:
-        imsave(f.replace('.jpg', '_predseg.png'), (est_label).astype(np.uint8))
+        if 'jpg' in f:
+            imsave(f.replace('.jpg', '_predseg.png'), (est_label).astype(np.uint8), check_contrast=False)
+            # imsave(f.replace('.jpg', '_predseg_col.png'), (color_label).astype(np.uint8), check_contrast=False)
+        elif 'png' in f:
+            imsave(f.replace('.png', '_predseg.png'), (est_label).astype(np.uint8), check_contrast=False)
+            # imsave(f.replace('.png', '_predseg_col.png'), (color_label).astype(np.uint8), check_contrast=False)
+
+    print("%s done" % (f))

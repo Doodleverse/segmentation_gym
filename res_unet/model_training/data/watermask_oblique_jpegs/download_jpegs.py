@@ -36,7 +36,7 @@ with zipfile.ZipFile("oblique_2class_watermask_masks.zip", "r") as z_fp:
     z_fp.extractall("./")
 os.remove(filename)
 
-for k in range(1,7):
+for k in [1,2,3,4,5,6]: #range(1,7):
     url = "https://github.com/dbuscombe-usgs/segmentation_zoo/releases/download/0.1.1/oblique_2class_watermask_images"+str(k)+".zip"
     filename = os.path.join(os.getcwd(), "oblique_2class_watermask_images"+str(k)+".zip")
     tf.keras.utils.get_file(filename, url)

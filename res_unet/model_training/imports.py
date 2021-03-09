@@ -23,12 +23,13 @@
 # OUT OF OR IN CONNECTION WITH THE zSOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from skimage.io import imsave
+from skimage.io import imsave, imread
 from glob import glob
 import pydensecrf.densecrf as dcrf
 from pydensecrf.utils import create_pairwise_bilateral, unary_from_labels
 from skimage.filters.rank import median
 from skimage.morphology import disk
+from scipy.ndimage import rotate
 
 import matplotlib.pyplot as plt
 import tensorflow.keras.backend as K
@@ -391,6 +392,55 @@ def dice_coef_loss(y_true, y_pred):
     return 1.0 - dice_coef(y_true, y_pred)
 
 
+##===============================================================
+#augmentation functions
+def translate(img, shift=10, direction='right', roll=True):
+    assert direction in ['right', 'left', 'down', 'up'], 'Directions should be top|up|left|right'
+    img = img.copy()
+    if direction == 'right':
+        right_slice = img[:, -shift:].copy()
+        img[:, shift:] = img[:, :-shift]
+        if roll:
+            img[:,:shift] = np.fliplr(right_slice)
+    if direction == 'left':
+        left_slice = img[:, :shift].copy()
+        img[:, :-shift] = img[:, shift:]
+        if roll:
+            img[:, -shift:] = left_slice
+    if direction == 'down':
+        down_slice = img[-shift:, :].copy()
+        img[shift:, :] = img[:-shift,:]
+        if roll:
+            img[:shift, :] = down_slice
+    if direction == 'up':
+        upper_slice = img[:shift, :].copy()
+        img[:-shift, :] = img[shift:, :]
+        if roll:
+            img[-shift:,:] = upper_slice
+    return img
+
+def random_crop(img, crop_size=(10, 10)):
+    assert crop_size[0] <= img.shape[0] and crop_size[1] <= img.shape[1], "Crop size should be less than image size"
+    img = img.copy()
+    w, h = img.shape[:2]
+    x, y = np.random.randint(h-crop_size[0]), np.random.randint(w-crop_size[1])
+    img = img[y:y+crop_size[0], x:x+crop_size[1]]
+    return img
+
+
+def rotate_img(img, angle, bg_patch=(5,5)):
+    assert len(img.shape) <= 3, "Incorrect image shape"
+    rgb = len(img.shape) == 3
+    if rgb:
+        bg_color = np.mean(img[:bg_patch[0], :bg_patch[1], :], axis=(0,1))
+    else:
+        bg_color = np.mean(img[:bg_patch[0], :bg_patch[1]])
+    img = rotate(img, angle, reshape=False)
+    mask = [img <= 0, np.any(img <= 0, axis=-1)][rgb]
+    img[mask] = bg_color
+    return img
+
+
 
 ###############################################################
 ### TFRECORD/DATA FUNCTIONS
@@ -412,11 +462,13 @@ def recompress_seg_image(image, label):
         * label [tensor array]
     """
     image = tf.cast(image, tf.uint8)
-    image = tf.image.encode_jpeg(image, optimize_size=False, chroma_downsampling=False, quality=100)
+    image = tf.image.encode_png(image, compression=0) #jpeg(image, optimize_size=False, chroma_downsampling=False, quality=100, x_density=1000, y_density=1000)
 
     label = tf.cast(label, tf.uint8)
-    label = tf.image.encode_jpeg(label, optimize_size=False, chroma_downsampling=False, quality=100)
+    label = tf.image.encode_png(label, compression=0) ##, optimize_size=False, chroma_downsampling=False, quality=100, x_density=400, y_density=400)
+
     return image, label
+
 
 #-----------------------------------
 def write_seg_records(dataset, tfrecord_dir, root_string):
@@ -528,7 +580,10 @@ def seg_file2tensor(f):
     GLOBAL INPUTS: TARGET_SIZE
     """
     bits = tf.io.read_file(f)
-    image = tf.image.decode_jpeg(bits)
+    if 'jpg' in f:
+        image = tf.image.decode_jpeg(bits)
+    elif 'png' in f:
+        image = tf.image.decode_png(bits)
 
     w = tf.shape(image)[0]
     h = tf.shape(image)[1]

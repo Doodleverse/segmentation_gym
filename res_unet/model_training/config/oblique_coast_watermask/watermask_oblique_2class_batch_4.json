@@ -4,7 +4,7 @@
   "NCLASSES": 1,
   "BATCH_SIZE": 4,
   "N_DATA_BANDS": 3,
-  "DO_CRF_REFINE": false,
+  "DO_CRF_REFINE": true,
   "DO_TRAIN": true,
   "PATIENCE": 25,
   "IMS_PER_SHARD": 50,
@@ -20,12 +20,13 @@
   "DOPLOT": true,
   "ROOT_STRING": "watermask-oblique-data",
   "USEMASK": true,
-  "AUG_ROT": 5,
-  "AUG_ZOOM": 0.05,
+  "AUG_ROT": 0,
+  "AUG_ZOOM": 0,
   "AUG_WIDTHSHIFT": 0.05,
   "AUG_HEIGHTSHIFT": 0.05,
   "AUG_HFLIP": true,
   "AUG_VFLIP": true,
   "AUG_LOOPS": 3,
-  "AUG_COPIES": 3
+  "AUG_COPIES": 2,
+  "DO_AUG": true
 }

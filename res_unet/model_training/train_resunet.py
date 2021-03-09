@@ -23,7 +23,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
-# import os
+import os
 # USE_GPU = False #True
 #
 # if USE_GPU == True:
@@ -36,6 +36,7 @@
 import json, os
 from tkinter import filedialog
 from tkinter import *
+from random import shuffle
 
 ###############################################################
 ## VARIABLES
@@ -79,44 +80,6 @@ test_samples_fig =  weights.replace('.h5','_val.png').replace('weights', 'exampl
 
 @tf.autograph.experimental.do_not_convert
 #-----------------------------------
-def read_seg_tfrecord_binary(example):
-    """
-    "read_seg_tfrecord_binary(example)"
-    This function reads an example from a TFrecord file into a single image and label
-    This is the "multiclass" version for imagery, where the classes are mapped as follows:
-    INPUTS:
-        * TFRecord example object
-    OPTIONAL INPUTS: None
-    GLOBAL INPUTS: TARGET_SIZE
-    OUTPUTS:
-        * image [tensor array]
-        * class_label [tensor array]
-    """
-
-    features = {
-        "image": tf.io.FixedLenFeature([], tf.string),  # tf.string = bytestring (not text string)
-        "label": tf.io.FixedLenFeature([], tf.string),   # shape [] means scalar
-    }
-    # decode the TFRecord
-    example = tf.io.parse_single_example(example, features)
-
-    image = tf.image.decode_jpeg(example['image'], channels=N_DATA_BANDS)
-    image = tf.cast(image, tf.float32)/ 255.0
-    image = tf.reshape(image, [TARGET_SIZE[0],TARGET_SIZE[1], N_DATA_BANDS])
-    #print(image.shape)
-
-    label = tf.image.decode_jpeg(example['label'], channels=1)[:,:,0]>0
-    label = tf.cast(label, tf.uint8)#/ 255.0
-    label = tf.reshape(label, [TARGET_SIZE[0],TARGET_SIZE[1], 1])
-
-    #print(label.shape)
-    image = tf.reshape(image, (image.shape[0], image.shape[1], image.shape[2]))
-
-    return image, label
-
-
-@tf.autograph.experimental.do_not_convert
-#-----------------------------------
 def read_seg_tfrecord_multiclass(example):
     """
     "read_seg_tfrecord_multiclass(example)"
@@ -146,35 +109,39 @@ def read_seg_tfrecord_multiclass(example):
     # decode the TFRecord
     example = tf.io.parse_single_example(example, features)
 
-    image = tf.image.decode_jpeg(example['image'], channels=3)
+    if N_DATA_BANDS==4:
+        image = tf.image.decode_png(example['image']) #jpeg(example['image'], channels=3)
+    else:
+        image = tf.image.decode_png(example['image']) #jpeg(example['image'], channels=3)
+
     image = tf.cast(image, tf.float32)/ 255.0
-    image = tf.reshape(image, [TARGET_SIZE[0],TARGET_SIZE[1], 3])
+    #image = tf.reshape(image, [TARGET_SIZE[0],TARGET_SIZE[1], 3])
     #print(image.shape)
     #image = tf.reshape(tf.image.rgb_to_grayscale(image), [TARGET_SIZE,TARGET_SIZE, 1])
 
     if N_DATA_BANDS==4:
-        nir = tf.image.decode_jpeg(example['nir'], channels=3)
+        nir = tf.image.decode_png(example['nir']) #jpeg(example['nir'], channels=3)
         nir = tf.cast(nir, tf.float32)/ 255.0
-        nir = tf.reshape(nir, [TARGET_SIZE[0],TARGET_SIZE[1], 3])
+        #nir = tf.reshape(nir, [TARGET_SIZE[0],TARGET_SIZE[1], 3])
         #print(nir.shape)
 
         image = tf.concat([image, nir],-1)[:,:,:4]
-        #image = tf.cast(np.dstack(image.numpy(), nir.numpy()), tf.float32)
         #print(image.shape)
 
-    label = tf.image.decode_jpeg(example['label'], channels=1)
+    #label = tf.image.decode_jpeg(example['label'], channels=1)
+    label = tf.image.decode_png(example['label'], channels=0)
     label = tf.cast(label, tf.uint8)#/ 255.0
-    label = tf.reshape(label, [TARGET_SIZE[0],TARGET_SIZE[1], 1])
+    #label = tf.reshape(label, [TARGET_SIZE[0],TARGET_SIZE[1], 1])
 
     # cond = tf.equal(label, tf.ones(tf.shape(label),dtype=tf.uint8)*0)
     # label = tf.where(cond,  tf.ones(tf.shape(label),dtype=tf.uint8)*4, label)
     #print(label.shape)
 
-    label = tf.one_hot(tf.cast(label, tf.uint8), NCLASSES) # 5 classes (water, surf, wet, dry) + null (0)
+    # if NCLASSES>1:
+    #     label = tf.one_hot(tf.cast(label, tf.uint8), NCLASSES+1) # 5 classes (water, surf, wet, dry) + null (0)
+    #     label = tf.squeeze(label)
 
-    label = tf.squeeze(label)
-
-    image = tf.reshape(image, (image.shape[0], image.shape[1], image.shape[2]))
+    #image = tf.reshape(image, (image.shape[0], image.shape[1], image.shape[2]))
 
     #image = tf.image.per_image_standardization(image)
     return image, label
@@ -198,12 +165,8 @@ def get_batched_dataset(filenames):
     dataset = tf.data.Dataset.list_files(filenames)
     dataset = dataset.with_options(option_no_order)
     dataset = dataset.interleave(tf.data.TFRecordDataset, cycle_length=16, num_parallel_calls=AUTO)
-    if NCLASSES==1:
-        dataset = dataset.map(read_seg_tfrecord_binary, num_parallel_calls=AUTO)
-    else:
-        dataset = dataset.map(read_seg_tfrecord_multiclass, num_parallel_calls=AUTO)
+    dataset = dataset.map(read_seg_tfrecord_multiclass, num_parallel_calls=AUTO)
 
-    #dataset = dataset.cache() # This dataset fits in RAM
     dataset = dataset.repeat()
     #dataset = dataset.shuffle(2048)
     dataset = dataset.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be needed on TPU
@@ -258,7 +221,10 @@ def lrfn(epoch):
 
 
 #-------------------------------------------------
-filenames = sorted(tf.io.gfile.glob(data_path+os.sep+'*.tfrec'))
+filenames = tf.io.gfile.glob(data_path+os.sep+'*.tfrec')
+# print(filenames[:10])
+shuffle(filenames)
+# print(filenames[:10])
 
 print('.....................................')
 print('Reading files and making datasets ...')
@@ -332,60 +298,17 @@ if DO_TRAIN:
     plt.savefig(valsamples_fig, dpi=200, bbox_inches='tight')
     plt.close('all')
     del imgs, lbls
-    #
-    # elif N_DATA_BANDS==4:
-    #         for imgs,nirs,lbls in train_ds.take(1):
-    #             print(imgs.shape)
-    #             print(lbls.shape)
-    #             print(nirs.shape)
-    #
-    #         print('.....................................')
-    #         print('Printing examples to file ...')
-    #
-    #         plt.figure(figsize=(16,16))
-    #         for imgs,nirs,lbls in train_ds.take(1):
-    #           #print(lbls)
-    #           for count,(im,nir,lab) in enumerate(zip(imgs,nirs, lbls)):
-    #              plt.subplot(int(BATCH_SIZE/2),2,count+1)
-    #              plt.imshow(nir, cmap='gray')
-    #              if NCLASSES==1:
-    #                  plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
-    #              else:
-    #                  lab = np.argmax(lab,-1)
-    #                  plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES)
-    #
-    #              plt.axis('off')
-    #              print(np.unique(lab))
-    #         # plt.show()
-    #         plt.savefig(trainsamples_fig, dpi=200, bbox_inches='tight')
-    #         plt.close('all')
-    #
-    #         del imgs, lbls, nirs
-    #
-    #         plt.figure(figsize=(16,16))
-    #         for imgs,nirs,lbls in val_ds.take(1):
-    #
-    #           #print(lbls)
-    #           for count,(im,nir,lab) in enumerate(zip(imgs, nirs,lbls)):
-    #              plt.subplot(int(BATCH_SIZE/2),2,count+1) #int(BATCH_SIZE/2)
-    #              plt.imshow(nir)
-    #              if NCLASSES==1:
-    #                  plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
-    #              else:
-    #                  lab = np.argmax(lab,-1)
-    #                  plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES)
-    #              plt.axis('off')
-    #              print(np.unique(lab))
-    #         # plt.show()
-    #         plt.savefig(valsamples_fig, dpi=200, bbox_inches='tight')
-    #         plt.close('all')
-    #         del imgs, lbls
+
 
 
 print('.....................................')
 print('Creating and compiling model ...')
 
-model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), BATCH_SIZE, NCLASSES, (KERNEL_SIZE, KERNEL_SIZE))
+if NCLASSES==1:
+    model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), BATCH_SIZE, NCLASSES, (KERNEL_SIZE, KERNEL_SIZE))
+else:
+    model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), BATCH_SIZE, NCLASSES, (KERNEL_SIZE, KERNEL_SIZE))
+
 model.compile(optimizer = 'adam', loss =dice_coef_loss, metrics = [mean_iou, dice_coef])
 
 
@@ -445,16 +368,20 @@ for i,l in val_ds.take(10):
             est_label[est_label>.5] = 1
         else:
             est_label = np.argmax(est_label, -1)
-
-        if NCLASSES>1:
-            if DO_CRF_REFINE:
-                est_label,_ = crf_refine(est_label.astype(np.uint8), img.numpy().astype(np.uint8), nclasses=NCLASSES, theta_col=100, theta_spat=3)
+            # L = []
+            # if DO_CRF_REFINE:
+            #     for k in range(NCLASSES):
+            #         l = est_label[:,:,k]>.5
+            #         l = l.astype(np.uint8)
+            #         l,_ = crf_refine(l, img.numpy().astype(np.uint8), nclasses=2, theta_col=10, theta_spat=3, compat=10)
+            #         L.append(l)
+            # est_label = np.argmax(np.dstack(L), -1)
 
         if MEDIAN_FILTER_VALUE>1:
             est_label = np.round(median(est_label, disk(MEDIAN_FILTER_VALUE))).astype(np.uint8)
             if NCLASSES==1:
-                est_label[est_label<1] = 0
-                est_label[est_label>1] = 1
+                est_label[est_label<0.5] = 0
+                est_label[est_label>0.5] = 1
 
         if NCLASSES==1:
             lbl = lbl.numpy().squeeze()
@@ -490,3 +417,91 @@ for i,l in val_ds.take(10):
         counter += 1
 
 print('Mean IoU (validation subset)={mean_iou:0.3f}'.format(mean_iou=np.mean(IOUc)))
+
+
+    #
+    # elif N_DATA_BANDS==4:
+    #         for imgs,nirs,lbls in train_ds.take(1):
+    #             print(imgs.shape)
+    #             print(lbls.shape)
+    #             print(nirs.shape)
+    #
+    #         print('.....................................')
+    #         print('Printing examples to file ...')
+    #
+    #         plt.figure(figsize=(16,16))
+    #         for imgs,nirs,lbls in train_ds.take(1):
+    #           #print(lbls)
+    #           for count,(im,nir,lab) in enumerate(zip(imgs,nirs, lbls)):
+    #              plt.subplot(int(BATCH_SIZE/2),2,count+1)
+    #              plt.imshow(nir, cmap='gray')
+    #              if NCLASSES==1:
+    #                  plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
+    #              else:
+    #                  lab = np.argmax(lab,-1)
+    #                  plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES)
+    #
+    #              plt.axis('off')
+    #              print(np.unique(lab))
+    #         # plt.show()
+    #         plt.savefig(trainsamples_fig, dpi=200, bbox_inches='tight')
+    #         plt.close('all')
+    #
+    #         del imgs, lbls, nirs
+    #
+    #         plt.figure(figsize=(16,16))
+    #         for imgs,nirs,lbls in val_ds.take(1):
+    #
+    #           #print(lbls)
+    #           for count,(im,nir,lab) in enumerate(zip(imgs, nirs,lbls)):
+    #              plt.subplot(int(BATCH_SIZE/2),2,count+1) #int(BATCH_SIZE/2)
+    #              plt.imshow(nir)
+    #              if NCLASSES==1:
+    #                  plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
+    #              else:
+    #                  lab = np.argmax(lab,-1)
+    #                  plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES)
+    #              plt.axis('off')
+    #              print(np.unique(lab))
+    #         # plt.show()
+    #         plt.savefig(valsamples_fig, dpi=200, bbox_inches='tight')
+    #         plt.close('all')
+    #         del imgs, lbls
+
+
+# @tf.autograph.experimental.do_not_convert
+# #-----------------------------------
+# def read_seg_tfrecord_binary(example):
+#     """
+#     "read_seg_tfrecord_binary(example)"
+#     This function reads an example from a TFrecord file into a single image and label
+#     This is the "multiclass" version for imagery, where the classes are mapped as follows:
+#     INPUTS:
+#         * TFRecord example object
+#     OPTIONAL INPUTS: None
+#     GLOBAL INPUTS: TARGET_SIZE
+#     OUTPUTS:
+#         * image [tensor array]
+#         * class_label [tensor array]
+#     """
+#
+#     features = {
+#         "image": tf.io.FixedLenFeature([], tf.string),  # tf.string = bytestring (not text string)
+#         "label": tf.io.FixedLenFeature([], tf.string),   # shape [] means scalar
+#     }
+#     # decode the TFRecord
+#     example = tf.io.parse_single_example(example, features)
+#
+#     image = tf.image.decode_jpeg(example['image'], channels=N_DATA_BANDS)
+#     image = tf.cast(image, tf.float32)/ 255.0
+#     image = tf.reshape(image, [TARGET_SIZE[0],TARGET_SIZE[1], N_DATA_BANDS])
+#     #print(image.shape)
+#
+#     label = tf.image.decode_png(example['label'], channels=0)[:,:,0]>1 #, channels=1)[:,:,0]>0
+#     label = tf.cast(label, tf.uint8)#/ 255.0
+#     label = tf.reshape(label, [TARGET_SIZE[0],TARGET_SIZE[1], 1])
+#
+#     #print(label.shape)
+#     image = tf.reshape(image, (image.shape[0], image.shape[1], image.shape[2]))
+#
+#     return image, label

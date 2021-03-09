@@ -11,8 +11,10 @@ A toolbox to segment imagery using a residual UNet model. This repository allows
 * Create a tfrecords dataset to train a new model for a particular task
 * Train a new model using your new tfrecords dataset
 
-The program supports both `binary` () and `multiclass` () image segmentation using a custom implementation of a Residual U-Net, a deep learning framework for image segmentation.
+## Navigation
 
+* [Residual U-Net model](#model)
+* [Implementation](#implementation)
 * [Installation](#install)
 * [Provided Datasets](#data)
 * [Use a Pre-Trained Residual UNet for Image Segmentation](#resunet)
@@ -22,7 +24,27 @@ The program supports both `binary` () and `multiclass` () image segmentation usi
 * [Roadmap](#roadmap)
 
 
+## <a name="model"></a>Residual U-Net model
+
+UNet with residual (or lateral/skip connections), similar to that reported by ~\textcite{zhang2018road} for segmentation of roads in aerial imagery. The UNet model framework ~\parencite{ronneberger2015u} is a type of fully convolutional neural network that is used for binary segmentation i.e foreground and background pixel-wise classification ~\parencite{bai2018towards, flood2019using, dang2020coastal}. It is easily adapted to multiclass segmentation workflows by representing each class as a binary mask, creating a stack of binary masks for each potential class (so-called one-hot encoded label data). A UNet is symmetrical (hence the U in the name) and uses concatenation instead of addition to merge feature maps.
+
+The fully convolutional model framework consists of two parts, the encoder and the decoder (\autoref{fig:seg}). The encoder receives the N x N x 3 input image and applies a series of convolutional layers and pooling layers to reduce the spatial size and condense features. Six banks of convolutional filters, each using filters that double in size to the previous, thereby progressively downsampling the inputs as features are extracted through pooling. The last set of features (or so-called bottleneck) is a very low-dimensional feature representation of the input imagery. The decoder upsamples the bottleneck into a N x N x 1 label image progressively using six banks of convolutional filters, each using filters half in size to the previous, thereby progressively upsampling the inputs as features are extracted through transpose convolutions and concatenation. A transposed convolution convolves a dilated version of the input tensor, consisting of interleaving zeroed rows and columns between each pair of adjacent rows and columns in the input tensor, in order to upscale the output. The sets of features from each of the six levels in the encoder-decoder structure are concatenated, which allows learning different features at different levels and leads to spatially well-resolved outputs. The final classification layer maps the output of the previous layer to a single 2D output based on a sigmoid activation function. The difference between ours and the original implementation is in the use of three residual-convolutional encoding and decoding layers instead of regular six convolutional encoding and decoding layers. Residual or 'skip' connections have been shown in numerous contexts to facilitate information flow, which is why we have halved the number of convolutional layers but can still achieve good accuracy on the segmentation tasks. The skip connections essentially add the outputs of the regular convolutional block (sequence of convolutions and ReLu activations) with the inputs, so the model learns to map feature representations in context to the inputs that created those representations.
+
+## <a name="implementation"></a>Implementation
+Designed for 1,3, or 4-band imagery, and up to 4 classes
+
+The program supports both `binary` (one class of interest and a null class) and `multiclass` (several classes of interest) image segmentation using a custom implementation of a Residual U-Net, a deep learning framework for image segmentation. The implementation is prescribed to facilitate a wide variety of workflows but is limited to up to 4 image bands and up to 4 classes. The latter limitation is because of the nature of the image file storage capabilities of png decoding being limited to 4 bands.
+
+We write image datasets to tfrecord format files for 'analysis ready data' that is highly compressed and easy to share. One of the motivations for using TFRecords for data is to ensure a consistency in what images get allocated as training ad which get allocated as validation. These images are already randomized, and are not randomized further during training. Another advantage is the way in which it facilitates efficient data throughput from file to to GPU memory where the numerical calculations carried out during model training, and making out-of-memory errors caused by variation in data input and output throughput to and from the GPU. Protocol buffers are also a very good compression technique for sharing large amounts of labeled data.
+
+* Images are augmented using Keras image augmentation generator functions
+* Each augmented image is written to file (jpeg for images and png for labels - one image per band of the on-hot encoded label)
+* Images are read back in and written to TF-Record format files
+* Models are trained on the augmented data encoded in the tf-records, so the original data is a hold-out or test set. This is ideal because although the validation dataset (drawn from augmented data) doesn't get used to adjust model weights, it does influence model training by triggering early stopping if validation loss is not improving. Testing on an untransformed set is also a further check/reassurance of model performance and evaluation metric
+
+
 ## <a name="install"></a>Installation
+I advise creating a new conda environment to run the program.
 
 1. Clone the repo:
 
@@ -144,7 +166,8 @@ An example config file (saved as `res_unet/model_training/config/oblique_coast_w
   "AUG_HFLIP": true,
   "AUG_VFLIP": true,
   "AUG_LOOPS": 1,
-  "AUG_COPIES": 3  
+  "AUG_COPIES": 3 ,
+  "REMAP_CLASSES": {"0": 0, "1": 0, "2": 0, "3":1, "4":1}
 }
 ```
 
@@ -164,7 +187,7 @@ Model training and performance is sensitive to these hyperparameters. Use a `TAR
 
 * `TARGET_SIZE`: list of integer image dimensions to write to tfrecord and use to build and use models. This doesn't have to be the sample image dimension (it would typically be significantly smaller due to memory constraints) but it should ideally have the same aspect ratio. The target size must be compatible with the cardinality of the model
 * `KERNEL_SIZE`: (integer) convolution kernel dimension
-* `NCLASSES`: (integer) number of classes (1 = binary e.g water/no water). For multiclass segmentations, include a `null` class, for example if you have 4 classes (e.g. blue/white/wet/dry as for the satellite imagery example), `NCLASSES` would be 5 (4 + null class)
+* `NCLASSES`: (integer) number of classes (1 = binary e.g water/no water). For multiclass segmentations, enumerate the number of classes not including a null class
 * `BATCH_SIZE`: (integer) number of images to use in a batch. Typically better to use larger batch sizes but also uses more memory
 * `N_DATA_BANDS`: (integer) number of input image bands. Typically 3 (for an RGB image, for example) or 4 (e.g. near-IR or DEM, or other relevant raster info you have at coincident resolution and coverage)
 * `PATIENCE`: (integer) the number of epochs with no improvement in validation loss to wait before exiting model training
@@ -181,6 +204,9 @@ The model training script uses a learning rate scheduler to cycle through a rang
 * `START_LR`: (float) The starting learning rate
 * `MIN_LR`: (float) The minimum learning rate, usually equals `START_LR`, must be < `MAX_LR`
 * `MAX_LR`: (float) The maximum learning rate, must be > `MIN_LR`
+
+#### Label pre-processing (optional)
+* `REMAP_CLASSES`: (dict) A dictionary of values in the data and what values you'd like to replace them with, for example `{"0": 0, "1": 0, "2": 0, "3":1, "4":1}` says "recode ones and twos as zeros and threes and fours as ones". Used to reclassify data on the fly without written new files to disk
 
 
 ### TF-Record dataset creation
@@ -354,3 +380,5 @@ Plans:
 * continue to refine data and train models for existing dataset examples
 * eventually ... some form of a graphical user interface
 * adaptive learning: rank validation imagery by loss (label those with highest loss)
+* add "2D" NIR sentinel exmaple
+* more than 4 bands will require removing all decode_png and encode_png, replacing with a format that can support >4 bands

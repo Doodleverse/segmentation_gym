@@ -1,7 +1,7 @@
 {
-  "TARGET_SIZE": [128,128],
-  "KERNEL_SIZE": 7,
-  "NCLASSES": 5,
+  "TARGET_SIZE": [432,432],
+  "KERNEL_SIZE":7,
+  "NCLASSES": 4,
   "BATCH_SIZE": 8,
   "N_DATA_BANDS": 4,
   "DO_CRF_REFINE": false,
@@ -9,14 +9,14 @@
   "PATIENCE": 25,
   "IMS_PER_SHARD": 50,
   "MAX_EPOCHS": 300,
-  "VALIDATION_SPLIT": 0.6,
+  "VALIDATION_SPLIT": 0.7,
   "RAMPUP_EPOCHS": 20,
   "SUSTAIN_EPOCHS": 0.0,
   "EXP_DECAY": 0.9,
   "START_LR":  1e-7,
   "MIN_LR": 1e-7,
   "MAX_LR": 1e-4,
-  "MEDIAN_FILTER_VALUE": 3,
+  "MEDIAN_FILTER_VALUE": 2,
   "DOPLOT": true,
   "ROOT_STRING": "santacruz_sentinel2-4class-data",
   "USEMASK": false,
@@ -27,5 +27,6 @@
   "AUG_HFLIP": true,
   "AUG_VFLIP": true,
   "AUG_LOOPS": 1,
-  "AUG_COPIES": 3
+  "AUG_COPIES": 3,
+  "DO_AUG": true
 }
