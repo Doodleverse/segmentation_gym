@@ -1,8 +1,6 @@
-# Segmentation Zoo
+# Coastal Image Segmentation Zoo
 
-> Daniel Buscombe, Marda Science daniel@mardascience.com
-
-> Developed for the USGS Coastal Marine Geology program, as part of the Florence Supplemental project
+> Daniel Buscombe, Marda Science daniel@mardascience.com. Developed for the USGS Coastal Marine Geology program, as part of the Florence Supplemental project
 
 
 A toolbox to segment imagery using a residual UNet model. This repository allows you to do three things:
@@ -26,9 +24,9 @@ A toolbox to segment imagery using a residual UNet model. This repository allows
 
 ## <a name="model"></a>Residual U-Net model
 
-UNet with residual (or lateral/skip connections), similar to that reported by ~\textcite{zhang2018road} for segmentation of roads in aerial imagery. The UNet model framework ~\parencite{ronneberger2015u} is a type of fully convolutional neural network that is used for binary segmentation i.e foreground and background pixel-wise classification ~\parencite{bai2018towards, flood2019using, dang2020coastal}. It is easily adapted to multiclass segmentation workflows by representing each class as a binary mask, creating a stack of binary masks for each potential class (so-called one-hot encoded label data). A UNet is symmetrical (hence the U in the name) and uses concatenation instead of addition to merge feature maps.
+UNet with residual (or lateral/skip connections). The UNet model framework is a type of fully convolutional neural network that is used for binary segmentation i.e foreground and background pixel-wise classification. It is easily adapted to multiclass segmentation workflows by representing each class as a binary mask, creating a stack of binary masks for each potential class (so-called one-hot encoded label data). A UNet is symmetrical (hence the U in the name) and uses concatenation instead of addition to merge feature maps.
 
-The fully convolutional model framework consists of two parts, the encoder and the decoder (\autoref{fig:seg}). The encoder receives the N x N x 3 input image and applies a series of convolutional layers and pooling layers to reduce the spatial size and condense features. Six banks of convolutional filters, each using filters that double in size to the previous, thereby progressively downsampling the inputs as features are extracted through pooling. The last set of features (or so-called bottleneck) is a very low-dimensional feature representation of the input imagery. The decoder upsamples the bottleneck into a N x N x 1 label image progressively using six banks of convolutional filters, each using filters half in size to the previous, thereby progressively upsampling the inputs as features are extracted through transpose convolutions and concatenation. A transposed convolution convolves a dilated version of the input tensor, consisting of interleaving zeroed rows and columns between each pair of adjacent rows and columns in the input tensor, in order to upscale the output. The sets of features from each of the six levels in the encoder-decoder structure are concatenated, which allows learning different features at different levels and leads to spatially well-resolved outputs. The final classification layer maps the output of the previous layer to a single 2D output based on a sigmoid activation function. The difference between ours and the original implementation is in the use of three residual-convolutional encoding and decoding layers instead of regular six convolutional encoding and decoding layers. Residual or 'skip' connections have been shown in numerous contexts to facilitate information flow, which is why we have halved the number of convolutional layers but can still achieve good accuracy on the segmentation tasks. The skip connections essentially add the outputs of the regular convolutional block (sequence of convolutions and ReLu activations) with the inputs, so the model learns to map feature representations in context to the inputs that created those representations.
+The fully convolutional model framework consists of two parts, the encoder and the decoder. The encoder receives the N x N x M (M=1, 3 or 4 in this implementation) input image and applies a series of convolutional layers and pooling layers to reduce the spatial size and condense features. Six banks of convolutional filters, each using filters that double in size to the previous, thereby progressively downsampling the inputs as features are extracted through pooling. The last set of features (or so-called bottleneck) is a very low-dimensional feature representation of the input imagery. The decoder upsamples the bottleneck into a N x N x 1 label image progressively using six banks of convolutional filters, each using filters half in size to the previous, thereby progressively upsampling the inputs as features are extracted through transpose convolutions and concatenation. A transposed convolution convolves a dilated version of the input tensor, consisting of interleaving zeroed rows and columns between each pair of adjacent rows and columns in the input tensor, in order to upscale the output. The sets of features from each of the six levels in the encoder-decoder structure are concatenated, which allows learning different features at different levels and leads to spatially well-resolved outputs. The final classification layer maps the output of the previous layer to a single 2D output based on a sigmoid activation function. The difference between ours and the original implementation is in the use of three residual-convolutional encoding and decoding layers instead of regular six convolutional encoding and decoding layers. Residual or 'skip' connections have been shown in numerous contexts to facilitate information flow, which is why we have halved the number of convolutional layers but can still achieve good accuracy on the segmentation tasks. The skip connections essentially add the outputs of the regular convolutional block (sequence of convolutions and ReLu activations) with the inputs, so the model learns to map feature representations in context to the inputs that created those representations.
 
 ## <a name="implementation"></a>Implementation
 Designed for 1,3, or 4-band imagery, and up to 4 classes
@@ -76,14 +74,16 @@ and just ignore the errors.
 
 This dataset is used here to demonstrate `binary segmentation` (i.e. 1 class of interest, and 1 null class). The classes are `water` and `null`
 
-579 (as of 2/24/2021) images and associated binary (2-class land and water) masks. Prototype version, research in progress. Full version forthcoming
+732 (as of 3/9/2021) images and associated binary (2-class land and water) masks. Prototype version, research in progress. Full version forthcoming
 
 Thanks to Andy Ritchie and Jon Warrick for creating label images. Additional labels were created by Daniel Buscombe
 
 
 ### Nadir aircraft/UAV coastal imagery (R, G, B)
 
-Prototype version, research in progress. Full version forthcoming
+This dataset is used here to demonstrate `binary segmentation` (i.e. 1 class of interest, and 1 null class). The classes are `water` and `null`
+
+2564 (as of 3/9/2021) images and associated binary (2-class land and water) masks. Prototype version, research in progress. Full version forthcoming
 
 Thanks to Stephen Bosse, Jin-Si Over, Christine Kranenberg, Chris Sherwood, and Phil Wernette for creating label images. Additional labels were created by Daniel Buscombe
 
@@ -91,7 +91,7 @@ Thanks to Stephen Bosse, Jin-Si Over, Christine Kranenberg, Chris Sherwood, and 
 ### Sentinel2 satellite coastal imagery (R, G, B)
 This dataset is used here to demonstrate `multiclass segmentation` (i.e. more than 1 class of interest, and 1 null class). The classes are `blue water` (unbroken water), `white water` (active wave breaking), `wet sand` (swash, lower intertidal), and `dry land`
 
-Labels were created by Daniel Buscombe. Prototype version, research in progress. Full version forthcoming
+Labels were created by Daniel Buscombe. Prototype version (72 labeled images from Santa Cruz, CA), research in progress. Full version forthcoming
 
 
 ## <a name="resunet"></a>Use a Pre-Trained Residual UNet for Image Segmentation
