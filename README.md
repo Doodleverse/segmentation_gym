@@ -1,5 +1,7 @@
 # Coastal Image Segmentation Zoo
 
+*Warning* this is alpha software, i.e. not finished with several known bugs. Please be patient, thanks. 
+
 > Daniel Buscombe, Marda Science daniel@mardascience.com. Developed for the USGS Coastal Marine Geology program, as part of the Florence Supplemental project
 
 
@@ -102,7 +104,15 @@ Labels were created by Daniel Buscombe. Prototype version (72 labeled images fro
 cd res_unet
 ```
 
-2. Run the program like so to use a model that you have weights for (either provided with this repository or generated yourself using a procedure described below) o a directory of images
+2. Download the sample imagery
+
+```
+cd sample_images/
+python download_jpegs.py
+cd ..
+```
+
+3. Run the program like so to use a model that you have weights for (either provided with this repository or generated yourself using a procedure described below) o a directory of images
 
 ```
 python seg_images_in_folder.py
