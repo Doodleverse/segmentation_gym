@@ -525,67 +525,94 @@ for counter,f in enumerate(sample_filenames):
     else:
         image = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir'), resize=True )/255
 
-    E = []
-    E.append(model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze())
-    E.append(np.fliplr(model.predict(tf.expand_dims(np.fliplr(image), 0) , batch_size=1).squeeze()))
-    E.append(np.flipud(model.predict(tf.expand_dims(np.flipud(image), 0) , batch_size=1).squeeze()))
+    if NCLASSES==1:
+        E = []
+        E.append(model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze())
+        E.append(np.fliplr(model.predict(tf.expand_dims(np.fliplr(image), 0) , batch_size=1).squeeze()))
+        E.append(np.flipud(model.predict(tf.expand_dims(np.flipud(image), 0) , batch_size=1).squeeze()))
 
-    for k in np.linspace(100,TARGET_SIZE[0],10):
-        E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, int(k)), 0) , batch_size=1).squeeze(), -int(k)))
+        for k in np.linspace(100,TARGET_SIZE[0],10):
+            E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, int(k)), 0) , batch_size=1).squeeze(), -int(k)))
 
-    for k in np.linspace(100,TARGET_SIZE[0],10):
-        E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, -int(k)), 0) , batch_size=1).squeeze(), int(k)))
+        for k in np.linspace(100,TARGET_SIZE[0],10):
+            E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, -int(k)), 0) , batch_size=1).squeeze(), int(k)))
 
 
-    K.clear_session()
+        K.clear_session()
 
-    if N_DATA_BANDS<=3:
-        image = seg_file2tensor_3band(f, resize=False)/255
+        if N_DATA_BANDS<=3:
+            image = seg_file2tensor_3band(f, resize=False)/255
+        else:
+            image = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir'), resize=False )/255
+
+        width = image.shape[0]
+        height = image.shape[1]
+
+        E = [maximum_filter(resize(e,(width,height)), int(width/100)) for e in E]
+        est_label = np.median(np.dstack(E), axis=-1)
+        #var = np.std(np.dstack(E), axis=-1)
+
+        if np.max(est_label)-np.min(est_label) > .5:
+            thres = threshold_otsu(est_label)
+            print("Threshold: %f" % (thres))
+        else:
+            thres = .75
+            print("Default threshold: %f" % (thres))
+
+        if NCLASSES==1:
+            conf = 1-est_label
+            conf[est_label<thres] = est_label[est_label<thres]
+            conf = 1-conf
+        else:
+            conf = np.max(est_label, -1)
+
+        conf[np.isnan(conf)] = 0
+        conf[np.isinf(conf)] = 0
+
+        model_conf = np.sum(conf)/np.prod(conf.shape)
+        print('Overall model confidence = %f'%(model_conf))
+
     else:
-        image = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir'), resize=False )/255
+        est_label = model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
 
-    width = image.shape[0]
-    height = image.shape[1]
+        K.clear_session()
 
-    E = [maximum_filter(resize(e,(width,height)), int(width/100)) for e in E]
+        if N_DATA_BANDS<=3:
+            image = seg_file2tensor_3band(f, resize=False)/255
+        else:
+            image = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir'), resize=False )/255
 
-    est_label = np.median(np.dstack(E), axis=-1)
-    var = np.std(np.dstack(E), axis=-1)
+        width = image.shape[0]
+        height = image.shape[1]
+        # E = []
+        # E.append(model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze())
+        # E.append(np.fliplr(model.predict(tf.expand_dims(np.fliplr(image), 0) , batch_size=1).squeeze()))
+        # E.append(np.flipud(model.predict(tf.expand_dims(np.flipud(image), 0) , batch_size=1).squeeze()))
+        #
+        # for k in np.linspace(100,TARGET_SIZE[0],10):
+        #     E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, int(k)), 0) , batch_size=1).squeeze(), -int(k)))
+        #
+        # for k in np.linspace(100,TARGET_SIZE[0],10):
+        #     E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, -int(k)), 0) , batch_size=1).squeeze(), int(k)))
+        #
+        # E = [maximum_filter(resize(e,(width,height)), int(width/100)) for e in E]
+        #
+        est_label = resize(est_label,(width,height))
+        est_label = np.argmax(est_label,-1)
 
     est_label = est_label[:width,:height]
 
-    if np.max(est_label)-np.min(est_label) > .5:
-        thres = threshold_otsu(est_label)
-        print("Threshold: %f" % (thres))
-    else:
-        thres = .75
-        print("Default threshold: %f" % (thres))
-
     if NCLASSES==1:
-        conf = 1-est_label
-        conf[est_label<thres] = est_label[est_label<thres]
-        conf = 1-conf
-    else:
-        conf = np.max(est_label, -1)
-
-    conf[np.isnan(conf)] = 0
-    conf[np.isinf(conf)] = 0
-
-    model_conf = np.sum(conf)/np.prod(conf.shape)
-    print('Overall model confidence = %f'%(model_conf))
-
-    if NCLASSES>1:
-        est_label = tf.argmax(est_label, axis=-1)
-    else:
         est_label[est_label<thres] = 0
         est_label[est_label>thres] = 1
-
-    if NCLASSES==1:
         est_label = remove_small_holes(est_label.astype('uint8')*2, 2*width)
         est_label = remove_small_objects(est_label.astype('uint8')*2, 2*width)
         est_label[est_label<thres] = 0
         est_label[est_label>thres] = 1
-    #color_label = label_to_colors(est_label, image.numpy()[:,:,0]==0, alpha=128, colormap=class_label_colormap, color_class_offset=0, do_alpha=False)
+
+    if NCLASSES>1:
+        class_label_colormap = ['#00FFFF','#0000FF','#808080','#008000','#FFA500'][:NCLASSES]
+        color_label = label_to_colors(est_label, image.numpy()[:,:,0]==0, alpha=128, colormap=class_label_colormap, color_class_offset=0, do_alpha=False)
 
     if NCLASSES==1:
         if 'jpg' in f:
@@ -607,10 +634,10 @@ for counter,f in enumerate(sample_filenames):
     else:
         if 'jpg' in f:
             imsave(f.replace('.jpg', '_predseg.png'), (est_label).astype(np.uint8), check_contrast=False)
-            # imsave(f.replace('.jpg', '_predseg_col.png'), (color_label).astype(np.uint8), check_contrast=False)
+            imsave(f.replace('.jpg', '_predseg_col.png'), (color_label).astype(np.uint8), check_contrast=False)
         elif 'png' in f:
             imsave(f.replace('.png', '_predseg.png'), (est_label).astype(np.uint8), check_contrast=False)
-            # imsave(f.replace('.png', '_predseg_col.png'), (color_label).astype(np.uint8), check_contrast=False)
+            imsave(f.replace('.png', '_predseg_col.png'), (color_label).astype(np.uint8), check_contrast=False)
 
     print("%s done" % (f))
 
