@@ -11,3 +11,5 @@ dependencies:
  - pydensecrf
  - tensorflow-gpu
  - ipython
+ - joblib
+ - tqdm

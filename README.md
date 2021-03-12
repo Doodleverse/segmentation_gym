@@ -1,6 +1,6 @@
 # Coastal Image Segmentation Zoo
 
-*Warning* this is alpha software, i.e. not finished with several known bugs. Please be patient, thanks. 
+*Warning* this is alpha software, i.e. not finished with several known bugs. Please be patient, thanks.
 
 > Daniel Buscombe, Marda Science daniel@mardascience.com. Developed for the USGS Coastal Marine Geology program, as part of the Florence Supplemental project
 
@@ -25,7 +25,6 @@ A toolbox to segment imagery using a residual UNet model. This repository allows
 
 
 ## <a name="model"></a>Residual U-Net model
-
 UNet with residual (or lateral/skip connections). The UNet model framework is a type of fully convolutional neural network that is used for binary segmentation i.e foreground and background pixel-wise classification. It is easily adapted to multiclass segmentation workflows by representing each class as a binary mask, creating a stack of binary masks for each potential class (so-called one-hot encoded label data). A UNet is symmetrical (hence the U in the name) and uses concatenation instead of addition to merge feature maps.
 
 The fully convolutional model framework consists of two parts, the encoder and the decoder. The encoder receives the N x N x M (M=1, 3 or 4 in this implementation) input image and applies a series of convolutional layers and pooling layers to reduce the spatial size and condense features. Six banks of convolutional filters, each using filters that double in size to the previous, thereby progressively downsampling the inputs as features are extracted through pooling. The last set of features (or so-called bottleneck) is a very low-dimensional feature representation of the input imagery. The decoder upsamples the bottleneck into a N x N x 1 label image progressively using six banks of convolutional filters, each using filters half in size to the previous, thereby progressively upsampling the inputs as features are extracted through transpose convolutions and concatenation. A transposed convolution convolves a dilated version of the input tensor, consisting of interleaving zeroed rows and columns between each pair of adjacent rows and columns in the input tensor, in order to upscale the output. The sets of features from each of the six levels in the encoder-decoder structure are concatenated, which allows learning different features at different levels and leads to spatially well-resolved outputs. The final classification layer maps the output of the previous layer to a single 2D output based on a sigmoid activation function. The difference between ours and the original implementation is in the use of three residual-convolutional encoding and decoding layers instead of regular six convolutional encoding and decoding layers. Residual or 'skip' connections have been shown in numerous contexts to facilitate information flow, which is why we have halved the number of convolutional layers but can still achieve good accuracy on the segmentation tasks. The skip connections essentially add the outputs of the regular convolutional block (sequence of convolutions and ReLu activations) with the inputs, so the model learns to map feature representations in context to the inputs that created those representations.
@@ -38,7 +37,7 @@ The program supports both `binary` (one class of interest and a null class) and 
 We write image datasets to tfrecord format files for 'analysis ready data' that is highly compressed and easy to share. One of the motivations for using TFRecords for data is to ensure a consistency in what images get allocated as training ad which get allocated as validation. These images are already randomized, and are not randomized further during training. Another advantage is the way in which it facilitates efficient data throughput from file to to GPU memory where the numerical calculations carried out during model training, and making out-of-memory errors caused by variation in data input and output throughput to and from the GPU. Protocol buffers are also a very good compression technique for sharing large amounts of labeled data.
 
 * Images are augmented using Keras image augmentation generator functions
-* Each augmented image is written to file (jpeg for images and png for labels - one image per band of the on-hot encoded label)
+* Each augmented image is written to file (png for labels and images - one image per band of the on-hot encoded label)
 * Images are read back in and written to TF-Record format files
 * Models are trained on the augmented data encoded in the tf-records, so the original data is a hold-out or test set. This is ideal because although the validation dataset (drawn from augmented data) doesn't get used to adjust model weights, it does influence model training by triggering early stopping if validation loss is not improving. Testing on an untransformed set is also a further check/reassurance of model performance and evaluation metric
 
@@ -104,15 +103,7 @@ Labels were created by Daniel Buscombe. Prototype version (72 labeled images fro
 cd res_unet
 ```
 
-2. Download the sample imagery
-
-```
-cd sample_images/
-python download_jpegs.py
-cd ..
-```
-
-3. Run the program like so to use a model that you have weights for (either provided with this repository or generated yourself using a procedure described below) o a directory of images
+2. Run the program like so to use a model that you have weights for (either provided with this repository or generated yourself using a procedure described below) o a directory of images
 
 ```
 python seg_images_in_folder.py
@@ -121,6 +112,8 @@ python seg_images_in_folder.py
 You will be prompted to select a weights file (with file extension `*.h5`), then a directory containing the images you wish to segment
 
 When the program has completed, go to the folder of samples you asked the model to segment and you will see a model predictions as new images (*_predseg.png). If the segmentation is binary (i.e. NCLASSES = 1 in the config file), the program will additionally create a composite of the sample image and its estimated mask.
+
+The image is downsized to 1024x768, and the model makes multiple predictions on 1) the original image, 2) the horizontally flipped image, 3) the vertically flipped image, and 4) a series of images that have been rolled/wrapped about the x-axis. For each image, a different model prediction is obtained. Those predictions are then ensembled to form the final softmax scores for the image. If there are 2 classes present, indicated by a range in softmax scores > .5, then the Otsu threshold is found and used as the binarizing threshold. Otherwise, a threshold of 0.75 is applied.
 
 
 ### Example: Watermasker for oblique aircraft coastal imagery (R, G, B)
@@ -348,8 +341,8 @@ python make_tfrecords.py
 
 This program will ask you for 4 things:
 * the location of the `config` file
-* the location of the folder of images (it expects a single subdirectory containing .jpg extension image files)
-* the location of the folder of corresponding label images (it expects a single subdirectory containing .jpg extension image files)
+* the location of the folder of images (it expects a single subdirectory containing .png extension image files)
+* the location of the folder of corresponding label images (it expects a single subdirectory containing .png extension image files)
 * the location where to write tfrecord files for model training
 
 It expects the same number of images and labels (i.e. you should provide 1 label image per image). It creates augmented images and corresponding labels in batches to save memory. Once all augmented images have been made, they are written to tfrecords. Note that the original images are not used in model training, only augmented images. That provides an opportunity to use the original image/label set as a hold-out or independent test set. All augmented images will have the same size, i.e. `TARGET_SIZE`. Augmentation is controlled by the `AUG_*` parameters in the `config` file. I advise you use only small shifts and zooms. Use vertical and horizontal flips often.

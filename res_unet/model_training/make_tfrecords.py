@@ -321,7 +321,7 @@ def get_seg_dataset_for_tfrecords(imdir, shared_size):
 ## AUGMENTATION
 ##========================================================
 
-n_im = len(glob(imdir+os.sep+'*.jpg'))
+n_im = len(glob(imdir+os.sep+'*.png'))
 print(n_im)
 
 try:
@@ -330,9 +330,16 @@ try:
 except:
     pass
 
+if n_im==0:
+    n_im = len(glob(imdir+os.sep+'*.jpg'))
+    print(n_im)
 
-for file in glob(imdir+os.sep+'*.jpg'):
-    shutil.move(file,imdir+os.sep+'images')
+    for file in glob(imdir+os.sep+'*.jpg'):
+        shutil.move(file,imdir+os.sep+'images')
+
+else:
+    for file in glob(imdir+os.sep+'*.png'):
+        shutil.move(file,imdir+os.sep+'images')
 
 #imdir += os.sep+'images'
 
@@ -342,9 +349,12 @@ if USEMASK:
         os.mkdir(lab_path+os.sep+'aug_masks')
     except:
         pass
+
+    for file in glob(lab_path+os.sep+'*.png'):
+        shutil.move(file,lab_path+os.sep+'masks')
+
     for file in glob(lab_path+os.sep+'*.jpg'):
         shutil.move(file,lab_path+os.sep+'masks')
-    #lab_path += os.sep+'masks'
 
 else:
     try:
@@ -352,9 +362,11 @@ else:
         os.mkdir(lab_path+os.sep+'aug_labels')
     except:
         pass
+    for file in glob(lab_path+os.sep+'*.png'):
+        shutil.move(file,lab_path+os.sep+'labels')
+
     for file in glob(lab_path+os.sep+'*.jpg'):
         shutil.move(file,lab_path+os.sep+'labels')
-    #lab_path += os.sep+'labels'
 
 # print(imdir)
 # print(lab_path)
@@ -366,10 +378,10 @@ if N_DATA_BANDS==4:
     except:
         pass
 
-
+    for file in glob(imdir2+os.sep+'*.png'):
+        shutil.move(file,imdir2+os.sep+'nir')
     for file in glob(imdir2+os.sep+'*.jpg'):
         shutil.move(file,imdir2+os.sep+'nir')
-
 
 
 if DO_AUG:

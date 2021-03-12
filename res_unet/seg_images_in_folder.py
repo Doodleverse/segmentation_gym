@@ -25,7 +25,8 @@
 
 import os
 
-USE_GPU = False #True
+USE_GPU = True
+DO_CRF_REFINE = True
 
 if USE_GPU == True:
    ##use the first available GPU
@@ -39,8 +40,14 @@ else:
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 import numpy as np
 import tensorflow as tf #numerical operations on gpu
-
-# from joblib import Parallel, delayed
+from joblib import Parallel, delayed
+from numpy.lib.stride_tricks import as_strided as ast
+from skimage.morphology import remove_small_holes, remove_small_objects
+from skimage.restoration import inpaint
+from scipy.ndimage import maximum_filter
+from skimage.transform import resize
+from tqdm import tqdm
+from skimage.filters import threshold_otsu
 
 SEED=42
 np.random.seed(SEED)
@@ -338,9 +345,8 @@ def res_unet(sz, f, nclasses=1):
     model = tf.keras.models.Model(inputs=[inputs], outputs=[outputs])
     return model
 
-
 #-----------------------------------
-def seg_file2tensor_noresize(f):
+def seg_file2tensor_3band(f, resize):
     """
     "seg_file2tensor(f)"
     This function reads a jpeg image from file into a cropped and resized tensor,
@@ -358,49 +364,27 @@ def seg_file2tensor_noresize(f):
     elif 'png' in f:
         image = tf.image.decode_png(bits)
 
-    return image
+    if resize:
+        w = tf.shape(image)[0]
+        h = tf.shape(image)[1]
+        tw = TARGET_SIZE[0]
+        th = TARGET_SIZE[1]
+        resize_crit = (w * th) / (h * tw)
+        image = tf.cond(resize_crit < 1,
+                      lambda: tf.image.resize(image, [w*tw/w, h*tw/w]), # if true
+                      lambda: tf.image.resize(image, [w*th/h, h*th/h])  # if false
+                     )
 
-
-
-#-----------------------------------
-def seg_file2tensor_3band(f):
-    """
-    "seg_file2tensor(f)"
-    This function reads a jpeg image from file into a cropped and resized tensor,
-    for use in prediction with a trained segmentation model
-    INPUTS:
-        * f [string] file name of jpeg
-    OPTIONAL INPUTS: None
-    OUTPUTS:
-        * image [tensor array]: unstandardized image
-    GLOBAL INPUTS: TARGET_SIZE
-    """
-    bits = tf.io.read_file(f)
-    if 'jpg' in f:
-        image = tf.image.decode_jpeg(bits)
-    elif 'png' in f:
-        image = tf.image.decode_png(bits)
-
-    w = tf.shape(image)[0]
-    h = tf.shape(image)[1]
-    tw = TARGET_SIZE[0]
-    th = TARGET_SIZE[1]
-    resize_crit = (w * th) / (h * tw)
-    image = tf.cond(resize_crit < 1,
-                  lambda: tf.image.resize(image, [w*tw/w, h*tw/w]), # if true
-                  lambda: tf.image.resize(image, [w*th/h, h*th/h])  # if false
-                 )
-
-    nw = tf.shape(image)[0]
-    nh = tf.shape(image)[1]
-    image = tf.image.crop_to_bounding_box(image, (nw - tw) // 2, (nh - th) // 2, tw, th)
-    # image = tf.cast(image, tf.uint8) #/ 255.0
+        nw = tf.shape(image)[0]
+        nh = tf.shape(image)[1]
+        image = tf.image.crop_to_bounding_box(image, (nw - tw) // 2, (nh - th) // 2, tw, th)
+        # image = tf.cast(image, tf.uint8) #/ 255.0
 
     return image
 
 
 #-----------------------------------
-def seg_file2tensor_4band(f, fir):
+def seg_file2tensor_4band(f, fir, resize):
     """
     "seg_file2tensor(f)"
     This function reads a jpeg image from file into a cropped and resized tensor,
@@ -426,20 +410,21 @@ def seg_file2tensor_4band(f, fir):
 
     image = tf.concat([image, nir],-1)[:,:,:4]
 
-    w = tf.shape(image)[0]
-    h = tf.shape(image)[1]
-    tw = TARGET_SIZE[0]
-    th = TARGET_SIZE[1]
-    resize_crit = (w * th) / (h * tw)
-    image = tf.cond(resize_crit < 1,
-                  lambda: tf.image.resize(image, [w*tw/w, h*tw/w]), # if true
-                  lambda: tf.image.resize(image, [w*th/h, h*th/h])  # if false
-                 )
+    if resize:
+        w = tf.shape(image)[0]
+        h = tf.shape(image)[1]
+        tw = TARGET_SIZE[0]
+        th = TARGET_SIZE[1]
+        resize_crit = (w * th) / (h * tw)
+        image = tf.cond(resize_crit < 1,
+                      lambda: tf.image.resize(image, [w*tw/w, h*tw/w]), # if true
+                      lambda: tf.image.resize(image, [w*th/h, h*th/h])  # if false
+                     )
 
-    nw = tf.shape(image)[0]
-    nh = tf.shape(image)[1]
-    image = tf.image.crop_to_bounding_box(image, (nw - tw) // 2, (nh - th) // 2, tw, th)
-    # image = tf.cast(image, tf.uint8) #/ 255.0
+        nw = tf.shape(image)[0]
+        nh = tf.shape(image)[1]
+        image = tf.image.crop_to_bounding_box(image, (nw - tw) // 2, (nh - th) // 2, tw, th)
+        # image = tf.cast(image, tf.uint8) #/ 255.0
 
     return image
 
@@ -499,7 +484,6 @@ weights = root.filename
 print(weights)
 root.withdraw()
 
-
 root = Tk()
 root.filename =  filedialog.askdirectory(initialdir = "/samples",title = "Select directory of images to segment")
 sample_direc = root.filename
@@ -535,55 +519,91 @@ if len(sample_filenames)==0:
 
 print('Number of samples: %i' % (len(sample_filenames)))
 
-# Parallel()
-
 for counter,f in enumerate(sample_filenames):
     if N_DATA_BANDS<=3:
-        image = seg_file2tensor_3band(f)/255
+        image = seg_file2tensor_3band(f, resize=True)/255
     else:
-        image = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir') )/255
+        image = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir'), resize=True )/255
 
-    est_label = model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
+    E = []
+    E.append(model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze())
+    E.append(np.fliplr(model.predict(tf.expand_dims(np.fliplr(image), 0) , batch_size=1).squeeze()))
+    E.append(np.flipud(model.predict(tf.expand_dims(np.flipud(image), 0) , batch_size=1).squeeze()))
+
+    for k in np.linspace(100,TARGET_SIZE[0],10):
+        E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, int(k)), 0) , batch_size=1).squeeze(), -int(k)))
+
+    for k in np.linspace(100,TARGET_SIZE[0],10):
+        E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, -int(k)), 0) , batch_size=1).squeeze(), int(k)))
+
+
     K.clear_session()
 
-    #conf = np.zeros_like(est_label)
+    if N_DATA_BANDS<=3:
+        image = seg_file2tensor_3band(f, resize=False)/255
+    else:
+        image = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir'), resize=False )/255
+
+    width = image.shape[0]
+    height = image.shape[1]
+
+    E = [maximum_filter(resize(e,(width,height)), int(width/100)) for e in E]
+
+    est_label = np.median(np.dstack(E), axis=-1)
+    var = np.std(np.dstack(E), axis=-1)
+
+    est_label = est_label[:width,:height]
+
+    if np.max(est_label)-np.min(est_label) > .5:
+        thres = threshold_otsu(est_label)
+        print("Threshold: %f" % (thres))
+    else:
+        thres = .75
+        print("Default threshold: %f" % (thres))
+
     if NCLASSES==1:
         conf = 1-est_label
-        conf[est_label<.5] = est_label[est_label<.5]
+        conf[est_label<thres] = est_label[est_label<thres]
         conf = 1-conf
     else:
         conf = np.max(est_label, -1)
+
+    conf[np.isnan(conf)] = 0
+    conf[np.isinf(conf)] = 0
+
     model_conf = np.sum(conf)/np.prod(conf.shape)
     print('Overall model confidence = %f'%(model_conf))
 
     if NCLASSES>1:
         est_label = tf.argmax(est_label, axis=-1)
     else:
-        est_label[est_label<0.5] = 0
-        est_label[est_label>0.5] = 1
+        est_label[est_label<thres] = 0
+        est_label[est_label>thres] = 1
 
-    #image = seg_file2tensor_noresize(f)/255
-    nx,ny,nz = image.shape
-
-    est_label = np.round(resize(est_label/NCLASSES,(nx,ny))*NCLASSES).astype(np.uint8)
-
-    if DO_CRF_REFINE:
-        est_label = crf_refine(est_label, (255*image.numpy().astype(np.uint8)),
-                                theta_col=10, mu=10, theta_spat=1, mu_spat=1, nclasses = NCLASSES+1)
-
+    if NCLASSES==1:
+        est_label = remove_small_holes(est_label.astype('uint8')*2, 2*width)
+        est_label = remove_small_objects(est_label.astype('uint8')*2, 2*width)
+        est_label[est_label<thres] = 0
+        est_label[est_label>thres] = 1
     #color_label = label_to_colors(est_label, image.numpy()[:,:,0]==0, alpha=128, colormap=class_label_colormap, color_class_offset=0, do_alpha=False)
-
 
     if NCLASSES==1:
         if 'jpg' in f:
             imsave(f.replace('.jpg', '_predseg.png'), (est_label*255).astype(np.uint8), check_contrast=False)
             # imsave(f.replace('.jpg', '_predseg_col.png'), (color_label).astype(np.uint8), check_contrast=False)
             cmd = 'convert '+f+' \( '+f.replace('.jpg', '_predseg.png')+' -normalize +level 0,50% \) -compose screen -composite '+f.replace('.jpg', '_segoverlay.png')
+            if os.name=='posix':
+                os.system(cmd)
+            else:
+                imsave(f.replace('.jpg', '_segoverlay.png'), np.dstack((255*image.numpy(), (est_label*255))), check_contrast=False)
         elif 'png' in f:
             imsave(f.replace('.png', '_predseg.png'), (est_label*255).astype(np.uint8), check_contrast=False)
             # imsave(f.replace('.png', '_predseg_col.png'), (color_label).astype(np.uint8), check_contrast=False)
             cmd = 'convert '+f+' \( '+f.replace('.png', '_predseg.png')+' -normalize +level 0,50% \) -compose screen -composite '+f.replace('.png', '_segoverlay.png')
-        os.system(cmd)
+            if os.name=='posix':
+                os.system(cmd)
+            else:
+                imsave(f.replace('.png', '_segoverlay.png'), np.dstack((255*image.numpy(), (est_label*255))), check_contrast=False)
     else:
         if 'jpg' in f:
             imsave(f.replace('.jpg', '_predseg.png'), (est_label).astype(np.uint8), check_contrast=False)
@@ -593,3 +613,130 @@ for counter,f in enumerate(sample_filenames):
             # imsave(f.replace('.png', '_predseg_col.png'), (color_label).astype(np.uint8), check_contrast=False)
 
     print("%s done" % (f))
+
+
+    # est_label += 1
+    # est_label[conf<np.mean(conf)/3] = 0
+
+    # conf = conf[:width,:height]
+
+    # try:
+    #     est_label2 = inpaint.inpaint_biharmonic(resize(est_label, (int(width/4), (height/4))), resize(est_label, (int(width/4), (height/4)))==0, multichannel=False)
+    #     est_label = resize(est_label2, (width, height))-1
+    #     est_label[est_label<0]=0
+    # except:
+    #     pass
+
+
+    # padwidth = width + (TARGET_SIZE[0] - width % TARGET_SIZE[0])
+    # padheight = height + (TARGET_SIZE[1] - height % TARGET_SIZE[1])
+    # I = np.zeros((padwidth, padheight, N_DATA_BANDS))
+    # I[:width,:height,:] = image.numpy()
+    #
+    # gridx, gridy = np.meshgrid(np.arange(padheight), np.arange(padwidth))
+    #
+    # E = []
+    # for n in tqdm([2,4,6,8]):
+    #     Zx,_ = sliding_window(gridx, (TARGET_SIZE[0],TARGET_SIZE[1]), (int(TARGET_SIZE[0]/n), int(TARGET_SIZE[1]/n)))
+    #     Zy,_ = sliding_window(gridy, (TARGET_SIZE[0],TARGET_SIZE[1]), (int(TARGET_SIZE[0]/n), int(TARGET_SIZE[1]/n)))
+    #     #print(len(Zx))
+    #
+    #     Z,ind = sliding_window(I, (TARGET_SIZE[0],TARGET_SIZE[1],N_DATA_BANDS), (int(TARGET_SIZE[0]/n), int(TARGET_SIZE[1]/n), N_DATA_BANDS))
+    #     #del I
+    #     est_label = np.zeros((padwidth, padheight))
+    #     N = np.zeros((padwidth, padheight))
+    #
+    #     for z,x,y in zip(Z,Zx,Zy):
+    #         est_label[y,x] = model.predict(tf.expand_dims(z, 0) , batch_size=1).squeeze()
+    #         N[y,x] += 1
+    #     del Z, Zx, Zy
+    #
+    #     #est_label = median(est_label, disk(int(width/100)))/255.
+    #     est_label = maximum_filter(est_label, int(width/100))
+    #
+    #     est_label /= N
+    #     del N
+    #     E.append(est_label)
+    #
+    # #est_label = model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
+    # K.clear_session()
+    #
+    # #est_label = np.median(np.dstack(E), axis=-1)
+    # est_label =  np.max(np.dstack(E), axis=-1)
+    # est_label[np.isnan(est_label)] = 0
+    # est_label[np.isinf(est_label)] = 0
+    #
+    # est_label = maximum_filter(est_label, int(width/100))
+    # est_label = median(est_label, disk(int(width/100)))/255.
+
+#
+# # =========================================================
+# def norm_shape(shap):
+#    '''
+#    Normalize numpy array shapes so they're always expressed as a tuple,
+#    even for one-dimensional shapes.
+#    '''
+#    try:
+#       i = int(shap)
+#       return (i,)
+#    except TypeError:
+#       # shape was not a number
+#       pass
+#
+#    try:
+#       t = tuple(shap)
+#       return t
+#    except TypeError:
+#       # shape was not iterable
+#       pass
+#
+#    raise TypeError('shape must be an int, or a tuple of ints')
+#
+#
+# # =========================================================
+# # Return a sliding window over a in any number of dimensions
+# # version with no memory mapping
+# def sliding_window(a,ws,ss = None,flatten = True):
+#     '''
+#     Return a sliding window over a in any number of dimensions
+#     '''
+#     if None is ss:
+#         # ss was not provided. the windows will not overlap in any direction.
+#         ss = ws
+#     ws = norm_shape(ws)
+#     ss = norm_shape(ss)
+#     # convert ws, ss, and a.shape to numpy arrays
+#     ws = np.array(ws)
+#     ss = np.array(ss)
+#     shap = np.array(a.shape)
+#     # ensure that ws, ss, and a.shape all have the same number of dimensions
+#     ls = [len(shap),len(ws),len(ss)]
+#     if 1 != len(set(ls)):
+#         raise ValueError(\
+#         'a.shape, ws and ss must all have the same length. They were %s' % str(ls))
+#
+#     # ensure that ws is smaller than a in every dimension
+#     if np.any(ws > shap):
+#         raise ValueError(\
+#         'ws cannot be larger than a in any dimension.\
+#  a.shape was %s and ws was %s' % (str(a.shape),str(ws)))
+#     # how many slices will there be in each dimension?
+#     newshape = norm_shape(((shap - ws) // ss) + 1)
+#     # the shape of the strided array will be the number of slices in each dimension
+#     # plus the shape of the window (tuple addition)
+#     newshape += norm_shape(ws)
+#     # the strides tuple will be the array's strides multiplied by step size, plus
+#     # the array's strides (tuple addition)
+#     newstrides = norm_shape(np.array(a.strides) * ss) + a.strides
+#     a = ast(a,shape = newshape,strides = newstrides)
+#     if not flatten:
+#         return a
+#     # Collapse strided so that it has one more dimension than the window.  I.e.,
+#     # the new array is a flat list of slices.
+#     meat = len(ws) if ws.shape else 0
+#     firstdim = (np.product(newshape[:-meat]),) if ws.shape else ()
+#     dim = firstdim + (newshape[-meat:])
+#     # remove any dimensions with size 1
+#     #dim = filter(lambda i : i != 1,dim)
+#
+#     return a.reshape(dim), newshape
