@@ -36,8 +36,6 @@ import tensorflow.keras.backend as K
 import numpy as np
 import tensorflow as tf
 import os, shutil, json
-
-#utils
 #keras functions for early stopping and model weights saving
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 
@@ -51,8 +49,6 @@ print("Version: ", tf.__version__)
 print("Eager mode: ", tf.executing_eagerly())
 print('GPU name: ', tf.config.experimental.list_physical_devices('GPU'))
 print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
-
-
 
 #-----------------------------------
 def plot_seg_history_iou(history, train_hist_fig):
@@ -97,6 +93,10 @@ def crf_refine(label, img, nclasses = 2, theta_col=100, theta_spat=3, compat=120
     GLOBAL INPUTS: None
     OUTPUTS: label [ndarray]: label image 2D matrix of integers
     """
+
+    gx,gy = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
+    # print(gx.shape)
+    img = np.dstack((img,gx,gy))
 
     H = label.shape[0]
     W = label.shape[1]
@@ -392,179 +392,10 @@ def dice_coef_loss(y_true, y_pred):
     return 1.0 - dice_coef(y_true, y_pred)
 
 
-##===============================================================
-#augmentation functions
-def translate(img, shift=10, direction='right', roll=True):
-    assert direction in ['right', 'left', 'down', 'up'], 'Directions should be top|up|left|right'
-    img = img.copy()
-    if direction == 'right':
-        right_slice = img[:, -shift:].copy()
-        img[:, shift:] = img[:, :-shift]
-        if roll:
-            img[:,:shift] = np.fliplr(right_slice)
-    if direction == 'left':
-        left_slice = img[:, :shift].copy()
-        img[:, :-shift] = img[:, shift:]
-        if roll:
-            img[:, -shift:] = left_slice
-    if direction == 'down':
-        down_slice = img[-shift:, :].copy()
-        img[shift:, :] = img[:-shift,:]
-        if roll:
-            img[:shift, :] = down_slice
-    if direction == 'up':
-        upper_slice = img[:shift, :].copy()
-        img[:-shift, :] = img[shift:, :]
-        if roll:
-            img[-shift:,:] = upper_slice
-    return img
-
-def random_crop(img, crop_size=(10, 10)):
-    assert crop_size[0] <= img.shape[0] and crop_size[1] <= img.shape[1], "Crop size should be less than image size"
-    img = img.copy()
-    w, h = img.shape[:2]
-    x, y = np.random.randint(h-crop_size[0]), np.random.randint(w-crop_size[1])
-    img = img[y:y+crop_size[0], x:x+crop_size[1]]
-    return img
-
-
-def rotate_img(img, angle, bg_patch=(5,5)):
-    assert len(img.shape) <= 3, "Incorrect image shape"
-    rgb = len(img.shape) == 3
-    if rgb:
-        bg_color = np.mean(img[:bg_patch[0], :bg_patch[1], :], axis=(0,1))
-    else:
-        bg_color = np.mean(img[:bg_patch[0], :bg_patch[1]])
-    img = rotate(img, angle, reshape=False)
-    mask = [img <= 0, np.any(img <= 0, axis=-1)][rgb]
-    img[mask] = bg_color
-    return img
-
-
 
 ###############################################################
 ### TFRECORD/DATA FUNCTIONS
 ###############################################################
-#-----------------------------------
-#-----------------------------------
-def recompress_seg_image(image, label):
-    """
-    "recompress_seg_image"
-    This function takes an image and label encoded as a byte string
-    and recodes as an 8-bit jpeg
-    INPUTS:
-        * image [tensor array]
-        * label [tensor array]
-    OPTIONAL INPUTS: None
-    GLOBAL INPUTS: None
-    OUTPUTS:
-        * image [tensor array]
-        * label [tensor array]
-    """
-    image = tf.cast(image, tf.uint8)
-    image = tf.image.encode_png(image, compression=0) #jpeg(image, optimize_size=False, chroma_downsampling=False, quality=100, x_density=1000, y_density=1000)
-
-    label = tf.cast(label, tf.uint8)
-    label = tf.image.encode_png(label, compression=0) ##, optimize_size=False, chroma_downsampling=False, quality=100, x_density=400, y_density=400)
-
-    return image, label
-
-
-#-----------------------------------
-def write_seg_records(dataset, tfrecord_dir, root_string):
-    """
-    "write_seg_records(dataset, tfrecord_dir)"
-    This function writes a tf.data.Dataset object to TFRecord shards
-    INPUTS:
-        * dataset [tf.data.Dataset]
-        * tfrecord_dir [string] : path to directory where files will be written
-    OPTIONAL INPUTS: None
-    GLOBAL INPUTS: None
-    OUTPUTS: None (files written to disk)
-    """
-    for shard, (image, label) in enumerate(dataset):
-      shard_size = image.numpy().shape[0]
-      filename = tfrecord_dir+os.sep+root_string + "{:02d}-{}.tfrec".format(shard, shard_size)
-
-      with tf.io.TFRecordWriter(filename) as out_file:
-        for i in range(shard_size):
-          example = to_seg_tfrecord(image.numpy()[i],label.numpy()[i])
-          out_file.write(example.SerializeToString())
-        print("Wrote file {} containing {} records".format(filename, shard_size))
-
-
-#-----------------------------------
-def write_seg_records_4bands(dataset, tfrecord_dir, root_string):
-    """
-    "write_seg_records(dataset, tfrecord_dir)"
-    This function writes a tf.data.Dataset object to TFRecord shards
-    INPUTS:
-        * dataset [tf.data.Dataset]
-        * tfrecord_dir [string] : path to directory where files will be written
-    OPTIONAL INPUTS: None
-    GLOBAL INPUTS: None
-    OUTPUTS: None (files written to disk)
-    """
-    for shard, (image, nir, label) in enumerate(dataset):
-      shard_size = image.numpy().shape[0]
-      filename = tfrecord_dir+os.sep+root_string + "{:02d}-{}.tfrec".format(shard, shard_size)
-
-      with tf.io.TFRecordWriter(filename) as out_file:
-        for i in range(shard_size):
-          example = to_seg_tfrecord_4bands(image.numpy()[i],nir.numpy()[i],label.numpy()[i])
-          out_file.write(example.SerializeToString())
-        print("Wrote file {} containing {} records".format(filename, shard_size))
-
-#-----------------------------------
-def _bytestring_feature(list_of_bytestrings):
-    """
-    "_bytestring_feature"
-    cast inputs into tf dataset 'feature' classes
-    INPUTS:
-        * list_of_bytestrings
-    OPTIONAL INPUTS:
-    GLOBAL INPUTS:
-    OUTPUTS: tf.train.Feature example
-    """
-    return tf.train.Feature(bytes_list=tf.train.BytesList(value=list_of_bytestrings))
-
-#-----------------------------------
-def to_seg_tfrecord(img_bytes, label_bytes):
-    """
-    "to_seg_tfrecord"
-    This function creates a TFRecord example from an image byte string and a label feature
-    INPUTS:
-        * img_bytes
-        * label_bytes
-    OPTIONAL INPUTS: None
-    GLOBAL INPUTS: None
-    OUTPUTS: tf.train.Feature example
-    """
-    feature = {
-      "image": _bytestring_feature([img_bytes]), # one image in the list
-      "label": _bytestring_feature([label_bytes]), # one label image in the list
-              }
-    return tf.train.Example(features=tf.train.Features(feature=feature))
-
-
-#-----------------------------------
-def to_seg_tfrecord_4bands(img_bytes, nir_bytes, label_bytes):
-    """
-    "to_seg_tfrecord"
-    This function creates a TFRecord example from an image byte string and a label feature
-    INPUTS:
-        * img_bytes
-        * label_bytes
-    OPTIONAL INPUTS: None
-    GLOBAL INPUTS: None
-    OUTPUTS: tf.train.Feature example
-    """
-    feature = {
-      "image": _bytestring_feature([img_bytes]), # one image in the list
-      "nir": _bytestring_feature([nir_bytes]), # one nir image in the list
-      "label": _bytestring_feature([label_bytes]), # one label image in the list
-              }
-    return tf.train.Example(features=tf.train.Features(feature=feature))
 
 #-----------------------------------
 def seg_file2tensor(f):
@@ -601,3 +432,124 @@ def seg_file2tensor(f):
     # image = tf.cast(image, tf.uint8) #/ 255.0
 
     return image
+
+
+#-----------------------------------
+#-----------------------------------
+# def recompress_seg_image(image, label):
+#     """
+#     "recompress_seg_image"
+#     This function takes an image and label encoded as a byte string
+#     and recodes as an 8-bit jpeg
+#     INPUTS:
+#         * image [tensor array]
+#         * label [tensor array]
+#     OPTIONAL INPUTS: None
+#     GLOBAL INPUTS: None
+#     OUTPUTS:
+#         * image [tensor array]
+#         * label [tensor array]
+#     """
+#     image = tf.cast(image, tf.uint8)
+#     image = tf.image.encode_png(image, compression=0) #jpeg(image, optimize_size=False, chroma_downsampling=False, quality=100, x_density=1000, y_density=1000)
+#
+#     label = tf.cast(label, tf.uint8)
+#     label = tf.image.encode_png(label, compression=0) ##, optimize_size=False, chroma_downsampling=False, quality=100, x_density=400, y_density=400)
+#
+#     return image, label
+
+
+# #-----------------------------------
+# def write_seg_records(dataset, tfrecord_dir, root_string):
+#     """
+#     "write_seg_records(dataset, tfrecord_dir)"
+#     This function writes a tf.data.Dataset object to TFRecord shards
+#     INPUTS:
+#         * dataset [tf.data.Dataset]
+#         * tfrecord_dir [string] : path to directory where files will be written
+#     OPTIONAL INPUTS: None
+#     GLOBAL INPUTS: None
+#     OUTPUTS: None (files written to disk)
+#     """
+#     for shard, (image, label) in enumerate(dataset):
+#       shard_size = image.numpy().shape[0]
+#       filename = tfrecord_dir+os.sep+root_string + "{:02d}-{}.tfrec".format(shard, shard_size)
+#
+#       with tf.io.TFRecordWriter(filename) as out_file:
+#         for i in range(shard_size):
+#           example = to_seg_tfrecord(image.numpy()[i].flatten().tobytes(),label.numpy()[i].flatten().tobytes())
+#           out_file.write(example.SerializeToString())
+#         print("Wrote file {} containing {} records".format(filename, shard_size))
+
+# #-----------------------------------
+# def write_seg_records_4bands(dataset, tfrecord_dir, root_string):
+#     """
+#     "write_seg_records(dataset, tfrecord_dir)"
+#     This function writes a tf.data.Dataset object to TFRecord shards
+#     INPUTS:
+#         * dataset [tf.data.Dataset]
+#         * tfrecord_dir [string] : path to directory where files will be written
+#     OPTIONAL INPUTS: None
+#     GLOBAL INPUTS: None
+#     OUTPUTS: None (files written to disk)
+#     """
+#     for shard, (image, nir, label) in enumerate(dataset):
+#       shard_size = image.numpy().shape[0]
+#       filename = tfrecord_dir+os.sep+root_string + "{:02d}-{}.tfrec".format(shard, shard_size)
+#
+#       with tf.io.TFRecordWriter(filename) as out_file:
+#         for i in range(shard_size):
+#           example = to_seg_tfrecord_4bands(image.numpy()[i].flatten().tobytes(),nir.numpy()[i].flatten().tobytes(),label.numpy()[i].flatten().tobytes())
+#           out_file.write(example.SerializeToString())
+#         print("Wrote file {} containing {} records".format(filename, shard_size))
+#
+# #-----------------------------------
+# def _bytestring_feature(list_of_bytestrings):
+#     """
+#     "_bytestring_feature"
+#     cast inputs into tf dataset 'feature' classes
+#     INPUTS:
+#         * list_of_bytestrings
+#     OPTIONAL INPUTS:
+#     GLOBAL INPUTS:
+#     OUTPUTS: tf.train.Feature example
+#     """
+#     return tf.train.Feature(bytes_list=tf.train.BytesList(value=list_of_bytestrings))
+#
+# #-----------------------------------
+# def to_seg_tfrecord(img_bytes, label_bytes):
+#     """
+#     "to_seg_tfrecord"
+#     This function creates a TFRecord example from an image byte string and a label feature
+#     INPUTS:
+#         * img_bytes
+#         * label_bytes
+#     OPTIONAL INPUTS: None
+#     GLOBAL INPUTS: None
+#     OUTPUTS: tf.train.Feature example
+#     """
+#     feature = {
+#       "image": _bytestring_feature([img_bytes]), # one image in the list
+#       "label": _bytestring_feature([label_bytes]), # one label image in the list
+#               }
+#     return tf.train.Example(features=tf.train.Features(feature=feature))
+#
+#
+# #-----------------------------------
+# def to_seg_tfrecord_4bands(img_bytes, nir_bytes, label_bytes):
+#     """
+#     "to_seg_tfrecord"
+#     This function creates a TFRecord example from an image byte string and a label feature
+#     INPUTS:
+#         * img_bytes
+#         * label_bytes
+#     OPTIONAL INPUTS: None
+#     GLOBAL INPUTS: None
+#     OUTPUTS: tf.train.Feature example
+#     """
+#     feature = {
+#       "image": _bytestring_feature([img_bytes]), # one image in the list
+#       "nir": _bytestring_feature([nir_bytes]), # one nir image in the list
+#       "label": _bytestring_feature([label_bytes]), # one label image in the list
+#               }
+#     return tf.train.Example(features=tf.train.Features(feature=feature))

@@ -90,6 +90,11 @@ root.withdraw()
 
 from imports import *
 
+
+###############################################################
+## FUNCTIONS
+###############################################################
+
 #-----------------------------------
 def read_seg_image_and_label(img_path):
     """
@@ -253,40 +258,6 @@ def resize_and_crop_seg_image_4bands(image, nir, label):
 
     return image, nir, label
 
-
-#-----------------------------------
-def recompress_seg_image_4bands(image, nir_image, label):
-    """
-    "recompress_seg_image"
-    This function takes an image and label encoded as a byte string
-    and recodes as an 8-bit jpeg
-    INPUTS:
-        * image [tensor array]
-        * label [tensor array]
-    OPTIONAL INPUTS: None
-    GLOBAL INPUTS: None
-    OUTPUTS:
-        * image [tensor array]
-        * label [tensor array]
-    """
-    image = tf.cast(image, tf.uint8)
-    image = tf.image.encode_png(image, compression=0) #jpeg(image, optimize_size=False, chroma_downsampling=False, quality=100, x_density=1000, y_density=1000)
-
-    nir_image = tf.cast(nir_image, tf.uint8)
-    nir_image = tf.image.encode_png(nir_image, compression=0) #jpeg(nir_image, optimize_size=False, chroma_downsampling=False, quality=100, x_density=1000, y_density=1000)
-
-    label = tf.cast(label, tf.uint8)
-
-    label = tf.image.encode_png(label, compression=0) #, optimize_size=False, chroma_downsampling=False, quality=100, x_density=1000, y_density=1000)
-
-    return image, nir_image, label
-
-# #-----------------------------------
-# def docrf(image, nir_image, label):
-#     label, _ = crf_refine(np.asarray(label), np.asarray(image), nclasses = NCLASSES, theta_col=10, theta_spat=3, compat=10)
-#     return image, nir_image, label
-#
-
 #-----------------------------------
 def get_seg_dataset_for_tfrecords(imdir, shared_size):
     """
@@ -306,12 +277,11 @@ def get_seg_dataset_for_tfrecords(imdir, shared_size):
     if N_DATA_BANDS<=3:
         dataset = dataset.map(read_seg_image_and_label)
         dataset = dataset.map(resize_and_crop_seg_image, num_parallel_calls=AUTO)
-        dataset = dataset.map(recompress_seg_image, num_parallel_calls=AUTO)
+        # dataset = dataset.map(recompress_seg_image, num_parallel_calls=AUTO)
     elif N_DATA_BANDS==4:
         dataset = dataset.map(read_seg_image_and_label_4bands)
         dataset = dataset.map(resize_and_crop_seg_image_4bands, num_parallel_calls=AUTO)
-        #dataset = dataset.map(docrf)
-        dataset = dataset.map(recompress_seg_image_4bands, num_parallel_calls=AUTO)
+        # dataset = dataset.map(recompress_seg_image_4bands, num_parallel_calls=AUTO)
 
     dataset = dataset.batch(shared_size)
     return dataset
@@ -321,8 +291,10 @@ def get_seg_dataset_for_tfrecords(imdir, shared_size):
 ## AUGMENTATION
 ##========================================================
 
+IMS_PER_SHARD = 1
+
 n_im = len(glob(imdir+os.sep+'*.png'))
-print(n_im)
+# print(n_im)
 
 try:
     os.mkdir(imdir+os.sep+'images')
@@ -402,9 +374,6 @@ if DO_AUG:
     NX = TARGET_SIZE[0]
     NY = TARGET_SIZE[1]
 
-    print(NX)
-    print(NY)
-
     image_datagen = tf.keras.preprocessing.image.ImageDataGenerator(**data_gen_args)
     mask_datagen = tf.keras.preprocessing.image.ImageDataGenerator(**data_gen_args)
 
@@ -457,7 +426,7 @@ if DO_AUG:
 
                     if 'REMAP_CLASSES' not in locals():
                         if NCLASSES==1:
-                            l[l>0]=1 #null is water
+                            l[l>0]=1
 
                     if 'REMAP_CLASSES' in locals():
                         for k in REMAP_CLASSES.items():
@@ -466,25 +435,26 @@ if DO_AUG:
                     # if NCLASSES>1:
                     #     l[l==0]=1
                     l[l>NCLASSES]=NCLASSES
-                    #     print(np.unique(l.flatten()))
 
                     lstack = (np.arange(l.max()) == l[...,None]-1).astype(int) #one-hot encode
+                    if lstack.shape[-1]!=NCLASSES:
+                        lstack = np.dstack(( lstack, np.zeros(lstack.shape[:2]).astype(np.uint8) ))
+
+                    #print(lstack.shape)
 
                     try:
 
                         if NCLASSES>1:
 
-                        #if NCLASSES>1:
                             if DO_CRF_REFINE:
                                 for k in range(lstack.shape[-1]):
                                     #print(k)
-                                    l,_ = crf_refine(lstack[:,:,k], im, nclasses = NCLASSES, theta_col=1, theta_spat=1, compat=1)
+                                    l,_ = crf_refine(lstack[:,:,k], im, nclasses = NCLASSES, theta_col=40, theta_spat=1, compat=100)
                                     if MEDIAN_FILTER_VALUE>1:
                                         lstack[:,:,k] = np.round(median(l, disk(MEDIAN_FILTER_VALUE))).astype(np.uint8)
                                     else:
                                         lstack[:,:,k] = np.round(l).astype(np.uint8)
 
-                        # if NCLASSES>1:
                             for k in range(lstack.shape[-1]):
                                 if USEMASK:
                                     #imsave(lab_path+os.sep+os.sep+'aug_masks'+os.sep+'augimage_000000'+str(i)+'_'+str(k)+'.jpg', lstack[:,:,k].astype(np.uint8), quality=100, check_contrast=False)
@@ -504,6 +474,7 @@ if DO_AUG:
                         imsave(imdir+os.sep+'aug_images'+os.sep+'augimage_000000'+str(i)+'.png', im.astype(np.uint8), compression=0, check_contrast=False)
 
                     except:
+                        print('Error ')
                         pass
 
                     i += 1
@@ -540,11 +511,16 @@ if DO_AUG:
                             if DO_CRF_REFINE:
                                 for k in range(lstack.shape[-1]):
                                     #print(k)
-                                    l,_ = crf_refine(lstack[:,:,k], im, nclasses = NCLASSES, theta_col=1, theta_spat=1, compat=1)
-                                    if MEDIAN_FILTER_VALUE>1:
-                                        lstack[:,:,k] = np.round(median(l, disk(MEDIAN_FILTER_VALUE))).astype(np.uint8)
+                                    if NCLASSES==1:
+                                        l,_ = crf_refine(lstack[:,:,k], im, nclasses = NCLASSES, theta_col=40, theta_spat=1, compat=100)
                                     else:
-                                        lstack[:,:,k] = np.round(l).astype(np.uint8)
+                                        l,_ = crf_refine(np.argmax(lstack, -1), im, nclasses = NCLASSES, theta_col=40, theta_spat=1, compat=100)
+
+                                    if NCLASSES==1:
+                                        if MEDIAN_FILTER_VALUE>1:
+                                            lstack[:,:,k] = np.round(median(l, disk(MEDIAN_FILTER_VALUE))).astype(np.uint8)
+                                        else:
+                                            lstack[:,:,k] = np.round(l).astype(np.uint8)
 
                         #if NCLASSES>1:
                             for k in range(lstack.shape[-1]):
@@ -608,17 +584,19 @@ if N_DATA_BANDS<=3:
     for imgs,lbls in dataset.take(1):
 
       for count,(im,lab) in enumerate(zip(imgs,lbls)):
+         print(im.shape)
+         print(lab.shape)
          if N_DATA_BANDS==4:
-             plt.imshow(tf.image.decode_png(im))#jpeg(im, channels=3))
+             plt.imshow(im[:,:,:3]) #tf.image.decode_png(im))#jpeg(im, channels=3))
          else:
-             plt.imshow(tf.image.decode_png(im)) #jpeg(im, channels=N_DATA_BANDS))
+             plt.imshow(im) #tf.image.decode_png(im)) #jpeg(im, channels=N_DATA_BANDS))
 
          if NCLASSES==1:
-             lab = tf.image.decode_png(lab, channels=0)
+             #lab = tf.image.decode_png(lab, channels=0)
              plt.imshow(lab, alpha=0.3, cmap='bwr',vmin=0, vmax=NCLASSES)
          else:
-             lab = tf.image.decode_png(lab, channels=0)
-             plt.imshow(np.argmax(lab, -1), alpha=0.3, cmap='bwr',vmin=0, vmax=NCLASSES)
+             #lab = tf.argmax(lab, -1) #tf.image.decode_png(lab, channels=0)
+             plt.imshow(lab, alpha=0.3, cmap='bwr',vmin=0, vmax=NCLASSES)
          plt.axis('off')
          plt.savefig('ex'+str(counter)+'.png', dpi=200, bbox_inches='tight')
          counter +=1
@@ -630,27 +608,15 @@ elif N_DATA_BANDS==4:
 
       for count,(im,ii,lab) in enumerate(zip(imgs,nirs,lbls)):
 
-         im = tf.image.decode_png(im) #jpeg(im, channels=3)
+         #im = tf.image.decode_png(im) #jpeg(im, channels=3)
          plt.imshow(im)
 
-         lab = tf.image.decode_png(lab, channels=0)
+         if NCLASSES==1:
+             plt.imshow(lab, alpha=0.3, cmap='bwr',vmin=0, vmax=NCLASSES)
+         else:
+             #lab = tf.argmax(lab, -1) #tf.image.decode_png(lab, channels=0)
+             plt.imshow(lab, alpha=0.3, cmap='bwr',vmin=0, vmax=NCLASSES)
 
-         if NCLASSES>1:
-             if DO_CRF_REFINE:
-                 l = np.argmax(lab, -1)
-                 lstack = (np.arange(l.max()) == l[...,None]-1).astype(int) #one-hot encode
-                 for k in range(lstack.shape[-1]):
-                    #print(k)
-                     l,_ = crf_refine(lstack[:,:,k], im.numpy(), nclasses = NCLASSES, theta_col=1, theta_spat=1, compat=1)
-                     if MEDIAN_FILTER_VALUE>1:
-                         lstack[:,:,k] = np.round(median(l, disk(MEDIAN_FILTER_VALUE))).astype(np.uint8)
-                     else:
-                         lstack[:,:,k] = np.round(l).astype(np.uint8)
-                     lab = np.argmax(lstack, -1)
-             else:
-                     lab = np.argmax(lab, -1)
-
-         plt.imshow(lab, alpha=0.3, cmap='bwr',vmin=0, vmax=NCLASSES)
          plt.colorbar()
          plt.axis('off')
          plt.savefig('ex'+str(counter)+'.png', dpi=200, bbox_inches='tight')
@@ -665,10 +631,90 @@ elif N_DATA_BANDS==4:
          counter +=1
 
 
-# write tfrecords
-if N_DATA_BANDS<=3:
-    write_seg_records(dataset, tfrecord_dir, ROOT_STRING)
-elif N_DATA_BANDS==4:
-    write_seg_records_4bands(dataset, tfrecord_dir, ROOT_STRING)
+# # write tfrecords
+# if N_DATA_BANDS<=3:
+#     write_seg_records(dataset, tfrecord_dir, ROOT_STRING)
+# elif N_DATA_BANDS==4:
+#     write_seg_records_4bands(dataset, tfrecord_dir, ROOT_STRING)
+
+
+counter = 0
+for imgs,lbls in dataset:
+    try:
+        if N_DATA_BANDS<=3:
+        ##print(imgs.shape)
+            np.savez(tfrecord_dir+os.sep+ROOT_STRING+str(counter), imgs, lbls)
+        elif N_DATA_BANDS==4:
+            np.savez(tfrecord_dir+os.sep+ROOT_STRING+str(counter), imgs, nirs, lbls)
+        counter+=1
+    except:
+        print('Error %i' % counter)
+
+# path = tfrecord_dir+os.sep+ROOT_STRING+str(counter)+'.npz'
+# with np.load(path) as data:
+#     train_examples = data['arr_0'].astype('uint8')
+#     train_labels = data['arr_1'].astype('uint8')
+#plt.imshow(train_examples[0]); plt.imshow(np.argmax(train_labels[0],-1), alpha=0.4); plt.show()
+
+
+
+
+#================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+# #-----------------------------------
+# def recompress_seg_image_4bands(image, nir_image, label):
+#     """
+#     "recompress_seg_image"
+#     This function takes an image and label encoded as a byte string
+#     and recodes as an 8-bit jpeg
+#     INPUTS:
+#         * image [tensor array]
+#         * label [tensor array]
+#     OPTIONAL INPUTS: None
+#     GLOBAL INPUTS: None
+#     OUTPUTS:
+#         * image [tensor array]
+#         * label [tensor array]
+#     """
+#     image = tf.cast(image, tf.uint8)
+#     image = tf.image.encode_png(image, compression=0) #jpeg(image, optimize_size=False, chroma_downsampling=False, quality=100, x_density=1000, y_density=1000)
+#
+#     nir_image = tf.cast(nir_image, tf.uint8)
+#     nir_image = tf.image.encode_png(nir_image, compression=0) #jpeg(nir_image, optimize_size=False, chroma_downsampling=False, quality=100, x_density=1000, y_density=1000)
+#
+#     label = tf.cast(label, tf.uint8)
+#
+#     label = tf.image.encode_png(label, compression=0) #, optimize_size=False, chroma_downsampling=False, quality=100, x_density=1000, y_density=1000)
+#
+#     return image, nir_image, label
+
+
+
 
 #
+         # if NCLASSES>1:
+         #     if DO_CRF_REFINE:
+         #         l = np.argmax(lab, -1)
+         #         lstack = (np.arange(l.max()) == l[...,None]-1).astype(int) #one-hot encode
+         #         for k in range(lstack.shape[-1]):
+         #            #print(k)
+         #             l,_ = crf_refine(lstack[:,:,k], im.numpy(), nclasses = NCLASSES, theta_col=40, theta_spat=1, compat=100)
+         #             if MEDIAN_FILTER_VALUE>1:
+         #                 lstack[:,:,k] = np.round(median(l, disk(MEDIAN_FILTER_VALUE))).astype(np.uint8)
+         #             else:
+         #                 lstack[:,:,k] = np.round(l).astype(np.uint8)
+         #             lab = np.argmax(lstack, -1)
+         #     else:
+         #             lab = np.argmax(lab, -1)

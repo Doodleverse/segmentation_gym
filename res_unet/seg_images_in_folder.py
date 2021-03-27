@@ -531,24 +531,23 @@ for counter,f in enumerate(sample_filenames):
         E.append(np.fliplr(model.predict(tf.expand_dims(np.fliplr(image), 0) , batch_size=1).squeeze()))
         E.append(np.flipud(model.predict(tf.expand_dims(np.flipud(image), 0) , batch_size=1).squeeze()))
 
-        for k in np.linspace(100,TARGET_SIZE[0],10):
+        for k in np.linspace(100,int(TARGET_SIZE[0]/5),10):
             E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, int(k)), 0) , batch_size=1).squeeze(), -int(k)))
 
-        for k in np.linspace(100,TARGET_SIZE[0],10):
+        for k in np.linspace(100,int(TARGET_SIZE[0]/5),10):
             E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, -int(k)), 0) , batch_size=1).squeeze(), int(k)))
-
 
         K.clear_session()
 
-        if N_DATA_BANDS<=3:
-            image = seg_file2tensor_3band(f, resize=False)/255
-        else:
-            image = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir'), resize=False )/255
+        # if N_DATA_BANDS<=3:
+        #     image = seg_file2tensor_3band(f, resize=False)/255
+        # else:
+        #     image = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir'), resize=False )/255
 
         width = image.shape[0]
         height = image.shape[1]
 
-        E = [maximum_filter(resize(e,(width,height)), int(width/100)) for e in E]
+        E = [maximum_filter(resize(e,(width,height)), int(width/200)) for e in E]
         est_label = np.median(np.dstack(E), axis=-1)
         #var = np.std(np.dstack(E), axis=-1)
 
@@ -577,10 +576,10 @@ for counter,f in enumerate(sample_filenames):
 
         K.clear_session()
 
-        if N_DATA_BANDS<=3:
-            image = seg_file2tensor_3band(f, resize=False)/255
-        else:
-            image = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir'), resize=False )/255
+        # if N_DATA_BANDS<=3:
+        #     image = seg_file2tensor_3band(f, resize=False)/255
+        # else:
+        #     image = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir'), resize=False )/255
 
         width = image.shape[0]
         height = image.shape[1]

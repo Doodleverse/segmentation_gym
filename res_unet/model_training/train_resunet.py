@@ -22,7 +22,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-#
+
 import os
 # USE_GPU = False #True
 #
@@ -33,7 +33,7 @@ import os
 #    ## to use the CPU (not recommended):
 #    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
-import json, os
+import json
 from tkinter import filedialog
 from tkinter import *
 from random import shuffle
@@ -56,7 +56,7 @@ root.withdraw()
 
 weights = configfile.replace('.json','.h5').replace('config', 'weights')
 
-
+#---------------------------------------------------
 with open(configfile) as f:
     config = json.load(f)
 
@@ -64,7 +64,7 @@ for k in config.keys():
     exec(k+'=config["'+k+'"]')
 
 from imports import *
-
+#---------------------------------------------------
 
 trainsamples_fig = weights.replace('.h5','_train_sample_batch.png').replace('weights', 'examples')
 valsamples_fig = weights.replace('.h5','_val_sample_batch.png').replace('weights', 'examples')
@@ -73,127 +73,39 @@ hist_fig = weights.replace('.h5','_trainhist_'+str(BATCH_SIZE)+'.png').replace('
 
 test_samples_fig =  weights.replace('.h5','_val.png').replace('weights', 'examples')
 
-
 ###############################################################
 ### DATA FUNCTIONS
 ###############################################################
+
+def load_npz(example):
+    with np.load(example.numpy()) as data:
+        image = data['arr_0'].astype('uint8')
+        label = data['arr_1'].astype('uint8')
+    return image, label
 
 @tf.autograph.experimental.do_not_convert
 #-----------------------------------
 def read_seg_tfrecord_multiclass(example):
     """
     "read_seg_tfrecord_multiclass(example)"
-    This function reads an example from a TFrecord file into a single image and label
-    This is the "multiclass" version for imagery, where the classes are mapped as follows:
+    This function reads an example from a npz file into a single image and label
     INPUTS:
-        * TFRecord example object
+        * TFRecord example object (filename of npz)
     OPTIONAL INPUTS: None
     GLOBAL INPUTS: TARGET_SIZE
     OUTPUTS:
         * image [tensor array]
         * class_label [tensor array]
     """
-
-    if N_DATA_BANDS<=3:
-        features = {
-            "image": tf.io.FixedLenFeature([], tf.string),  # tf.string = bytestring (not text string)
-            "label": tf.io.FixedLenFeature([], tf.string),   # shape [] means scalar
-        }
-    else:
-        features = {
-            "image": tf.io.FixedLenFeature([], tf.string),  # tf.string = bytestring (not text string)
-            "nir": tf.io.FixedLenFeature([], tf.string),   # shape [] means scalar
-            "label": tf.io.FixedLenFeature([], tf.string),   # shape [] means scalar
-        }
-
-    # decode the TFRecord
-    example = tf.io.parse_single_example(example, features)
-
-    if N_DATA_BANDS==4:
-        image = tf.image.decode_png(example['image']) #jpeg(example['image'], channels=3)
-    else:
-        image = tf.image.decode_png(example['image']) #jpeg(example['image'], channels=3)
+    image, label = tf.py_function(func=load_npz, inp=[example], Tout=[tf.uint8, tf.uint8])
 
     image = tf.cast(image, tf.float32)/ 255.0
-    #image = tf.reshape(image, [TARGET_SIZE[0],TARGET_SIZE[1], 3])
-    #print(image.shape)
-    #image = tf.reshape(tf.image.rgb_to_grayscale(image), [TARGET_SIZE,TARGET_SIZE, 1])
+    label = tf.cast(label, tf.uint8)
+    if NCLASSES>1:
+        return tf.squeeze(image), tf.squeeze(label)
+    else:
+        return tf.squeeze(image), label[0,:,:,:]
 
-    if N_DATA_BANDS==4:
-        nir = tf.image.decode_png(example['nir']) #jpeg(example['nir'], channels=3)
-        nir = tf.cast(nir, tf.float32)/ 255.0
-        #nir = tf.reshape(nir, [TARGET_SIZE[0],TARGET_SIZE[1], 3])
-        #print(nir.shape)
-
-        image = tf.concat([image, nir],-1)[:,:,:4]
-        #print(image.shape)
-
-    #label = tf.image.decode_jpeg(example['label'], channels=1)
-    label = tf.image.decode_png(example['label'], channels=0)
-    label = tf.cast(label, tf.uint8)#/ 255.0
-    #label = tf.reshape(label, [TARGET_SIZE[0],TARGET_SIZE[1], 1])
-
-    # cond = tf.equal(label, tf.ones(tf.shape(label),dtype=tf.uint8)*0)
-    # label = tf.where(cond,  tf.ones(tf.shape(label),dtype=tf.uint8)*4, label)
-    #print(label.shape)
-
-    # if NCLASSES>1:
-    #     label = tf.one_hot(tf.cast(label, tf.uint8), NCLASSES+1) # 5 classes (water, surf, wet, dry) + null (0)
-    #     label = tf.squeeze(label)
-
-    #image = tf.reshape(image, (image.shape[0], image.shape[1], image.shape[2]))
-
-    #image = tf.image.per_image_standardization(image)
-    return image, label
-
-#-----------------------------------
-def get_batched_dataset(filenames):
-    """
-    "get_batched_dataset(filenames)"
-    This function defines a workflow for the model to read data from
-    tfrecord files by defining the degree of parallelism, batch size, pre-fetching, etc
-    and also formats the imagery properly for model training
-    INPUTS:
-        * filenames [list]
-    OPTIONAL INPUTS: None
-    GLOBAL INPUTS: BATCH_SIZE, AUTO
-    OUTPUTS: tf.data.Dataset object
-    """
-    option_no_order = tf.data.Options()
-    option_no_order.experimental_deterministic = True
-
-    dataset = tf.data.Dataset.list_files(filenames)
-    dataset = dataset.with_options(option_no_order)
-    dataset = dataset.interleave(tf.data.TFRecordDataset, cycle_length=16, num_parallel_calls=AUTO)
-    dataset = dataset.map(read_seg_tfrecord_multiclass, num_parallel_calls=AUTO)
-
-    dataset = dataset.repeat()
-    #dataset = dataset.shuffle(2048)
-    dataset = dataset.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be needed on TPU
-    dataset = dataset.prefetch(AUTO) #
-
-    return dataset
-
-#-----------------------------------
-def get_training_dataset(training_filenames):
-    """
-    This function will return a batched dataset for model training
-    INPUTS: None
-    OPTIONAL INPUTS: None
-    GLOBAL INPUTS: training_filenames
-    OUTPUTS: batched data set object
-    """
-    return get_batched_dataset(training_filenames)
-
-def get_validation_dataset(validation_filenames):
-    """
-    This function will return a batched dataset for model training
-    INPUTS: None
-    OPTIONAL INPUTS: None
-    GLOBAL INPUTS: validation_filenames
-    OUTPUTS: batched data set object
-    """
-    return get_batched_dataset(validation_filenames)
 
 #---------------------------------------------------
 # learning rate function
@@ -219,37 +131,38 @@ def lrfn(epoch):
     return lr(epoch, START_LR, MIN_LR, MAX_LR, RAMPUP_EPOCHS, SUSTAIN_EPOCHS, EXP_DECAY)
 
 
+###############################################################
+### P
+###############################################################
 
 #-------------------------------------------------
-filenames = tf.io.gfile.glob(data_path+os.sep+'*.tfrec')
-# print(filenames[:10])
+
+filenames = tf.io.gfile.glob(data_path+os.sep+'*.npz')
 shuffle(filenames)
-# print(filenames[:10])
+list_ds = tf.data.Dataset.list_files(filenames, shuffle=False)
 
-print('.....................................')
-print('Reading files and making datasets ...')
+val_size = int(len(filenames) * VALIDATION_SPLIT)
 
-nb_images = IMS_PER_SHARD * len(filenames)
-print(nb_images)
-
-split = int(len(filenames) * VALIDATION_SPLIT)
-
-training_filenames = filenames[split:]
-validation_filenames = filenames[:split]
-
-validation_steps = int(nb_images // len(filenames) * len(validation_filenames)) // BATCH_SIZE
-steps_per_epoch = int(nb_images // len(filenames) * len(training_filenames)) // BATCH_SIZE
+validation_steps = val_size // BATCH_SIZE
+steps_per_epoch =  int(len(filenames) * 1-VALIDATION_SPLIT) // BATCH_SIZE
 
 print(steps_per_epoch)
 print(validation_steps)
 
-n = len(training_filenames)*IMS_PER_SHARD
-print("training files: %i" % (n))
-n = len(validation_filenames)*IMS_PER_SHARD
-print("validation files: %i" % (n))
+train_ds = list_ds.skip(val_size)
+val_ds = list_ds.take(val_size)
 
-train_ds = get_training_dataset(training_filenames)
-val_ds = get_validation_dataset(validation_filenames)
+# Set `num_parallel_calls` so multiple images are loaded/processed in parallel.
+train_ds = train_ds.map(read_seg_tfrecord_multiclass, num_parallel_calls=AUTO)
+train_ds = train_ds.repeat()
+train_ds = train_ds.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be needed on TPU
+train_ds = train_ds.prefetch(AUTO) #
+
+val_ds = val_ds.map(read_seg_tfrecord_multiclass, num_parallel_calls=AUTO)
+val_ds = val_ds.repeat()
+val_ds = val_ds.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be needed on TPU
+val_ds = val_ds.prefetch(AUTO) #
+
 
 if DO_TRAIN:
     # if N_DATA_BANDS<=3:
@@ -320,9 +233,7 @@ model_checkpoint = ModelCheckpoint(weights, monitor='val_loss',
                                 verbose=0, save_best_only=True, mode='min',
                                 save_weights_only = True)
 
-
 # models are sensitive to specification of learning rate. How do you decide? Answer: you don't. Use a learning rate scheduler
-
 lr_callback = tf.keras.callbacks.LearningRateScheduler(lambda epoch: lrfn(epoch), verbose=True)
 
 callbacks = [model_checkpoint, earlystop, lr_callback]
@@ -363,25 +274,24 @@ for i,l in val_ds.take(10):
     for img,lbl in zip(i,l):
         #print(img.shape)
         est_label = model.predict(tf.expand_dims(img, 0) , batch_size=1).squeeze()
+
         if NCLASSES==1:
             est_label[est_label<.5] = 0
             est_label[est_label>.5] = 1
         else:
-            est_label = np.argmax(est_label, -1)
-            # L = []
-            # if DO_CRF_REFINE:
-            #     for k in range(NCLASSES):
-            #         l = est_label[:,:,k]>.5
-            #         l = l.astype(np.uint8)
-            #         l,_ = crf_refine(l, img.numpy().astype(np.uint8), nclasses=2, theta_col=10, theta_spat=3, compat=10)
-            #         L.append(l)
-            # est_label = np.argmax(np.dstack(L), -1)
+            if DO_CRF_REFINE:
+                L = []
+                for k in range(NCLASSES):
+                    l = est_label[:,:,k]>.5
+                    l = l.astype(np.uint8)
+                    l,_ = crf_refine(l, img.numpy().astype(np.uint8), nclasses=2, theta_col=10, theta_spat=3, compat=10)
+                    L.append(l)
+                est_label = np.argmax(np.dstack(L), -1)
+            else:
+                est_label = np.argmax(est_label, -1)
 
         if MEDIAN_FILTER_VALUE>1:
-            est_label = np.round(median(est_label, disk(MEDIAN_FILTER_VALUE))).astype(np.uint8)
-            if NCLASSES==1:
-                est_label[est_label<0.5] = 0
-                est_label[est_label>0.5] = 1
+            est_label = median(est_label, disk(MEDIAN_FILTER_VALUE))#.astype(np.uint8)
 
         if NCLASSES==1:
             lbl = lbl.numpy().squeeze()
@@ -417,6 +327,157 @@ for i,l in val_ds.take(10):
         counter += 1
 
 print('Mean IoU (validation subset)={mean_iou:0.3f}'.format(mean_iou=np.mean(IOUc)))
+
+
+
+
+            # if NCLASSES==1:
+            #     est_label[est_label<0.5] = 0
+            #     est_label[est_label>0.5] = 1
+# @tf.autograph.experimental.do_not_convert
+# #-----------------------------------
+# def read_seg_tfrecord_multiclass(example):
+
+    # if N_DATA_BANDS<=3:
+    #     features = {
+    #         "image": tf.io.FixedLenFeature([], tf.string),  # tf.string = bytestring (not text string)
+    #         "label": tf.io.FixedLenFeature([], tf.string),   # shape [] means scalar
+    #     }
+    # else:
+    #     features = {
+    #         "image": tf.io.FixedLenFeature([], tf.string),  # tf.string = bytestring (not text string)
+    #         "nir": tf.io.FixedLenFeature([], tf.string),   # shape [] means scalar
+    #         "label": tf.io.FixedLenFeature([], tf.string),   # shape [] means scalar
+    #     }
+    #
+    # # decode the TFRecord
+    # example = tf.io.parse_single_example(example, features)
+    #
+    # if N_DATA_BANDS==4:
+    #     image = tf.image.decode_png(example['image']) #jpeg(example['image'], channels=3)
+    # else:
+    #     image = tf.image.decode_png(example['image']) #jpeg(example['image'], channels=3)
+
+    # image = tf.cast(image, tf.float32)/ 255.0
+    #image = tf.reshape(image, [TARGET_SIZE[0],TARGET_SIZE[1], 3])
+    #print(image.shape)
+    #image = tf.reshape(tf.image.rgb_to_grayscale(image), [TARGET_SIZE,TARGET_SIZE, 1])
+
+    # if N_DATA_BANDS==4:
+    #     nir = tf.image.decode_png(example['nir']) #jpeg(example['nir'], channels=3)
+    #     nir = tf.cast(nir, tf.float32)/ 255.0
+    #     #nir = tf.reshape(nir, [TARGET_SIZE[0],TARGET_SIZE[1], 3])
+    #     #print(nir.shape)
+    #
+    #     image = tf.concat([image, nir],-1)[:,:,:4]
+    #     #print(image.shape)
+
+    # label = tf.image.decode_png(example['label'], channels=0)
+    # label = tf.cast(label, tf.uint8)#/ 255.0
+    #label = tf.reshape(label, [TARGET_SIZE[0],TARGET_SIZE[1], 1])
+
+    # cond = tf.equal(label, tf.ones(tf.shape(label),dtype=tf.uint8)*0)
+    # label = tf.where(cond,  tf.ones(tf.shape(label),dtype=tf.uint8)*4, label)
+    #print(label.shape)
+
+    # if NCLASSES>1:
+    #     label = tf.one_hot(tf.cast(label, tf.uint8), NCLASSES+1) # 5 classes (water, surf, wet, dry) + null (0)
+    #     label = tf.squeeze(label)
+
+    #image = tf.reshape(image, (image.shape[0], image.shape[1], image.shape[2]))
+
+    #image = tf.image.per_image_standardization(image)
+    # return image, label
+
+# #-----------------------------------
+# def get_batched_dataset(filenames):
+#     """
+#     "get_batched_dataset(filenames)"
+#     This function defines a workflow for the model to read data from
+#     tfrecord files by defining the degree of parallelism, batch size, pre-fetching, etc
+#     and also formats the imagery properly for model training
+#     INPUTS:
+#         * filenames [list]
+#     OPTIONAL INPUTS: None
+#     GLOBAL INPUTS: BATCH_SIZE, AUTO
+#     OUTPUTS: tf.data.Dataset object
+#     """
+#     dataset = tf.data.Dataset.list_files(filenames)
+#     #dataset = tf.data.Dataset.list_files('/media/marda/TWOTB/USGS/SOFTWARE/Projects/segmentation_zoo_data/model_training/data/coastcam_tfrecords/*.npz')
+#
+#     option_no_order = tf.data.Options()
+#     option_no_order.experimental_deterministic = True
+#
+#     dataset = dataset.with_options(option_no_order)
+#     dataset = dataset.interleave(tf.data.TFRecordDataset, cycle_length=16, num_parallel_calls=AUTO)
+#
+#     dataset = dataset.as_numpy_iterator()
+#
+#     dataset = dataset.map(read_seg_tfrecord_multiclass, num_parallel_calls=AUTO)
+#     #
+#     # dataset = dataset.repeat()
+#     # #dataset = dataset.shuffle(2048)
+#     # dataset = dataset.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be needed on TPU
+#     # dataset = dataset.prefetch(AUTO) #
+#
+#     return dataset
+
+# #-----------------------------------
+# def get_training_dataset(training_filenames):
+#     """
+#     This function will return a batched dataset for model training
+#     INPUTS: None
+#     OPTIONAL INPUTS: None
+#     GLOBAL INPUTS: training_filenames
+#     OUTPUTS: batched data set object
+#     """
+#     return get_batched_dataset(training_filenames)
+#
+# def get_validation_dataset(validation_filenames):
+#     """
+#     This function will return a batched dataset for model training
+#     INPUTS: None
+#     OPTIONAL INPUTS: None
+#     GLOBAL INPUTS: validation_filenames
+#     OUTPUTS: batched data set object
+#     """
+#     return get_batched_dataset(validation_filenames)
+
+
+# filenames = tf.io.gfile.glob(data_path+os.sep+'*.tfrec')
+
+# filenames = tf.io.gfile.glob(data_path+os.sep+'*.npz')
+
+# print(filenames[:10])
+# shuffle(filenames)
+# print(filenames[:10])
+
+# print('.....................................')
+# print('Reading files and making datasets ...')
+#
+# nb_images = IMS_PER_SHARD * len(filenames)
+# print(nb_images)
+#
+# split = int(len(filenames) * VALIDATION_SPLIT)
+#
+# training_filenames = filenames[split:]
+# validation_filenames = filenames[:split]
+#
+# validation_steps = int(nb_images // len(filenames) * len(validation_filenames)) // BATCH_SIZE
+# steps_per_epoch = int(nb_images // len(filenames) * len(training_filenames)) // BATCH_SIZE
+#
+# print(steps_per_epoch)
+# print(validation_steps)
+#
+# n = len(training_filenames)*IMS_PER_SHARD
+# print("training files: %i" % (n))
+# n = len(validation_filenames)*IMS_PER_SHARD
+# print("validation files: %i" % (n))
+#
+# train_ds = get_training_dataset(training_filenames)
+# val_ds = get_validation_dataset(validation_filenames)
+
+
 
 
     #
