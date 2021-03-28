@@ -8,8 +8,8 @@
 A toolbox to segment imagery using a residual UNet model. This repository allows you to do three things:
 
 * Use an existing (i.e. pre-trained) model to segment new sample imagery using provided model weights
-* Create a tfrecords dataset to train a new model for a particular task
-* Train a new model using your new tfrecords dataset
+* Create a dataset to train a new model for a particular task
+* Train a new model using your new dataset
 
 ## Navigation
 
@@ -30,16 +30,13 @@ UNet with residual (or lateral/skip connections). The UNet model framework is a 
 The fully convolutional model framework consists of two parts, the encoder and the decoder. The encoder receives the N x N x M (M=1, 3 or 4 in this implementation) input image and applies a series of convolutional layers and pooling layers to reduce the spatial size and condense features. Six banks of convolutional filters, each using filters that double in size to the previous, thereby progressively downsampling the inputs as features are extracted through pooling. The last set of features (or so-called bottleneck) is a very low-dimensional feature representation of the input imagery. The decoder upsamples the bottleneck into a N x N x 1 label image progressively using six banks of convolutional filters, each using filters half in size to the previous, thereby progressively upsampling the inputs as features are extracted through transpose convolutions and concatenation. A transposed convolution convolves a dilated version of the input tensor, consisting of interleaving zeroed rows and columns between each pair of adjacent rows and columns in the input tensor, in order to upscale the output. The sets of features from each of the six levels in the encoder-decoder structure are concatenated, which allows learning different features at different levels and leads to spatially well-resolved outputs. The final classification layer maps the output of the previous layer to a single 2D output based on a sigmoid activation function. The difference between ours and the original implementation is in the use of three residual-convolutional encoding and decoding layers instead of regular six convolutional encoding and decoding layers. Residual or 'skip' connections have been shown in numerous contexts to facilitate information flow, which is why we have halved the number of convolutional layers but can still achieve good accuracy on the segmentation tasks. The skip connections essentially add the outputs of the regular convolutional block (sequence of convolutions and ReLu activations) with the inputs, so the model learns to map feature representations in context to the inputs that created those representations.
 
 ## <a name="implementation"></a>Implementation
-Designed for 1,3, or 4-band imagery, and up to 4 classes
+Designed for 1,3, or 4-band imagery, and any number of classes
 
-The program supports both `binary` (one class of interest and a null class) and `multiclass` (several classes of interest) image segmentation using a custom implementation of a Residual U-Net, a deep learning framework for image segmentation. The implementation is prescribed to facilitate a wide variety of workflows but is limited to up to 4 image bands and up to 4 classes. The latter limitation is because of the nature of the image file storage capabilities of png decoding being limited to 4 bands.
-
-We write image datasets to tfrecord format files for 'analysis ready data' that is highly compressed and easy to share. One of the motivations for using TFRecords for data is to ensure a consistency in what images get allocated as training ad which get allocated as validation. These images are already randomized, and are not randomized further during training. Another advantage is the way in which it facilitates efficient data throughput from file to to GPU memory where the numerical calculations carried out during model training, and making out-of-memory errors caused by variation in data input and output throughput to and from the GPU. Protocol buffers are also a very good compression technique for sharing large amounts of labeled data.
+The program supports both `binary` (one class of interest and a null class) and `multiclass` (several classes of interest) image segmentation using a custom implementation of a Residual U-Net, a deep learning framework for image segmentation.
 
 * Images are augmented using Keras image augmentation generator functions
-* Each augmented image is written to file (png for labels and images - one image per band of the on-hot encoded label)
-* Images are read back in and written to TF-Record format files
-* Models are trained on the augmented data encoded in the tf-records, so the original data is a hold-out or test set. This is ideal because although the validation dataset (drawn from augmented data) doesn't get used to adjust model weights, it does influence model training by triggering early stopping if validation loss is not improving. Testing on an untransformed set is also a further check/reassurance of model performance and evaluation metric
+* Each augmented image is written to npz file
+* Models are trained on the augmented data encoded in the datasets, so the original data is a hold-out or test set. This is ideal because although the validation dataset (drawn from augmented data) doesn't get used to adjust model weights, it does influence model training by triggering early stopping if validation loss is not improving. Testing on an untransformed set is also a further check/reassurance of model performance and evaluation metric
 
 
 ## <a name="install"></a>Installation
@@ -149,7 +146,6 @@ An example config file (saved as `res_unet/model_training/config/oblique_coast_w
   "DO_CRF_REFINE": true,
   "DO_TRAIN": false,
   "PATIENCE": 25,
-  "IMS_PER_SHARD": 50,
   "MAX_EPOCHS": 200,
   "VALIDATION_SPLIT": 0.75,
   "RAMPUP_EPOCHS": 20,
@@ -160,7 +156,6 @@ An example config file (saved as `res_unet/model_training/config/oblique_coast_w
   "MAX_LR": 1e-5,
   "MEDIAN_FILTER_VALUE": 3,
   "DOPLOT": true,
-  "ROOT_STRING": "watermask-oblique-data",
   "USEMASK": true,
   "AUG_ROT": 5,
   "AUG_ZOOM": 0.05,
@@ -188,13 +183,12 @@ Notice the last entry does *NOT* have a comma. It does not matter what order the
 #### Model training
 Model training and performance is sensitive to these hyperparameters. Use a `TARGET_SIZE` that makes sense for your problem, that conforms roughly with the dimensions of the imagery and labels you have for model training, and that fits in available GPU memory. You might be very surprised at the accuracy and utility of models trained with significantly downsized imagery
 
-* `TARGET_SIZE`: list of integer image dimensions to write to tfrecord and use to build and use models. This doesn't have to be the sample image dimension (it would typically be significantly smaller due to memory constraints) but it should ideally have the same aspect ratio. The target size must be compatible with the cardinality of the model
+* `TARGET_SIZE`: list of integer image dimensions to write to dataset and use to build and use models. This doesn't have to be the sample image dimension (it would typically be significantly smaller due to memory constraints) but it should ideally have the same aspect ratio. The target size must be compatible with the cardinality of the model
 * `KERNEL_SIZE`: (integer) convolution kernel dimension
-* `NCLASSES`: (integer) number of classes (1 = binary e.g water/no water). For multiclass segmentations, enumerate the number of classes not including a null class
+* `NCLASSES`: (integer) number of classes (1 = binary e.g water/no water). For multiclass segmentations, enumerate the number of classes not including a null class. For example, for 4 classes, use `NCLASSES`=4
 * `BATCH_SIZE`: (integer) number of images to use in a batch. Typically better to use larger batch sizes but also uses more memory
-* `N_DATA_BANDS`: (integer) number of input image bands. Typically 3 (for an RGB image, for example) or 4 (e.g. near-IR or DEM, or other relevant raster info you have at coincident resolution and coverage)
+* `N_DATA_BANDS`: (integer) number of input image bands. Typically 3 (for an RGB image, for example) or 4 (e.g. near-IR or DEM, or other relevant raster info you have at coincident resolution and coverage). Currently cannot be more than 4.
 * `PATIENCE`: (integer) the number of epochs with no improvement in validation loss to wait before exiting model training
-* `IMS_PER_SHARD`: (integer) the number of images to encode in each tfrecord file
 * `MAX_EPOCHS`: (integer) the maximum number of epochs to train the model over. Early stopping should ensure this maximum is never reached
 * `VALIDATION_SPLIT`: (float) the proportion of the dataset to use for validation. The rest will be used for model training. Typically in the range 0.5 -- 0.9 for model training on large datasets
 
@@ -216,12 +210,10 @@ The model training script uses a learning rate scheduler to cycle through a rang
 
 #### General settings
 
-* `ROOT_STRING`: (string) string to prepend the tfrecords with, if running `make_tfrecords.py`
 * `USEMASK`: (bool) `true` if the files use 'mask' instead of 'label' in the folder/filename. if `false`, 'label' is assumed
-* `IMS_PER_SHARD`: (integer) the number of images to encode in each tfrecord file
 
 #### Image augmentation
-This program is structured to carry out augmentation of labeled training/validation datasets. The program `make_tfrecords.py` first generates a new set of augmented imagery and encodes those data (only) into TFRecords. The model therefore is trained using the augmented data only; they are split into train and validation subsets. The original imagery is therefore free to be used as a 'hold-out' test set to further evaluate the performance of the model. Augmentation is designed to regularize the model (i.e. prevent it from overfitting) by transforming imagery and label pairs in random ways within limits. Those limits are set using the parameters below.
+This program is structured to carry out augmentation of labeled training/validation datasets. The program `make_dataset.py` first generates a new set of augmented imagery and encodes those data (only) into datasets. The model therefore is trained using the augmented data only; they are split into train and validation subsets. The original imagery is therefore free to be used as a 'hold-out' test set to further evaluate the performance of the model. Augmentation is designed to regularize the model (i.e. prevent it from overfitting) by transforming imagery and label pairs in random ways within limits. Those limits are set using the parameters below.
 
 * `AUG_ROT`: (integer) the maximum amount of random image rotation in degrees, typically <10
 * `AUG_ZOOM`: (float) the maximum amount of random image zoom as a proportion, typically <.2
@@ -238,7 +230,7 @@ This program is structured to carry out augmentation of labeled training/validat
 This section is to retrain a model using one of the datasets provided
 
 
-*Note*: you require an NVIDIA GPU with >6GB memory to train models from scratch using TFrecords
+*Note*: you require an NVIDIA GPU with >6GB memory to train models from scratch using datasets
 
 1. Change directory
 
@@ -256,11 +248,11 @@ python train_resunet.py
 
 ### Example: Watermasker for oblique aircraft coastal imagery (R, G, B)
 
-Change directory to the appropriate tf records directory and run the `download_tfrecords.py` script to get the data
+Change directory to the appropriate tf records directory and run the `download_datasets.py` script to get the data
 
 ```
-cd res_unet/model_training/data/watermask_oblique_tfrecords
-python download_tfrecords.py
+cd res_unet/model_training/data/watermask_oblique_datasets
+python download_datasets.py
 cd ../..
 ```
 
@@ -271,7 +263,7 @@ python train_resunet.py
 ```
 
 * Select the config file `weights/sentinel2_coast_watermask/watermask_oblique_2class_batch_4.json`
-* Select the tfrecords data folder `data/watermask_oblique_tfrecords`
+* Select the datasets data folder `data/watermask_oblique_datasets`
 
 The program will first print some example training and validation samples. See the file `watermask_oblique_2class_batch_4_train_sample_batch.png` and `watermask_oblique_2class_batch_4_val_sample_batch.png` in `model_training/examples/oblique_coast_watermask` directory.
 
@@ -319,11 +311,11 @@ The IOU and Dice coefficients are accuracy metrics. The model then prints severa
 
 ## <a name="train"></a>Train a model for image segmentation using your own datasets
 
-*Note*: you require an NVIDIA GPU with >6GB memory to train models from scratch using TFrecords
+*Note*: you require an NVIDIA GPU with >6GB memory to train models from scratch using datasets
 
 ### Example: Watermasker for oblique aircraft coastal imagery (R, G, B)
 
-Example workflow using the data encoded in the tfrecords for the "oblique coastal watermasker" dataset below. Note that the most difficult aspect of this is usually creating the TF-REcords properly. You should be prepared to modify the `make_tfrecords.py` script to deal with specific data folder structures, and file naming conventions. I therefore urge you to prepare your data in a similar way to the provided examples
+Example workflow using the data encoded in the datasets for the "oblique coastal watermasker" dataset below. Note that the most difficult aspect of this is usually creating the TF-REcords properly. You should be prepared to modify the `make_datasets.py` script to deal with specific data folder structures, and file naming conventions. I therefore urge you to prepare your data in a similar way to the provided examples
 
 1. Change directory, download images
 
@@ -336,16 +328,16 @@ cd ../..
 2. create TF-Records from your images/labels files
 
 ```
-python make_tfrecords.py
+python make_dataset.py
 ```
 
 This program will ask you for 4 things:
 * the location of the `config` file
 * the location of the folder of images (it expects a single subdirectory containing .png extension image files)
 * the location of the folder of corresponding label images (it expects a single subdirectory containing .png extension image files)
-* the location where to write tfrecord files for model training
+* the location where to write dataset files for model training
 
-It expects the same number of images and labels (i.e. you should provide 1 label image per image). It creates augmented images and corresponding labels in batches to save memory. Once all augmented images have been made, they are written to tfrecords. Note that the original images are not used in model training, only augmented images. That provides an opportunity to use the original image/label set as a hold-out or independent test set. All augmented images will have the same size, i.e. `TARGET_SIZE`. Augmentation is controlled by the `AUG_*` parameters in the `config` file. I advise you use only small shifts and zooms. Use vertical and horizontal flips often.
+It expects the same number of images and labels (i.e. you should provide 1 label image per image). It creates augmented images and corresponding labels in batches to save memory. Once all augmented images have been made, they are written to datasets. Note that the original images are not used in model training, only augmented images. That provides an opportunity to use the original image/label set as a hold-out or independent test set. All augmented images will have the same size, i.e. `TARGET_SIZE`. Augmentation is controlled by the `AUG_*` parameters in the `config` file. I advise you use only small shifts and zooms. Use vertical and horizontal flips often.
 
 
 3. Create a config file for model training (see appropriate section above)
@@ -356,7 +348,7 @@ It expects the same number of images and labels (i.e. you should provide 1 label
 python train_resunet.py
 ```
 
-(see above for explanation of this script/process). The model takes a long time to train using the `config` file `weights/sentinel2_coast_watermask/watermask_oblique_2class_batch_4.json` and the tfrecords in `data/watermask_oblique_tfrecords`. After possibly a few hours (depending on your GPU speed) the model training finishes with an output like this:
+(see above for explanation of this script/process). The model takes a long time to train using the `config` file `weights/sentinel2_coast_watermask/watermask_oblique_2class_batch_4.json` and the datasets in `data/watermask_oblique_datasets`. After possibly a few hours (depending on your GPU speed) the model training finishes with an output like this:
 
 ```
 Epoch 00141: LearningRateScheduler reducing learning rate to 1.0003196953557818e-07.
@@ -384,4 +376,3 @@ Plans:
 * eventually ... some form of a graphical user interface
 * adaptive learning: rank validation imagery by loss (label those with highest loss)
 * add "2D" NIR sentinel exmaple
-* more than 4 bands will require removing all decode_png and encode_png, replacing with a format that can support >4 bands

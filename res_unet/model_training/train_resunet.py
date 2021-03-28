@@ -49,7 +49,7 @@ print(configfile)
 root.withdraw()
 
 root = Tk()
-root.filename =  filedialog.askdirectory(initialdir = "/samples",title = "Select directory of TFrecord data files")
+root.filename =  filedialog.askdirectory(initialdir = "/samples",title = "Select directory of data files")
 data_path = root.filename
 print(data_path)
 root.withdraw()
@@ -72,40 +72,6 @@ valsamples_fig = weights.replace('.h5','_val_sample_batch.png').replace('weights
 hist_fig = weights.replace('.h5','_trainhist_'+str(BATCH_SIZE)+'.png').replace('weights', 'examples')
 
 test_samples_fig =  weights.replace('.h5','_val.png').replace('weights', 'examples')
-
-###############################################################
-### DATA FUNCTIONS
-###############################################################
-
-def load_npz(example):
-    with np.load(example.numpy()) as data:
-        image = data['arr_0'].astype('uint8')
-        label = data['arr_1'].astype('uint8')
-    return image, label
-
-@tf.autograph.experimental.do_not_convert
-#-----------------------------------
-def read_seg_tfrecord_multiclass(example):
-    """
-    "read_seg_tfrecord_multiclass(example)"
-    This function reads an example from a npz file into a single image and label
-    INPUTS:
-        * TFRecord example object (filename of npz)
-    OPTIONAL INPUTS: None
-    GLOBAL INPUTS: TARGET_SIZE
-    OUTPUTS:
-        * image [tensor array]
-        * class_label [tensor array]
-    """
-    image, label = tf.py_function(func=load_npz, inp=[example], Tout=[tf.uint8, tf.uint8])
-
-    image = tf.cast(image, tf.float32)/ 255.0
-    label = tf.cast(label, tf.uint8)
-    if NCLASSES>1:
-        return tf.squeeze(image), tf.squeeze(label)
-    else:
-        return tf.squeeze(image), label[0,:,:,:]
-
 
 #---------------------------------------------------
 # learning rate function
@@ -131,8 +97,77 @@ def lrfn(epoch):
     return lr(epoch, START_LR, MIN_LR, MAX_LR, RAMPUP_EPOCHS, SUSTAIN_EPOCHS, EXP_DECAY)
 
 
+#-----------------------------------
+# def load_npz(example):
+#     with np.load(example.numpy()) as data:
+#         image = data['arr_0'].astype('uint8')
+#         label = data['arr_1'].astype('uint8')
+#     return image, label
+
+def load_npz(example):
+    if N_DATA_BANDS==4:
+        with np.load(example.numpy()) as data:
+            image = data['arr_0'].astype('uint8')
+            nir = data['arr_1'].astype('uint8')
+            label = data['arr_2'].astype('uint8')
+        return image, nir,label
+    else:
+        with np.load(example.numpy()) as data:
+            image = data['arr_0'].astype('uint8')
+            label = data['arr_1'].astype('uint8')
+        return image, label
+
+
+#coastcam 3 band, 5 class = good
+#watermask oblique 3 band, 1 class = good
+# sidescan 1 band , 1 class = good
+# sidescan 1 band, 4 class = good
+# coastcam 3 band, 4 class = good
+# orthoclip dem+rgb: 4 band, 3 class =
+@tf.autograph.experimental.do_not_convert
+#-----------------------------------
+def read_seg_dataset_multiclass(example):
+    """
+    "read_seg_dataset_multiclass(example)"
+    This function reads an example from a npz file into a single image and label
+    INPUTS:
+        * dataset example object (filename of npz)
+    OPTIONAL INPUTS: None
+    GLOBAL INPUTS: TARGET_SIZE
+    OUTPUTS:
+        * image [tensor array]
+        * class_label [tensor array]
+    """
+    if N_DATA_BANDS==4:
+        image, nir, label = tf.py_function(func=load_npz, inp=[example], Tout=[tf.uint8, tf.uint8, tf.uint8])
+        nir = tf.cast(nir, tf.float32)/ 255.0
+    else:
+        image, label = tf.py_function(func=load_npz, inp=[example], Tout=[tf.uint8, tf.uint8])
+
+    image = tf.cast(image, tf.float32)/ 255.0
+    label = tf.cast(label, tf.uint8)
+
+    if N_DATA_BANDS==4:
+        image = tf.concat([image, tf.expand_dims(nir,-1)],-1)
+
+    if NCLASSES==1:
+        label = tf.expand_dims(label,-1)
+
+    if NCLASSES>1:
+        if N_DATA_BANDS>1:
+            return tf.squeeze(image), tf.squeeze(label) # 3/5
+        else:
+            return image, label #1/4
+    else:
+        return image, label  # 1/1, 3/1
+
+    # # return image, label
+    # return tf.squeeze(image), tf.squeeze(label)
+        # if N_DATA_BANDS==1:
+        #     return image[0,:,:,:], label[0,:,:,:]
+        # else:
 ###############################################################
-### P
+### main
 ###############################################################
 
 #-------------------------------------------------
@@ -153,12 +188,12 @@ train_ds = list_ds.skip(val_size)
 val_ds = list_ds.take(val_size)
 
 # Set `num_parallel_calls` so multiple images are loaded/processed in parallel.
-train_ds = train_ds.map(read_seg_tfrecord_multiclass, num_parallel_calls=AUTO)
+train_ds = train_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
 train_ds = train_ds.repeat()
 train_ds = train_ds.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be needed on TPU
 train_ds = train_ds.prefetch(AUTO) #
 
-val_ds = val_ds.map(read_seg_tfrecord_multiclass, num_parallel_calls=AUTO)
+val_ds = val_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
 val_ds = val_ds.repeat()
 val_ds = val_ds.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be needed on TPU
 val_ds = val_ds.prefetch(AUTO) #
@@ -170,47 +205,47 @@ if DO_TRAIN:
         print(imgs.shape)
         print(lbls.shape)
 
-    print('.....................................')
-    print('Printing examples to file ...')
-
-    plt.figure(figsize=(16,16))
-    for imgs,lbls in train_ds.take(1):
-      #print(lbls)
-      for count,(im,lab) in enumerate(zip(imgs, lbls)):
-         plt.subplot(int(BATCH_SIZE/2),2,count+1)
-         plt.imshow(im[:,:,:3])
-         if NCLASSES==1:
-             plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
-         else:
-             lab = np.argmax(lab,-1)
-             plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES)
-
-         plt.axis('off')
-         print(np.unique(lab))
-    # plt.show()
-    plt.savefig(trainsamples_fig, dpi=200, bbox_inches='tight')
-    plt.close('all')
-
-    del imgs, lbls
-
-    plt.figure(figsize=(16,16))
-    for imgs,lbls in val_ds.take(1):
-
-      #print(lbls)
-      for count,(im,lab) in enumerate(zip(imgs, lbls)):
-         plt.subplot(int(BATCH_SIZE/2),2,count+1) #int(BATCH_SIZE/2)
-         plt.imshow(im[:,:,:3])
-         if NCLASSES==1:
-             plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
-         else:
-             lab = np.argmax(lab,-1)
-             plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES)
-         plt.axis('off')
-         print(np.unique(lab))
-    # plt.show()
-    plt.savefig(valsamples_fig, dpi=200, bbox_inches='tight')
-    plt.close('all')
-    del imgs, lbls
+#     print('.....................................')
+#     print('Printing examples to file ...')
+#
+#     plt.figure(figsize=(16,16))
+#     for imgs,lbls in train_ds.take(1):
+#       #print(lbls)
+#       for count,(im,lab) in enumerate(zip(imgs, lbls)):
+#          plt.subplot(int(BATCH_SIZE/2),2,count+1)
+#          plt.imshow(im)
+#          if NCLASSES==1:
+#              plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
+#          else:
+#              lab = np.argmax(lab,-1)
+#              plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES)
+#
+#          plt.axis('off')
+#          print(np.unique(lab))
+#     # plt.show()
+#     plt.savefig(trainsamples_fig, dpi=200, bbox_inches='tight')
+#     plt.close('all')
+#
+#     del imgs, lbls
+#
+#     plt.figure(figsize=(16,16))
+#     for imgs,lbls in val_ds.take(1):
+#
+#       #print(lbls)
+#       for count,(im,lab) in enumerate(zip(imgs, lbls)):
+#          plt.subplot(int(BATCH_SIZE/2),2,count+1) #int(BATCH_SIZE/2)
+#          plt.imshow(im)
+#          if NCLASSES==1:
+#              plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
+#          else:
+#              lab = np.argmax(lab,-1)
+#              plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES)
+#          plt.axis('off')
+#          print(np.unique(lab))
+#     # plt.show()
+#     plt.savefig(valsamples_fig, dpi=200, bbox_inches='tight')
+#     plt.close('all')
+#     del imgs, lbls
 
 
 
@@ -291,7 +326,7 @@ for i,l in val_ds.take(10):
                 est_label = np.argmax(est_label, -1)
 
         if MEDIAN_FILTER_VALUE>1:
-            est_label = median(est_label, disk(MEDIAN_FILTER_VALUE))#.astype(np.uint8)
+            est_label = (median(est_label, disk(MEDIAN_FILTER_VALUE))/255.).astype(np.uint8)
 
         if NCLASSES==1:
             lbl = lbl.numpy().squeeze()

@@ -7,7 +7,6 @@
   "DO_CRF_REFINE": true,
   "DO_TRAIN": true,
   "PATIENCE": 25,
-  "IMS_PER_SHARD": 50,
   "MAX_EPOCHS": 300,
   "VALIDATION_SPLIT": 0.7,
   "RAMPUP_EPOCHS": 20,
@@ -18,7 +17,6 @@
   "MAX_LR": 1e-4,
   "MEDIAN_FILTER_VALUE": 2,
   "DOPLOT": true,
-  "ROOT_STRING": "santacruz_sentinel2-2class-data",
   "USEMASK": false,
   "AUG_ROT": 0,
   "AUG_ZOOM": 0,
@@ -28,6 +26,5 @@
   "AUG_VFLIP": true,
   "AUG_LOOPS": 1,
   "AUG_COPIES": 3,
-  "DO_AUG": true ,
   "REMAP_CLASSES": {"0": 0, "1": 0, "2": 0, "3":0, "4":1}
 }

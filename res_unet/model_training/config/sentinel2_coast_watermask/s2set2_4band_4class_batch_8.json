@@ -7,7 +7,6 @@
   "DO_CRF_REFINE": false,
   "DO_TRAIN": true,
   "PATIENCE": 25,
-  "IMS_PER_SHARD": 50,
   "MAX_EPOCHS": 300,
   "VALIDATION_SPLIT": 0.7,
   "RAMPUP_EPOCHS": 20,
@@ -18,7 +17,6 @@
   "MAX_LR": 1e-4,
   "MEDIAN_FILTER_VALUE": 2,
   "DOPLOT": true,
-  "ROOT_STRING": "set2_sentinel2-4class-data",
   "USEMASK": false,
   "AUG_ROT": 0,
   "AUG_ZOOM": 0,
@@ -27,6 +25,5 @@
   "AUG_HFLIP": true,
   "AUG_VFLIP": true,
   "AUG_LOOPS": 1,
-  "AUG_COPIES": 3,
-  "DO_AUG": true
+  "AUG_COPIES": 3
 }

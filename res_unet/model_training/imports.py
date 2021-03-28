@@ -393,9 +393,11 @@ def dice_coef_loss(y_true, y_pred):
 
 
 
+
 ###############################################################
-### TFRECORD/DATA FUNCTIONS
+### DATA FUNCTIONS
 ###############################################################
+
 
 #-----------------------------------
 def seg_file2tensor(f):
@@ -432,6 +434,8 @@ def seg_file2tensor(f):
     # image = tf.cast(image, tf.uint8) #/ 255.0
 
     return image
+
+
 
 
 #-----------------------------------
