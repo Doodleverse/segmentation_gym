@@ -532,10 +532,12 @@ for counter,f in enumerate(sample_filenames):
         E.append(np.flipud(model.predict(tf.expand_dims(np.flipud(image), 0) , batch_size=1).squeeze()))
 
         for k in np.linspace(100,int(TARGET_SIZE[0]/5),10):
-            E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, int(k)), 0) , batch_size=1).squeeze(), -int(k)))
+            #E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, int(k)), 0) , batch_size=1).squeeze(), -int(k)))
+            E.append(model.predict(tf.expand_dims(np.roll(image, int(k)), 0) , batch_size=1).squeeze())
 
         for k in np.linspace(100,int(TARGET_SIZE[0]/5),10):
-            E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, -int(k)), 0) , batch_size=1).squeeze(), int(k)))
+            #E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, -int(k)), 0) , batch_size=1).squeeze(), int(k)))
+            E.append(model.predict(tf.expand_dims(np.roll(image, -int(k)), 0) , batch_size=1).squeeze())
 
         K.clear_session()
 
