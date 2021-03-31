@@ -23,7 +23,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import os
+import os, time
 
 USE_GPU = True
 DO_CRF_REFINE = True
@@ -34,6 +34,10 @@ if USE_GPU == True:
 else:
    ## to use the CPU (not recommended):
    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+
+
+#suppress tensorflow warnings
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 #utils
 #keras functions for early stopping and model weights saving
@@ -360,19 +364,21 @@ def seg_file2tensor_3band(f, resize):
     """
     bits = tf.io.read_file(f)
     if 'jpg' in f:
-        image = tf.image.decode_jpeg(bits)
+        bigimage = tf.image.decode_jpeg(bits)
     elif 'png' in f:
-        image = tf.image.decode_png(bits)
+        bigimage = tf.image.decode_png(bits)
 
+    w = tf.shape(bigimage)[0]
+    h = tf.shape(bigimage)[1]
+        
     if resize:
-        w = tf.shape(image)[0]
-        h = tf.shape(image)[1]
+
         tw = TARGET_SIZE[0]
         th = TARGET_SIZE[1]
         resize_crit = (w * th) / (h * tw)
         image = tf.cond(resize_crit < 1,
-                      lambda: tf.image.resize(image, [w*tw/w, h*tw/w]), # if true
-                      lambda: tf.image.resize(image, [w*th/h, h*th/h])  # if false
+                      lambda: tf.image.resize(bigimage, [w*tw/w, h*tw/w]), # if true
+                      lambda: tf.image.resize(bigimage, [w*th/h, h*th/h])  # if false
                      )
 
         nw = tf.shape(image)[0]
@@ -380,7 +386,7 @@ def seg_file2tensor_3band(f, resize):
         image = tf.image.crop_to_bounding_box(image, (nw - tw) // 2, (nh - th) // 2, tw, th)
         # image = tf.cast(image, tf.uint8) #/ 255.0
 
-    return image
+    return image, w, h, bigimage
 
 
 #-----------------------------------
@@ -397,10 +403,11 @@ def seg_file2tensor_4band(f, fir, resize):
     GLOBAL INPUTS: TARGET_SIZE
     """
     bits = tf.io.read_file(f)
+    
     if 'jpg' in f:
-        image = tf.image.decode_jpeg(bits)
+        bigimage = tf.image.decode_jpeg(bits)
     elif 'png' in f:
-        image = tf.image.decode_png(bits)
+        bigimage = tf.image.decode_png(bits)
 
     bits = tf.io.read_file(fir)
     if 'jpg' in fir:
@@ -408,17 +415,18 @@ def seg_file2tensor_4band(f, fir, resize):
     elif 'png' in f:
         nir = tf.image.decode_png(bits)
 
-    image = tf.concat([image, nir],-1)[:,:,:4]
-
+    bigimage = tf.concat([bigimage, nir],-1)[:,:,:4]
+    w = tf.shape(bigimage)[0]
+    h = tf.shape(bigimage)[1]
+        
     if resize:
-        w = tf.shape(image)[0]
-        h = tf.shape(image)[1]
+
         tw = TARGET_SIZE[0]
         th = TARGET_SIZE[1]
         resize_crit = (w * th) / (h * tw)
         image = tf.cond(resize_crit < 1,
-                      lambda: tf.image.resize(image, [w*tw/w, h*tw/w]), # if true
-                      lambda: tf.image.resize(image, [w*th/h, h*th/h])  # if false
+                      lambda: tf.image.resize(bigimage, [w*tw/w, h*tw/w]), # if true
+                      lambda: tf.image.resize(bigimage, [w*th/h, h*th/h])  # if false
                      )
 
         nw = tf.shape(image)[0]
@@ -426,7 +434,7 @@ def seg_file2tensor_4band(f, fir, resize):
         image = tf.image.crop_to_bounding_box(image, (nw - tw) // 2, (nh - th) // 2, tw, th)
         # image = tf.cast(image, tf.uint8) #/ 255.0
 
-    return image
+    return image, w, h, bigimage
 
 ##========================================================
 def fromhex(n):
@@ -520,38 +528,66 @@ if len(sample_filenames)==0:
 print('Number of samples: %i' % (len(sample_filenames)))
 
 for counter,f in enumerate(sample_filenames):
+
+    start = time.time()
+    
     if N_DATA_BANDS<=3:
-        image = seg_file2tensor_3band(f, resize=True)/255
+        image, w, h, bigimage = seg_file2tensor_3band(f, resize=True)
+        image = image/255
+        bigimage = bigimage/255
+        w = w.numpy(); h = h.numpy()
     else:
-        image = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir'), resize=True )/255
+        image, w, h, bigimage = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir'), resize=True )
+        image = image/255
+        bigimage = bigimage/255
+        w = w.numpy(); h = h.numpy()
+        
+    print("Working on %i x %i image" % (w,h))
 
     if NCLASSES==1:
-        E = []
+        E = []; W = []
         E.append(model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze())
+        W.append(1)
         E.append(np.fliplr(model.predict(tf.expand_dims(np.fliplr(image), 0) , batch_size=1).squeeze()))
+        W.append(.75)        
         E.append(np.flipud(model.predict(tf.expand_dims(np.flipud(image), 0) , batch_size=1).squeeze()))
+        W.append(.75)
 
         for k in np.linspace(100,int(TARGET_SIZE[0]/5),10):
             #E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, int(k)), 0) , batch_size=1).squeeze(), -int(k)))
             E.append(model.predict(tf.expand_dims(np.roll(image, int(k)), 0) , batch_size=1).squeeze())
+            W.append(2*(1/np.sqrt(k)))
 
         for k in np.linspace(100,int(TARGET_SIZE[0]/5),10):
             #E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, -int(k)), 0) , batch_size=1).squeeze(), int(k)))
             E.append(model.predict(tf.expand_dims(np.roll(image, -int(k)), 0) , batch_size=1).squeeze())
+            W.append(2*(1/np.sqrt(k)))
 
         K.clear_session()
+        
+        # for c,e in enumerate(E):
+            # plt.imshow(image); plt.imshow(e, alpha=0.4, cmap='gray')
+            # plt.axis('off'); plt.title('W = '+str(W[c])[:5])
+            # plt.savefig(str(c)+'png', dpi=200)
+            # plt.close()
+        
+        E = [maximum_filter(resize(e,(w,h)), int(w/200)) for e in E]
 
-        # if N_DATA_BANDS<=3:
-        #     image = seg_file2tensor_3band(f, resize=False)/255
-        # else:
-        #     image = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir'), resize=False )/255
+        # for c,e in enumerate(E):
+            # plt.imshow(bigimage); plt.imshow(e, alpha=0.4, cmap='gray')
+            # plt.axis('off'); plt.savefig('f'+str(c)+'png', dpi=200)
+            # plt.close()
 
-        width = image.shape[0]
-        height = image.shape[1]
+        #est_label = np.median(np.dstack(E), axis=-1)
+        est_label = np.average(np.dstack(E), axis=-1, weights=np.array(W))
+        
+        # plt.imshow(bigimage); plt.imshow(est_label, alpha=0.4, cmap='bwr'); plt.colorbar(); 
+        # plt.axis('off'); plt.savefig('im-mask.png', dpi=200); plt.close()
+        
+        var = np.std(np.dstack(E), axis=-1)
 
-        E = [maximum_filter(resize(e,(width,height)), int(width/200)) for e in E]
-        est_label = np.median(np.dstack(E), axis=-1)
-        #var = np.std(np.dstack(E), axis=-1)
+        # plt.imshow(bigimage); plt.imshow(var, alpha=0.4, cmap='bwr'); plt.colorbar(); 
+        # plt.axis('off'); plt.savefig('im-maskvar.png', dpi=200); plt.close()
 
         if np.max(est_label)-np.min(est_label) > .5:
             thres = threshold_otsu(est_label)
@@ -573,18 +609,85 @@ for counter,f in enumerate(sample_filenames):
         model_conf = np.sum(conf)/np.prod(conf.shape)
         print('Overall model confidence = %f'%(model_conf))
 
+        # plt.imshow(bigimage); plt.imshow(conf, alpha=0.4, cmap='bwr'); plt.colorbar(); 
+        # plt.axis('off'); plt.savefig('im-conf.png', dpi=200); plt.close()
+
     else:
         est_label = model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
 
         K.clear_session()
+
+        est_label = resize(est_label,(w,h))
+        est_label = np.argmax(est_label,-1)
+
+    est_label = np.squeeze(est_label[:w,:h])
+
+    if NCLASSES==1:
+        est_label[est_label<thres] = 0
+        est_label[est_label>thres] = 1
+        est_label = remove_small_holes(est_label.astype('uint8')*2, 2*w)
+        est_label = remove_small_objects(est_label.astype('uint8')*2, 2*w)
+        est_label[est_label<thres] = 0
+        est_label[est_label>thres] = 1
+
+    if NCLASSES>1:
+        class_label_colormap = ['#00FFFF','#0000FF','#808080','#008000','#FFA500'][:NCLASSES]
+        color_label = label_to_colors(est_label, bigimage.numpy()[:,:,0]==0, alpha=128, colormap=class_label_colormap, color_class_offset=0, do_alpha=False)
+        
+    # plt.imshow(bigimage); plt.imshow(est_label, alpha=0.4, cmap='bwr'); plt.colorbar(); 
+    # plt.axis('off'); plt.savefig('im-maskthreshold.png', dpi=200); plt.close()
+    
+    #print(est_label.shape)
+    
+    elapsed = (time.time() - start)/60
+    print("Image masking took "+ str(elapsed) + " minutes")
+    start = time.time()
+
+    if NCLASSES==1:
+        if 'jpg' in f:
+            imsave(f.replace('.jpg', '_predseg.png'), (est_label*255).astype(np.uint8), check_contrast=False)
+            np.savez(f.replace('.jpg', '_conf.npz'), conf)
+            np.savez(f.replace('.jpg', '_var.npz'), var)
+            
+            # imsave(f.replace('.jpg', '_predseg_col.png'), (color_label).astype(np.uint8), check_contrast=False)
+            cmd = 'convert '+f+' \( '+f.replace('.jpg', '_predseg.png')+' -normalize +level 0,50% \) -compose screen -composite '+f.replace('.jpg', '_segoverlay.png')
+            if os.name=='posix':
+                os.system(cmd)
+            else:
+                imsave(f.replace('.jpg', '_segoverlay.png'), np.dstack((255*bigimage.numpy(), (est_label*255))), check_contrast=False)
+        elif 'png' in f:
+            imsave(f.replace('.png', '_predseg.png'), (est_label*255).astype(np.uint8), check_contrast=False)
+            np.savez(f.replace('.png', '_conf.npz'), conf)
+            np.savez(f.replace('.png', '_var.npz'), var)
+            
+            # imsave(f.replace('.png', '_predseg_col.png'), (color_label).astype(np.uint8), check_contrast=False)
+            cmd = 'convert '+f+' \( '+f.replace('.png', '_predseg.png')+' -normalize +level 0,50% \) -compose screen -composite '+f.replace('.png', '_segoverlay.png')
+            if os.name=='posix':
+                os.system(cmd)
+            else:
+                imsave(f.replace('.png', '_segoverlay.png'), np.dstack((255*bigimage.numpy(), (est_label*255))), check_contrast=False)
+    else:
+        if 'jpg' in f:
+            imsave(f.replace('.jpg', '_predseg.png'), (est_label).astype(np.uint8), check_contrast=False)
+            imsave(f.replace('.jpg', '_predseg_col.png'), (color_label).astype(np.uint8), check_contrast=False)
+        elif 'png' in f:
+            imsave(f.replace('.png', '_predseg.png'), (est_label).astype(np.uint8), check_contrast=False)
+            imsave(f.replace('.png', '_predseg_col.png'), (color_label).astype(np.uint8), check_contrast=False)
+
+    elapsed = (time.time() - start)/60
+    print("File writing took "+ str(elapsed) + " minutes")
+    print("%s done" % (f))
+
+
+
 
         # if N_DATA_BANDS<=3:
         #     image = seg_file2tensor_3band(f, resize=False)/255
         # else:
         #     image = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir'), resize=False )/255
 
-        width = image.shape[0]
-        height = image.shape[1]
+        #width = image.shape[0]
+        #height = image.shape[1]
         # E = []
         # E.append(model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze())
         # E.append(np.fliplr(model.predict(tf.expand_dims(np.fliplr(image), 0) , batch_size=1).squeeze()))
@@ -598,51 +701,8 @@ for counter,f in enumerate(sample_filenames):
         #
         # E = [maximum_filter(resize(e,(width,height)), int(width/100)) for e in E]
         #
-        est_label = resize(est_label,(width,height))
-        est_label = np.argmax(est_label,-1)
-
-    est_label = est_label[:width,:height]
-
-    if NCLASSES==1:
-        est_label[est_label<thres] = 0
-        est_label[est_label>thres] = 1
-        est_label = remove_small_holes(est_label.astype('uint8')*2, 2*width)
-        est_label = remove_small_objects(est_label.astype('uint8')*2, 2*width)
-        est_label[est_label<thres] = 0
-        est_label[est_label>thres] = 1
-
-    if NCLASSES>1:
-        class_label_colormap = ['#00FFFF','#0000FF','#808080','#008000','#FFA500'][:NCLASSES]
-        color_label = label_to_colors(est_label, image.numpy()[:,:,0]==0, alpha=128, colormap=class_label_colormap, color_class_offset=0, do_alpha=False)
-
-    if NCLASSES==1:
-        if 'jpg' in f:
-            imsave(f.replace('.jpg', '_predseg.png'), (est_label*255).astype(np.uint8), check_contrast=False)
-            # imsave(f.replace('.jpg', '_predseg_col.png'), (color_label).astype(np.uint8), check_contrast=False)
-            cmd = 'convert '+f+' \( '+f.replace('.jpg', '_predseg.png')+' -normalize +level 0,50% \) -compose screen -composite '+f.replace('.jpg', '_segoverlay.png')
-            if os.name=='posix':
-                os.system(cmd)
-            else:
-                imsave(f.replace('.jpg', '_segoverlay.png'), np.dstack((255*image.numpy(), (est_label*255))), check_contrast=False)
-        elif 'png' in f:
-            imsave(f.replace('.png', '_predseg.png'), (est_label*255).astype(np.uint8), check_contrast=False)
-            # imsave(f.replace('.png', '_predseg_col.png'), (color_label).astype(np.uint8), check_contrast=False)
-            cmd = 'convert '+f+' \( '+f.replace('.png', '_predseg.png')+' -normalize +level 0,50% \) -compose screen -composite '+f.replace('.png', '_segoverlay.png')
-            if os.name=='posix':
-                os.system(cmd)
-            else:
-                imsave(f.replace('.png', '_segoverlay.png'), np.dstack((255*image.numpy(), (est_label*255))), check_contrast=False)
-    else:
-        if 'jpg' in f:
-            imsave(f.replace('.jpg', '_predseg.png'), (est_label).astype(np.uint8), check_contrast=False)
-            imsave(f.replace('.jpg', '_predseg_col.png'), (color_label).astype(np.uint8), check_contrast=False)
-        elif 'png' in f:
-            imsave(f.replace('.png', '_predseg.png'), (est_label).astype(np.uint8), check_contrast=False)
-            imsave(f.replace('.png', '_predseg_col.png'), (color_label).astype(np.uint8), check_contrast=False)
-
-    print("%s done" % (f))
-
-
+        
+        
     # est_label += 1
     # est_label[conf<np.mean(conf)/3] = 0
 
