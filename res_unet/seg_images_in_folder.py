@@ -25,7 +25,7 @@
 
 import os, time
 
-USE_GPU = True
+USE_GPU = False #True
 DO_CRF_REFINE = True
 
 if USE_GPU == True:
@@ -506,15 +506,20 @@ with open(configfile) as f:
 
 for k in config.keys():
     exec(k+'=config["'+k+'"]')
-
+	
+	
+try:
+	os.mkdir(sample_direc+os.sep+'masks')
+	os.mkdir(sample_direc+os.sep+'masked')
+	os.mkdir(sample_direc+os.sep+'conf_var')
+except:
+	pass
 
 #=======================================================
 model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), BATCH_SIZE, NCLASSES)
 model.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics = [mean_iou, dice_coef])
 
 model.load_weights(weights)
-
-# class_label_colormap = ['#0b19d9','#ffffff','#8f6727','#6b2241']
 
 
 ### predict
@@ -529,156 +534,190 @@ print('Number of samples: %i' % (len(sample_filenames)))
 
 for counter,f in enumerate(sample_filenames):
 
-    start = time.time()
-    
-    if N_DATA_BANDS<=3:
-        image, w, h, bigimage = seg_file2tensor_3band(f, resize=True)
-        image = image/255
-        bigimage = bigimage/255
-        w = w.numpy(); h = h.numpy()
-    else:
-        image, w, h, bigimage = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir'), resize=True )
-        image = image/255
-        bigimage = bigimage/255
-        w = w.numpy(); h = h.numpy()
-        
-    print("Working on %i x %i image" % (w,h))
-
     if NCLASSES==1:
-        E = []; W = []
-        E.append(model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze())
-        W.append(1)
-        E.append(np.fliplr(model.predict(tf.expand_dims(np.fliplr(image), 0) , batch_size=1).squeeze()))
-        W.append(.75)        
-        E.append(np.flipud(model.predict(tf.expand_dims(np.flipud(image), 0) , batch_size=1).squeeze()))
-        W.append(.75)
+        if 'jpg' in f:
+            segfile = f.replace('.jpg', '_predseg.png')			
+        elif 'png' in f:
+            segfile = f.replace('.png', '_predseg.png')			
 
-        for k in np.linspace(100,int(TARGET_SIZE[0]/5),10):
-            #E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, int(k)), 0) , batch_size=1).squeeze(), -int(k)))
-            E.append(model.predict(tf.expand_dims(np.roll(image, int(k)), 0) , batch_size=1).squeeze())
-            W.append(2*(1/np.sqrt(k)))
-
-        for k in np.linspace(100,int(TARGET_SIZE[0]/5),10):
-            #E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, -int(k)), 0) , batch_size=1).squeeze(), int(k)))
-            E.append(model.predict(tf.expand_dims(np.roll(image, -int(k)), 0) , batch_size=1).squeeze())
-            W.append(2*(1/np.sqrt(k)))
-
-        K.clear_session()
-        
-        # for c,e in enumerate(E):
-            # plt.imshow(image); plt.imshow(e, alpha=0.4, cmap='gray')
-            # plt.axis('off'); plt.title('W = '+str(W[c])[:5])
-            # plt.savefig(str(c)+'png', dpi=200)
-            # plt.close()
-        
-        E = [maximum_filter(resize(e,(w,h)), int(w/200)) for e in E]
-
-        # for c,e in enumerate(E):
-            # plt.imshow(bigimage); plt.imshow(e, alpha=0.4, cmap='gray')
-            # plt.axis('off'); plt.savefig('f'+str(c)+'png', dpi=200)
-            # plt.close()
-
-        #est_label = np.median(np.dstack(E), axis=-1)
-        est_label = np.average(np.dstack(E), axis=-1, weights=np.array(W))
-        
-        # plt.imshow(bigimage); plt.imshow(est_label, alpha=0.4, cmap='bwr'); plt.colorbar(); 
-        # plt.axis('off'); plt.savefig('im-mask.png', dpi=200); plt.close()
-        
-        var = np.std(np.dstack(E), axis=-1)
-
-        # plt.imshow(bigimage); plt.imshow(var, alpha=0.4, cmap='bwr'); plt.colorbar(); 
-        # plt.axis('off'); plt.savefig('im-maskvar.png', dpi=200); plt.close()
-
-        if np.max(est_label)-np.min(est_label) > .5:
-            thres = threshold_otsu(est_label)
-            print("Threshold: %f" % (thres))
+        segfile = os.path.normpath(segfile)
+        segfile = segfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masks'))		
+        if os.path.exists(segfile):
+            print('%s exists ... skipping' % (segfile))
+            continue
         else:
-            thres = .75
-            print("Default threshold: %f" % (thres))
+            print('%s does not exist ... creating' % (segfile))
 
-        if NCLASSES==1:
+            start = time.time()
+    
+            if N_DATA_BANDS<=3:
+                image, w, h, bigimage = seg_file2tensor_3band(f, resize=True)
+                image = image/255
+                bigimage = bigimage/255
+                w = w.numpy(); h = h.numpy()
+            else:
+                image, w, h, bigimage = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir'), resize=True )
+                image = image/255
+                bigimage = bigimage/255
+                w = w.numpy(); h = h.numpy()
+        
+            print("Working on %i x %i image" % (w,h))
+
+
+            E = []; W = []
+            E.append(model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze())
+            W.append(1)
+            E.append(np.fliplr(model.predict(tf.expand_dims(np.fliplr(image), 0) , batch_size=1).squeeze()))
+            W.append(.75)        
+            E.append(np.flipud(model.predict(tf.expand_dims(np.flipud(image), 0) , batch_size=1).squeeze()))
+            W.append(.75)
+
+            for k in np.linspace(100,int(TARGET_SIZE[0]),10):
+                #E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, int(k)), 0) , batch_size=1).squeeze(), -int(k)))
+                E.append(model.predict(tf.expand_dims(np.roll(image, int(k)), 0) , batch_size=1).squeeze())
+                W.append(2*(1/np.sqrt(k)))
+
+            for k in np.linspace(100,int(TARGET_SIZE[0]),10):
+                #E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, -int(k)), 0) , batch_size=1).squeeze(), int(k)))
+                E.append(model.predict(tf.expand_dims(np.roll(image, -int(k)), 0) , batch_size=1).squeeze())
+                W.append(2*(1/np.sqrt(k)))
+
+            K.clear_session()
+
+            E = [maximum_filter(resize(e,(w,h)), int(w/200)) for e in E]
+
+            #est_label = np.median(np.dstack(E), axis=-1)
+            est_label = np.average(np.dstack(E), axis=-1, weights=np.array(W))
+
+            var = np.std(np.dstack(E), axis=-1)
+
+            if np.max(est_label)-np.min(est_label) > .5:
+                thres = threshold_otsu(est_label)
+                print("Threshold: %f" % (thres))
+            else:
+                thres = .75
+                print("Default threshold: %f" % (thres))
+
             conf = 1-est_label
             conf[est_label<thres] = est_label[est_label<thres]
-            conf = 1-conf
+            conf = 1-conf    
+
+            conf[np.isnan(conf)] = 0
+            conf[np.isinf(conf)] = 0
+
+            model_conf = np.sum(conf)/np.prod(conf.shape)
+            print('Overall model confidence = %f'%(model_conf))
+
+            est_label[est_label<thres] = 0
+            est_label[est_label>thres] = 1
+            est_label = remove_small_holes(est_label.astype('uint8')*2, 2*w)
+            est_label = remove_small_objects(est_label.astype('uint8')*2, 2*w)
+            est_label[est_label<thres] = 0
+            est_label[est_label>thres] = 1
+            est_label = np.squeeze(est_label[:w,:h])
+
+            elapsed = (time.time() - start)/60
+            print("Image masking took "+ str(elapsed) + " minutes")
+            start = time.time()
+            imsave(segfile, (est_label*255).astype(np.uint8), check_contrast=False)
+			
+            if 'jpg' in f:
+                outfile = os.path.normpath(f.replace('.jpg', '_conf.npz'))
+            else:
+                outfile = os.path.normpath(f.replace('.png', '_conf.npz'))
+			
+            outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'conf_var'))		
+            np.savez(outfile, conf.astype(np.float16))
+			
+            if 'jpg' in f:
+                outfile = os.path.normpath(f.replace('.jpg', '_var.npz'))
+            else:
+                outfile = os.path.normpath(f.replace('.png', '_var.npz'))
+				
+            outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'conf_var'))					
+            np.savez(outfile, var.astype(np.float16))
+			
+            if 'jpg' in f:
+                outfile = os.path.normpath(f.replace('.jpg', '_segoverlay.png'))
+            else:
+                outfile = os.path.normpath(f.replace('.png', '_segoverlay.png'))
+				
+            outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masked'))				
+            imsave(outfile, np.dstack((255*bigimage.numpy(), (est_label*255))), check_contrast=False)
+
+            elapsed = (time.time() - start)/60
+            print("File writing took "+ str(elapsed) + " minutes")
+            print("%s done" % (f))
+
+    else: ###NCLASSES>1
+
+        if 'jpg' in f:
+            segfile = f.replace('.jpg', '_predseg.png')			
+        elif 'png' in f:
+            segfile = f.replace('.png', '_predseg.png')			
+
+        segfile = os.path.normpath(segfile)
+        segfile = segfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masks'))		
+        if os.path.exists(segfile):
+            print('%s exists ... skipping' % (segfile))
+            continue
         else:
+            print('%s does not exist ... creating' % (segfile))
+
+            start = time.time()
+    
+            est_label = model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
+
+            K.clear_session()
+
+            est_label = resize(est_label,(w,h))
             conf = np.max(est_label, -1)
+            conf[np.isnan(conf)] = 0
+            conf[np.isinf(conf)] = 0
+            est_label = np.argmax(est_label,-1)
 
-        conf[np.isnan(conf)] = 0
-        conf[np.isinf(conf)] = 0
+            est_label = np.squeeze(est_label[:w,:h])
 
-        model_conf = np.sum(conf)/np.prod(conf.shape)
-        print('Overall model confidence = %f'%(model_conf))
-
-        # plt.imshow(bigimage); plt.imshow(conf, alpha=0.4, cmap='bwr'); plt.colorbar(); 
-        # plt.axis('off'); plt.savefig('im-conf.png', dpi=200); plt.close()
-
-    else:
-        est_label = model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
-
-        K.clear_session()
-
-        est_label = resize(est_label,(w,h))
-        est_label = np.argmax(est_label,-1)
-
-    est_label = np.squeeze(est_label[:w,:h])
-
-    if NCLASSES==1:
-        est_label[est_label<thres] = 0
-        est_label[est_label>thres] = 1
-        est_label = remove_small_holes(est_label.astype('uint8')*2, 2*w)
-        est_label = remove_small_objects(est_label.astype('uint8')*2, 2*w)
-        est_label[est_label<thres] = 0
-        est_label[est_label>thres] = 1
-
-    if NCLASSES>1:
-        class_label_colormap = ['#00FFFF','#0000FF','#808080','#008000','#FFA500'][:NCLASSES]
-        color_label = label_to_colors(est_label, bigimage.numpy()[:,:,0]==0, alpha=128, colormap=class_label_colormap, color_class_offset=0, do_alpha=False)
-        
-    # plt.imshow(bigimage); plt.imshow(est_label, alpha=0.4, cmap='bwr'); plt.colorbar(); 
-    # plt.axis('off'); plt.savefig('im-maskthreshold.png', dpi=200); plt.close()
+            #class_label_colormap = ['#00FFFF','#0000FF','#808080','#008000','#FFA500'][:NCLASSES]
+            class_label_colormap = px.colors.qualitative.G10
+            class_label_colormap = class_label_colormap[:NCLASSES]
+            color_label = label_to_colors(est_label, bigimage.numpy()[:,:,0]==0, alpha=128, colormap=class_label_colormap, color_class_offset=0, do_alpha=False)
     
-    #print(est_label.shape)
-    
-    elapsed = (time.time() - start)/60
-    print("Image masking took "+ str(elapsed) + " minutes")
-    start = time.time()
+            elapsed = (time.time() - start)/60
+            print("Image masking took "+ str(elapsed) + " minutes")
+            start = time.time()
 
-    if NCLASSES==1:
-        if 'jpg' in f:
-            imsave(f.replace('.jpg', '_predseg.png'), (est_label*255).astype(np.uint8), check_contrast=False)
-            np.savez(f.replace('.jpg', '_conf.npz'), conf)
-            np.savez(f.replace('.jpg', '_var.npz'), var)
-            
-            # imsave(f.replace('.jpg', '_predseg_col.png'), (color_label).astype(np.uint8), check_contrast=False)
-            cmd = 'convert '+f+' \( '+f.replace('.jpg', '_predseg.png')+' -normalize +level 0,50% \) -compose screen -composite '+f.replace('.jpg', '_segoverlay.png')
-            if os.name=='posix':
-                os.system(cmd)
+            imsave(segfile, (est_label*255).astype(np.uint8), check_contrast=False)
+            #np.savez(f.replace('.jpg', '_conf.npz').replace(sample_direc, sample_direc+os.sep+'conf_var'), conf.astype(np.float16))
+            #imsave(f.replace('.jpg', '_segoverlay.png').replace(sample_direc, sample_direc+os.sep+'masked'), np.dstack((255*bigimage.numpy(), (est_label*255))), check_contrast=False)
+			
+            if 'jpg' in f:
+                outfile = os.path.normpath(f.replace('.jpg', '_conf.npz'))
             else:
-                imsave(f.replace('.jpg', '_segoverlay.png'), np.dstack((255*bigimage.numpy(), (est_label*255))), check_contrast=False)
-        elif 'png' in f:
-            imsave(f.replace('.png', '_predseg.png'), (est_label*255).astype(np.uint8), check_contrast=False)
-            np.savez(f.replace('.png', '_conf.npz'), conf)
-            np.savez(f.replace('.png', '_var.npz'), var)
-            
-            # imsave(f.replace('.png', '_predseg_col.png'), (color_label).astype(np.uint8), check_contrast=False)
-            cmd = 'convert '+f+' \( '+f.replace('.png', '_predseg.png')+' -normalize +level 0,50% \) -compose screen -composite '+f.replace('.png', '_segoverlay.png')
-            if os.name=='posix':
-                os.system(cmd)
-            else:
-                imsave(f.replace('.png', '_segoverlay.png'), np.dstack((255*bigimage.numpy(), (est_label*255))), check_contrast=False)
-    else:
-        if 'jpg' in f:
-            imsave(f.replace('.jpg', '_predseg.png'), (est_label).astype(np.uint8), check_contrast=False)
-            imsave(f.replace('.jpg', '_predseg_col.png'), (color_label).astype(np.uint8), check_contrast=False)
-        elif 'png' in f:
-            imsave(f.replace('.png', '_predseg.png'), (est_label).astype(np.uint8), check_contrast=False)
-            imsave(f.replace('.png', '_predseg_col.png'), (color_label).astype(np.uint8), check_contrast=False)
+                outfile = os.path.normpath(f.replace('.png', '_conf.npz'))
+			
+            outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'conf_var'))		
+            np.savez(outfile, conf.astype(np.float16))
 
-    elapsed = (time.time() - start)/60
-    print("File writing took "+ str(elapsed) + " minutes")
-    print("%s done" % (f))
+            if 'jpg' in f:
+                outfile = f.replace('.jpg', '_predseg_col.png')
+                outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masked'))		
+                imsave(outfile, (color_label).astype(np.uint8), check_contrast=False)
+            elif 'png' in f:
+                outfile = f.replace('.png', '_predseg_col.png')
+                outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masked'))		
+                imsave(outfile, (color_label).astype(np.uint8), check_contrast=False)
+
+            elapsed = (time.time() - start)/60
+            print("File writing took "+ str(elapsed) + " minutes")
+            print("%s done" % (f))
 
 
+# imsave(f.replace('.jpg', '_predseg_col.png'), (color_label).astype(np.uint8), check_contrast=False)
+#cmd = 'convert '+f+' \( '+f.replace('.jpg', '_predseg.png')+' -normalize +level 0,50% \) -compose screen -composite '+f.replace('.jpg', '_segoverlay.png')
+#if os.name=='posix':
+#    os.system(cmd)
+#else:
 
 
         # if N_DATA_BANDS<=3:

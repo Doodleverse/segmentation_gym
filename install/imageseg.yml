@@ -13,3 +13,4 @@ dependencies:
  - ipython
  - joblib
  - tqdm
+ - pandas
