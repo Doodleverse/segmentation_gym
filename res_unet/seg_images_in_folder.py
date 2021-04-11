@@ -25,7 +25,7 @@
 
 import os, time
 
-USE_GPU = False #True
+USE_GPU = True #False #True
 DO_CRF_REFINE = True
 
 if USE_GPU == True:
@@ -370,7 +370,7 @@ def seg_file2tensor_3band(f, resize):
 
     w = tf.shape(bigimage)[0]
     h = tf.shape(bigimage)[1]
-        
+
     if resize:
 
         tw = TARGET_SIZE[0]
@@ -403,7 +403,7 @@ def seg_file2tensor_4band(f, fir, resize):
     GLOBAL INPUTS: TARGET_SIZE
     """
     bits = tf.io.read_file(f)
-    
+
     if 'jpg' in f:
         bigimage = tf.image.decode_jpeg(bits)
     elif 'png' in f:
@@ -418,7 +418,7 @@ def seg_file2tensor_4band(f, fir, resize):
     bigimage = tf.concat([bigimage, nir],-1)[:,:,:4]
     w = tf.shape(bigimage)[0]
     h = tf.shape(bigimage)[1]
-        
+
     if resize:
 
         tw = TARGET_SIZE[0]
@@ -506,8 +506,8 @@ with open(configfile) as f:
 
 for k in config.keys():
     exec(k+'=config["'+k+'"]')
-	
-	
+
+
 try:
 	os.mkdir(sample_direc+os.sep+'masks')
 	os.mkdir(sample_direc+os.sep+'masked')
@@ -536,12 +536,12 @@ for counter,f in enumerate(sample_filenames):
 
     if NCLASSES==1:
         if 'jpg' in f:
-            segfile = f.replace('.jpg', '_predseg.png')			
+            segfile = f.replace('.jpg', '_predseg.png')
         elif 'png' in f:
-            segfile = f.replace('.png', '_predseg.png')			
+            segfile = f.replace('.png', '_predseg.png')
 
         segfile = os.path.normpath(segfile)
-        segfile = segfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masks'))		
+        segfile = segfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masks'))
         if os.path.exists(segfile):
             print('%s exists ... skipping' % (segfile))
             continue
@@ -549,7 +549,7 @@ for counter,f in enumerate(sample_filenames):
             print('%s does not exist ... creating' % (segfile))
 
             start = time.time()
-    
+
             if N_DATA_BANDS<=3:
                 image, w, h, bigimage = seg_file2tensor_3band(f, resize=True)
                 image = image/255
@@ -560,7 +560,7 @@ for counter,f in enumerate(sample_filenames):
                 image = image/255
                 bigimage = bigimage/255
                 w = w.numpy(); h = h.numpy()
-        
+
             print("Working on %i x %i image" % (w,h))
 
 
@@ -568,7 +568,7 @@ for counter,f in enumerate(sample_filenames):
             E.append(model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze())
             W.append(1)
             E.append(np.fliplr(model.predict(tf.expand_dims(np.fliplr(image), 0) , batch_size=1).squeeze()))
-            W.append(.75)        
+            W.append(.75)
             E.append(np.flipud(model.predict(tf.expand_dims(np.flipud(image), 0) , batch_size=1).squeeze()))
             W.append(.75)
 
@@ -600,7 +600,7 @@ for counter,f in enumerate(sample_filenames):
 
             conf = 1-est_label
             conf[est_label<thres] = est_label[est_label<thres]
-            conf = 1-conf    
+            conf = 1-conf
 
             conf[np.isnan(conf)] = 0
             conf[np.isinf(conf)] = 0
@@ -620,29 +620,29 @@ for counter,f in enumerate(sample_filenames):
             print("Image masking took "+ str(elapsed) + " minutes")
             start = time.time()
             imsave(segfile, (est_label*255).astype(np.uint8), check_contrast=False)
-			
+
             if 'jpg' in f:
                 outfile = os.path.normpath(f.replace('.jpg', '_conf.npz'))
             else:
                 outfile = os.path.normpath(f.replace('.png', '_conf.npz'))
-			
-            outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'conf_var'))		
+
+            outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'conf_var'))
             np.savez(outfile, conf.astype(np.float16))
-			
+
             if 'jpg' in f:
                 outfile = os.path.normpath(f.replace('.jpg', '_var.npz'))
             else:
                 outfile = os.path.normpath(f.replace('.png', '_var.npz'))
-				
-            outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'conf_var'))					
+
+            outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'conf_var'))
             np.savez(outfile, var.astype(np.float16))
-			
+
             if 'jpg' in f:
                 outfile = os.path.normpath(f.replace('.jpg', '_segoverlay.png'))
             else:
                 outfile = os.path.normpath(f.replace('.png', '_segoverlay.png'))
-				
-            outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masked'))				
+
+            outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masked'))
             imsave(outfile, np.dstack((255*bigimage.numpy(), (est_label*255))), check_contrast=False)
 
             elapsed = (time.time() - start)/60
@@ -652,12 +652,12 @@ for counter,f in enumerate(sample_filenames):
     else: ###NCLASSES>1
 
         if 'jpg' in f:
-            segfile = f.replace('.jpg', '_predseg.png')			
+            segfile = f.replace('.jpg', '_predseg.png')
         elif 'png' in f:
-            segfile = f.replace('.png', '_predseg.png')			
+            segfile = f.replace('.png', '_predseg.png')
 
         segfile = os.path.normpath(segfile)
-        segfile = segfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masks'))		
+        segfile = segfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masks'))
         if os.path.exists(segfile):
             print('%s exists ... skipping' % (segfile))
             continue
@@ -665,7 +665,7 @@ for counter,f in enumerate(sample_filenames):
             print('%s does not exist ... creating' % (segfile))
 
             start = time.time()
-    
+
             est_label = model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
 
             K.clear_session()
@@ -682,7 +682,7 @@ for counter,f in enumerate(sample_filenames):
             class_label_colormap = px.colors.qualitative.G10
             class_label_colormap = class_label_colormap[:NCLASSES]
             color_label = label_to_colors(est_label, bigimage.numpy()[:,:,0]==0, alpha=128, colormap=class_label_colormap, color_class_offset=0, do_alpha=False)
-    
+
             elapsed = (time.time() - start)/60
             print("Image masking took "+ str(elapsed) + " minutes")
             start = time.time()
@@ -690,22 +690,22 @@ for counter,f in enumerate(sample_filenames):
             imsave(segfile, (est_label*255).astype(np.uint8), check_contrast=False)
             #np.savez(f.replace('.jpg', '_conf.npz').replace(sample_direc, sample_direc+os.sep+'conf_var'), conf.astype(np.float16))
             #imsave(f.replace('.jpg', '_segoverlay.png').replace(sample_direc, sample_direc+os.sep+'masked'), np.dstack((255*bigimage.numpy(), (est_label*255))), check_contrast=False)
-			
+
             if 'jpg' in f:
                 outfile = os.path.normpath(f.replace('.jpg', '_conf.npz'))
             else:
                 outfile = os.path.normpath(f.replace('.png', '_conf.npz'))
-			
-            outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'conf_var'))		
+
+            outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'conf_var'))
             np.savez(outfile, conf.astype(np.float16))
 
             if 'jpg' in f:
                 outfile = f.replace('.jpg', '_predseg_col.png')
-                outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masked'))		
+                outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masked'))
                 imsave(outfile, (color_label).astype(np.uint8), check_contrast=False)
             elif 'png' in f:
                 outfile = f.replace('.png', '_predseg_col.png')
-                outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masked'))		
+                outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masked'))
                 imsave(outfile, (color_label).astype(np.uint8), check_contrast=False)
 
             elapsed = (time.time() - start)/60
@@ -740,8 +740,8 @@ for counter,f in enumerate(sample_filenames):
         #
         # E = [maximum_filter(resize(e,(width,height)), int(width/100)) for e in E]
         #
-        
-        
+
+
     # est_label += 1
     # est_label[conf<np.mean(conf)/3] = 0
 
