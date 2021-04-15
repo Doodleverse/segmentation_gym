@@ -1,9 +1,10 @@
-# Coastal Image Segmentation Zoo
+# Zoo (Coastal Image Segmentation Zoo)
 
 *Warning* this is alpha software, i.e. not finished with several known bugs. Please be patient, thanks.
 
 > Daniel Buscombe, Marda Science daniel@mardascience.com. Developed for the USGS Coastal Marine Geology program, as part of the Florence Supplemental project
 
+![Zoo](https://raw.githubusercontent.com/dbuscombe-usgs/segmentation_zoo/main/zoo-logo.png)
 
 A toolbox to segment imagery using a residual UNet model. This repository allows you to do three things:
 
