@@ -33,6 +33,9 @@ import os
 #    ## to use the CPU (not recommended):
 #    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
+#suppress tensorflow warnings
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
 import json
 from tkinter import filedialog
 from tkinter import *
@@ -62,6 +65,9 @@ with open(configfile) as f:
 
 for k in config.keys():
     exec(k+'=config["'+k+'"]')
+
+if "USE_LOCATION" not in locals():
+    USE_LOCATION = False
 
 from imports import *
 #---------------------------------------------------
@@ -98,32 +104,34 @@ def lrfn(epoch):
 
 
 #-----------------------------------
-# def load_npz(example):
-#     with np.load(example.numpy()) as data:
-#         image = data['arr_0'].astype('uint8')
-#         label = data['arr_1'].astype('uint8')
-#     return image, label
-
 def load_npz(example):
     if N_DATA_BANDS==4:
         with np.load(example.numpy()) as data:
             image = data['arr_0'].astype('uint8')
             nir = data['arr_1'].astype('uint8')
             label = data['arr_2'].astype('uint8')
+        if USE_LOCATION:
+            gx,gy = np.meshgrid(np.arange(image.shape[1]), np.arange(image.shape[0]))
+            loc = np.sqrt(gx**2 + gy**2)
+            loc /= loc.max()
+            loc = (255*loc).astype('uint8')
+            image = np.dstack((image, loc))
+
         return image, nir,label
     else:
         with np.load(example.numpy()) as data:
             image = data['arr_0'].astype('uint8')
             label = data['arr_1'].astype('uint8')
+        if USE_LOCATION:
+            gx,gy = np.meshgrid(np.arange(image.shape[1]), np.arange(image.shape[0]))
+            loc = np.sqrt(gx**2 + gy**2)
+            loc /= loc.max()
+            loc = (255*loc).astype('uint8')
+            image = np.dstack((image, loc))
+
         return image, label
 
 
-#coastcam 3 band, 5 class = good
-#watermask oblique 3 band, 1 class = good
-# sidescan 1 band , 1 class = good
-# sidescan 1 band, 4 class = good
-# coastcam 3 band, 4 class = good
-# orthoclip dem+rgb: 4 band, 3 class =
 @tf.autograph.experimental.do_not_convert
 #-----------------------------------
 def read_seg_dataset_multiclass(example):
@@ -153,6 +161,8 @@ def read_seg_dataset_multiclass(example):
     if NCLASSES==1:
         label = tf.expand_dims(label,-1)
 
+    image = tf.image.per_image_standardization(image)
+
     if NCLASSES>1:
         if N_DATA_BANDS>1:
             return tf.squeeze(image), tf.squeeze(label) # 3/5
@@ -172,7 +182,7 @@ def read_seg_dataset_multiclass(example):
 
 #-------------------------------------------------
 
-filenames = tf.io.gfile.glob(data_path+os.sep+'*.npz')
+filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'*.npz')
 shuffle(filenames)
 list_ds = tf.data.Dataset.list_files(filenames, shuffle=False)
 
@@ -205,57 +215,20 @@ if DO_TRAIN:
         print(imgs.shape)
         print(lbls.shape)
 
-#     print('.....................................')
-#     print('Printing examples to file ...')
-#
-#     plt.figure(figsize=(16,16))
-#     for imgs,lbls in train_ds.take(1):
-#       #print(lbls)
-#       for count,(im,lab) in enumerate(zip(imgs, lbls)):
-#          plt.subplot(int(BATCH_SIZE/2),2,count+1)
-#          plt.imshow(im)
-#          if NCLASSES==1:
-#              plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
-#          else:
-#              lab = np.argmax(lab,-1)
-#              plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES)
-#
-#          plt.axis('off')
-#          print(np.unique(lab))
-#     # plt.show()
-#     plt.savefig(trainsamples_fig, dpi=200, bbox_inches='tight')
-#     plt.close('all')
-#
-#     del imgs, lbls
-#
-#     plt.figure(figsize=(16,16))
-#     for imgs,lbls in val_ds.take(1):
-#
-#       #print(lbls)
-#       for count,(im,lab) in enumerate(zip(imgs, lbls)):
-#          plt.subplot(int(BATCH_SIZE/2),2,count+1) #int(BATCH_SIZE/2)
-#          plt.imshow(im)
-#          if NCLASSES==1:
-#              plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
-#          else:
-#              lab = np.argmax(lab,-1)
-#              plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES)
-#          plt.axis('off')
-#          print(np.unique(lab))
-#     # plt.show()
-#     plt.savefig(valsamples_fig, dpi=200, bbox_inches='tight')
-#     plt.close('all')
-#     del imgs, lbls
-
-
 
 print('.....................................')
 print('Creating and compiling model ...')
 
 if NCLASSES==1:
-    model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), BATCH_SIZE, NCLASSES, (KERNEL_SIZE, KERNEL_SIZE))
+    if USE_LOCATION:
+        model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS+1), BATCH_SIZE, NCLASSES, (KERNEL_SIZE, KERNEL_SIZE))
+    else:
+        model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), BATCH_SIZE, NCLASSES, (KERNEL_SIZE, KERNEL_SIZE))
 else:
-    model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), BATCH_SIZE, NCLASSES, (KERNEL_SIZE, KERNEL_SIZE))
+    if USE_LOCATION:
+        model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS+1), BATCH_SIZE, NCLASSES, (KERNEL_SIZE, KERNEL_SIZE))
+    else:
+        model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), BATCH_SIZE, NCLASSES, (KERNEL_SIZE, KERNEL_SIZE))
 
 model.compile(optimizer = 'adam', loss =dice_coef_loss, metrics = [mean_iou, dice_coef])
 
@@ -307,7 +280,10 @@ counter = 0
 for i,l in val_ds.take(10):
 
     for img,lbl in zip(i,l):
-        #print(img.shape)
+        print(img.shape)
+
+        img = tf.image.per_image_standardization(img)
+
         est_label = model.predict(tf.expand_dims(img, 0) , batch_size=1).squeeze()
 
         if NCLASSES==1:
@@ -326,7 +302,10 @@ for i,l in val_ds.take(10):
                 est_label = np.argmax(est_label, -1)
 
         if MEDIAN_FILTER_VALUE>1:
-            est_label = (median(est_label, disk(MEDIAN_FILTER_VALUE))/255.).astype(np.uint8)
+            if NCLASSES==1:
+                est_label = (median(est_label, disk(MEDIAN_FILTER_VALUE))/255.).astype(np.uint8)
+            else:
+                est_label = median(est_label, disk(MEDIAN_FILTER_VALUE)).astype(np.uint8)
 
         if NCLASSES==1:
             lbl = lbl.numpy().squeeze()
@@ -337,7 +316,10 @@ for i,l in val_ds.take(10):
 
         if DOPLOT:
             plt.subplot(221)
-            plt.imshow(img)
+            if np.ndim(img)>=3:
+                plt.imshow(img[:,:,:3])
+            else:
+                plt.imshow(img)
             if NCLASSES==1:
                 plt.imshow(lbl, alpha=0.3, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES)
             else:
@@ -346,7 +328,10 @@ for i,l in val_ds.take(10):
             plt.axis('off')
 
             plt.subplot(222)
-            plt.imshow(img)
+            if np.ndim(img)>=3:
+                plt.imshow(img[:,:,:3])
+            else:
+                plt.imshow(img)
             if NCLASSES==1:
                 plt.imshow(est_label, alpha=0.3, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES)
             else:
@@ -365,6 +350,48 @@ print('Mean IoU (validation subset)={mean_iou:0.3f}'.format(mean_iou=np.mean(IOU
 
 
 
+
+#     print('.....................................')
+#     print('Printing examples to file ...')
+#
+#     plt.figure(figsize=(16,16))
+#     for imgs,lbls in train_ds.take(1):
+#       #print(lbls)
+#       for count,(im,lab) in enumerate(zip(imgs, lbls)):
+#          plt.subplot(int(BATCH_SIZE/2),2,count+1)
+#          plt.imshow(im)
+#          if NCLASSES==1:
+#              plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
+#          else:
+#              lab = np.argmax(lab,-1)
+#              plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES)
+#
+#          plt.axis('off')
+#          print(np.unique(lab))
+#     # plt.show()
+#     plt.savefig(trainsamples_fig, dpi=200, bbox_inches='tight')
+#     plt.close('all')
+#
+#     del imgs, lbls
+#
+#     plt.figure(figsize=(16,16))
+#     for imgs,lbls in val_ds.take(1):
+#
+#       #print(lbls)
+#       for count,(im,lab) in enumerate(zip(imgs, lbls)):
+#          plt.subplot(int(BATCH_SIZE/2),2,count+1) #int(BATCH_SIZE/2)
+#          plt.imshow(im)
+#          if NCLASSES==1:
+#              plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
+#          else:
+#              lab = np.argmax(lab,-1)
+#              plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES)
+#          plt.axis('off')
+#          print(np.unique(lab))
+#     # plt.show()
+#     plt.savefig(valsamples_fig, dpi=200, bbox_inches='tight')
+#     plt.close('all')
+#     del imgs, lbls
 
             # if NCLASSES==1:
             #     est_label[est_label<0.5] = 0

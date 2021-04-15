@@ -368,6 +368,13 @@ def seg_file2tensor_3band(f, resize):
     elif 'png' in f:
         bigimage = tf.image.decode_png(bits)
 
+    if USE_LOCATION:
+        gx,gy = np.meshgrid(np.arange(bigimage.shape[1]), np.arange(bigimage.shape[0]))
+        loc = np.sqrt(gx**2 + gy**2)
+        loc /= loc.max()
+        loc = (255*loc).astype('uint8')
+        bigimage = np.dstack((bigimage, loc))
+
     w = tf.shape(bigimage)[0]
     h = tf.shape(bigimage)[1]
 
@@ -385,6 +392,7 @@ def seg_file2tensor_3band(f, resize):
         nh = tf.shape(image)[1]
         image = tf.image.crop_to_bounding_box(image, (nw - tw) // 2, (nh - th) // 2, tw, th)
         # image = tf.cast(image, tf.uint8) #/ 255.0
+
 
     return image, w, h, bigimage
 
@@ -415,7 +423,18 @@ def seg_file2tensor_4band(f, fir, resize):
     elif 'png' in f:
         nir = tf.image.decode_png(bits)
 
-    bigimage = tf.concat([bigimage, nir],-1)[:,:,:4]
+    if USE_LOCATION:
+        gx,gy = np.meshgrid(np.arange(bigimage.shape[1]), np.arange(bigimage.shape[0]))
+        loc = np.sqrt(gx**2 + gy**2)
+        loc /= loc.max()
+        loc = (255*loc).astype('uint8')
+        bigimage = np.dstack((bigimage, loc))
+
+    if USE_LOCATION:
+        bigimage = tf.concat([bigimage, nir],-1)[:,:,:N_DATA_BANDS+1]
+    else:
+        bigimage = tf.concat([bigimage, nir],-1)[:,:,:N_DATA_BANDS]
+
     w = tf.shape(bigimage)[0]
     h = tf.shape(bigimage)[1]
 
@@ -516,7 +535,11 @@ except:
 	pass
 
 #=======================================================
-model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), BATCH_SIZE, NCLASSES)
+if USE_LOCATION:
+    model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS+1), BATCH_SIZE, NCLASSES)
+else:
+    model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), BATCH_SIZE, NCLASSES)
+
 model.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics = [mean_iou, dice_coef])
 
 model.load_weights(weights)
@@ -552,17 +575,18 @@ for counter,f in enumerate(sample_filenames):
 
             if N_DATA_BANDS<=3:
                 image, w, h, bigimage = seg_file2tensor_3band(f, resize=True)
-                image = image/255
-                bigimage = bigimage/255
+                image = image#/255
+                bigimage = bigimage#/255
                 w = w.numpy(); h = h.numpy()
             else:
                 image, w, h, bigimage = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir'), resize=True )
-                image = image/255
-                bigimage = bigimage/255
+                image = image#/255
+                bigimage = bigimage#/255
                 w = w.numpy(); h = h.numpy()
 
             print("Working on %i x %i image" % (w,h))
 
+            image = tf.image.per_image_standardization(image)
 
             E = []; W = []
             E.append(model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze())
@@ -643,7 +667,10 @@ for counter,f in enumerate(sample_filenames):
                 outfile = os.path.normpath(f.replace('.png', '_segoverlay.png'))
 
             outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masked'))
-            imsave(outfile, np.dstack((255*bigimage.numpy(), (est_label*255))), check_contrast=False)
+            try:
+                imsave(outfile, np.dstack((255*bigimage[:,:,:2], (est_label*255))), check_contrast=False)
+            except:
+                imsave(outfile, np.dstack((255*bigimage, (est_label*255))), check_contrast=False)
 
             elapsed = (time.time() - start)/60
             print("File writing took "+ str(elapsed) + " minutes")
@@ -666,9 +693,33 @@ for counter,f in enumerate(sample_filenames):
 
             start = time.time()
 
-            est_label = model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
+            if N_DATA_BANDS<=3:
+                image, w, h, bigimage = seg_file2tensor_3band(f, resize=True)
+                image = image#/255
+                bigimage = bigimage#/255
+                w = w.numpy(); h = h.numpy()
+            else:
+                image, w, h, bigimage = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir'), resize=True )
+                image = image#/255
+                bigimage = bigimage#/255
+                w = w.numpy(); h = h.numpy()
 
+            print("Working on %i x %i image" % (w,h))
+
+            # if USE_LOCATION:
+            #     gx,gy = np.meshgrid(np.arange(image.shape[1]), np.arange(image.shape[0]))
+            #     loc = np.sqrt(gx**2 + gy**2)
+            #     loc /= loc.max()
+            #     loc = (255*loc).astype('uint8')
+            #     image = np.dstack((image, loc))
+
+            image = tf.image.per_image_standardization(image)
+
+            est_label = model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
             K.clear_session()
+
+            E = [maximum_filter(est_label[:,:,k], int(w/2/NCLASSES)) for k in range(NCLASSES)]
+            est_label = np.dstack(E)
 
             est_label = resize(est_label,(w,h))
             conf = np.max(est_label, -1)
@@ -678,16 +729,18 @@ for counter,f in enumerate(sample_filenames):
 
             est_label = np.squeeze(est_label[:w,:h])
 
-            #class_label_colormap = ['#00FFFF','#0000FF','#808080','#008000','#FFA500'][:NCLASSES]
-            class_label_colormap = px.colors.qualitative.G10
+            class_label_colormap = ['#3366CC','#DC3912','#FF9900','#109618','#990099','#0099C6','#DD4477','#66AA00','#B82E2E', '#316395'][:NCLASSES]
             class_label_colormap = class_label_colormap[:NCLASSES]
-            color_label = label_to_colors(est_label, bigimage.numpy()[:,:,0]==0, alpha=128, colormap=class_label_colormap, color_class_offset=0, do_alpha=False)
+            try:
+                color_label = label_to_colors(est_label, bigimage.numpy()[:,:,0]==0, alpha=128, colormap=class_label_colormap, color_class_offset=0, do_alpha=False)
+            except:
+                color_label = label_to_colors(est_label, bigimage[:,:,0]==0, alpha=128, colormap=class_label_colormap, color_class_offset=0, do_alpha=False)            
 
             elapsed = (time.time() - start)/60
             print("Image masking took "+ str(elapsed) + " minutes")
             start = time.time()
 
-            imsave(segfile, (est_label*255).astype(np.uint8), check_contrast=False)
+            imsave(segfile, est_label.astype(np.uint8), check_contrast=False)
             #np.savez(f.replace('.jpg', '_conf.npz').replace(sample_direc, sample_direc+os.sep+'conf_var'), conf.astype(np.float16))
             #imsave(f.replace('.jpg', '_segoverlay.png').replace(sample_direc, sample_direc+os.sep+'masked'), np.dstack((255*bigimage.numpy(), (est_label*255))), check_contrast=False)
 

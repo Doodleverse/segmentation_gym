@@ -62,36 +62,10 @@ conda activate imageseg
 If you get errors associated with loading the model weights you may need to:
 
 ```
-pip install 'h5py==2.10.0' --force-reinstall
+pip install "h5py==2.10.0" --force-reinstall
 ```
 
-and just ignore the errors.
-
-
-## <a name="data"></a>Provided datasets
-
-### Oblique aircraft coastal imagery (R, G, B)
-
-This dataset is used here to demonstrate `binary segmentation` (i.e. 1 class of interest, and 1 null class). The classes are `water` and `null`
-
-732 (as of 3/9/2021) images and associated binary (2-class land and water) masks. Prototype version, research in progress. Full version forthcoming
-
-Thanks to Andy Ritchie and Jon Warrick for creating label images. Additional labels were created by Daniel Buscombe
-
-
-### Nadir aircraft/UAV coastal imagery (R, G, B)
-
-This dataset is used here to demonstrate `binary segmentation` (i.e. 1 class of interest, and 1 null class). The classes are `water` and `null`
-
-2564 (as of 3/9/2021) images and associated binary (2-class land and water) masks. Prototype version, research in progress. Full version forthcoming
-
-Thanks to Stephen Bosse, Jin-Si Over, Christine Kranenberg, Chris Sherwood, and Phil Wernette for creating label images. Additional labels were created by Daniel Buscombe
-
-
-### Sentinel2 satellite coastal imagery (R, G, B)
-This dataset is used here to demonstrate `multiclass segmentation` (i.e. more than 1 class of interest, and 1 null class). The classes are `blue water` (unbroken water), `white water` (active wave breaking), `wet sand` (swash, lower intertidal), and `dry land`
-
-Labels were created by Daniel Buscombe. Prototype version (72 labeled images from Santa Cruz, CA), research in progress. Full version forthcoming
+and just ignore any errors.
 
 
 ## <a name="resunet"></a>Use a Pre-Trained Residual UNet for Image Segmentation
@@ -119,10 +93,6 @@ The image is downsized to 1024x768, and the model makes multiple predictions on 
 * Select the weights file 'weights/oblique_coast_watermask/watermask_oblique_2class_batch_4.h5'
 
 * Select the sample folder 'sample/oblique_coast_watermask', or whatever folder of appropriate you may have
-
-
-### Example: Watermasker for nadir aircraft/UAV coastal imagery (R, G, B)
-Forthcoming
 
 
 ### Example: Watermasker for Sentinel2 satellite coastal imagery (R, G, B)
@@ -193,6 +163,7 @@ Model training and performance is sensitive to these hyperparameters. Use a `TAR
 * `PATIENCE`: (integer) the number of epochs with no improvement in validation loss to wait before exiting model training
 * `MAX_EPOCHS`: (integer) the maximum number of epochs to train the model over. Early stopping should ensure this maximum is never reached
 * `VALIDATION_SPLIT`: (float) the proportion of the dataset to use for validation. The rest will be used for model training. Typically in the range 0.5 -- 0.9 for model training on large datasets
+* `USE_LOCATION` (bool) `true` to use band specifying relative pixel location in model
 
 #### Learning rate scheduler
 The model training script uses a learning rate scheduler to cycle through a range of learning rates at every training epoch using a prescribed function. Model training can sometimes be sensitive to the specification of these parameters, especially the `MAX_LR`, so be prepared to try a few values if the model is not performing optimally
@@ -208,7 +179,34 @@ The model training script uses a learning rate scheduler to cycle through a rang
 * `REMAP_CLASSES`: (dict) A dictionary of values in the data and what values you'd like to replace them with, for example `{"0": 0, "1": 0, "2": 0, "3":1, "4":1}` says "recode ones and twos as zeros and threes and fours as ones". Used to reclassify data on the fly without written new files to disk
 
 
-### TF-Record dataset creation
+
+## <a name="data"></a>Provided datasets
+
+### Oblique aircraft coastal imagery (R, G, B)
+
+This dataset is used here to demonstrate `binary segmentation` (i.e. 1 class of interest, and 1 null class). The classes are `water` and `null`
+
+732 (as of 3/9/2021) images and associated binary (2-class land and water) masks. Prototype version, research in progress. Full version forthcoming
+
+Thanks to Andy Ritchie and Jon Warrick for creating label images. Additional labels were created by Daniel Buscombe
+
+
+### Nadir aircraft/UAV coastal imagery (R, G, B)
+
+This dataset is used here to demonstrate `binary segmentation` (i.e. 1 class of interest, and 1 null class). The classes are `water` and `null`
+
+2564 (as of 3/9/2021) images and associated binary (2-class land and water) masks. Prototype version, research in progress. Full version forthcoming
+
+Thanks to Stephen Bosse, Jin-Si Over, Christine Kranenberg, Chris Sherwood, and Phil Wernette for creating label images. Additional labels were created by Daniel Buscombe
+
+
+### Sentinel2 satellite coastal imagery (R, G, B)
+This dataset is used here to demonstrate `multiclass segmentation` (i.e. more than 1 class of interest, and 1 null class). The classes are `blue water` (unbroken water), `white water` (active wave breaking), `wet sand` (swash, lower intertidal), and `dry land`
+
+Labels were created by Daniel Buscombe. Prototype version (72 labeled images from Santa Cruz, CA), research in progress. Full version forthcoming
+
+
+## Dataset creation
 
 #### General settings
 

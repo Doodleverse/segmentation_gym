@@ -70,8 +70,8 @@ elif N_DATA_BANDS==4:
 
     root = Tk()
     root.filename =  filedialog.askdirectory(initialdir = "/data",title = "Select directory of additional (4th band) image files")
-    imdir2 = root.filename
-    print(imdir2)
+    nimdir = root.filename
+    print(nimdir)
     root.withdraw()
 
 
@@ -146,73 +146,88 @@ def read_seg_dataset_multiclass(example):
 ##========================================================
 
 IMS_PER_SHARD = 1
+imdir2 = False
 
 n_im = len(glob(imdir+os.sep+'*.png'))
-# print(n_im)
-if n_im>0:
 
-    try:
-        os.mkdir(imdir+os.sep+'images')
-        # os.mkdir(imdir+os.sep+'aug_images')
-    except:
-        pass
+try:
+    os.mkdir(imdir+os.sep+'images')
+    # os.mkdir(imdir+os.sep+'aug_images')
+except:
+    imdir2 = True
 
-    if n_im==0:
+if n_im==0:
+    if imdir2:
+        n_im = len(glob(imdir+os.sep+'images'+os.sep+'*.jpg'))
+
+    else:
         n_im = len(glob(imdir+os.sep+'*.jpg'))
-        print(n_im)
 
         for file in glob(imdir+os.sep+'*.jpg'):
             shutil.move(file,imdir+os.sep+'images')
 
+else:
+    if imdir2:
+        print(' ')
     else:
         for file in glob(imdir+os.sep+'*.png'):
             shutil.move(file,imdir+os.sep+'images')
 
-    #imdir += os.sep+'images'
+#imdir += os.sep+'images'
+print("%i images found" % (n_im))
 
-    if USEMASK:
-        try:
-            os.mkdir(lab_path+os.sep+'masks')
-            # os.mkdir(lab_path+os.sep+'aug_masks')
-        except:
-            pass
 
-        for file in glob(lab_path+os.sep+'*.png'):
-            shutil.move(file,lab_path+os.sep+'masks')
+if USEMASK:
+    try:
+        os.mkdir(lab_path+os.sep+'masks')
+        # os.mkdir(lab_path+os.sep+'aug_masks')
+    except:
+        imdir2 = True
 
-        for file in glob(lab_path+os.sep+'*.jpg'):
-            shutil.move(file,lab_path+os.sep+'masks')
-
+    if imdir2:
+        print(' ')
     else:
-        try:
-            os.mkdir(lab_path+os.sep+'labels')
-            # os.mkdir(lab_path+os.sep+'aug_labels')
-        except:
-            pass
         for file in glob(lab_path+os.sep+'*.png'):
-            shutil.move(file,lab_path+os.sep+'labels')
+            shutil.move(file,lab_path+os.sep+'masks')
 
         for file in glob(lab_path+os.sep+'*.jpg'):
-            shutil.move(file,lab_path+os.sep+'labels')
-
-    # print(imdir)
-    # print(lab_path)
-
-    if N_DATA_BANDS==4:
-        try:
-            os.mkdir(imdir2+os.sep+'nir')
-            # os.mkdir(imdir2+os.sep+'aug_nir')
-        except:
-            pass
-
-        for file in glob(imdir2+os.sep+'*.png'):
-            shutil.move(file,imdir2+os.sep+'nir')
-        for file in glob(imdir2+os.sep+'*.jpg'):
-            shutil.move(file,imdir2+os.sep+'nir')
-
+            shutil.move(file,lab_path+os.sep+'masks')
 
 else:
-    n_im = len(glob(imdir+os.sep+'images'+os.sep+'*.png'))
+    try:
+        os.mkdir(lab_path+os.sep+'labels')
+        # os.mkdir(lab_path+os.sep+'aug_labels')
+    except:
+        imdir2 = True
+
+    if imdir2:
+        print(' ')
+    else:
+        for file in glob(lab_path+os.sep+'*.png'):
+            shutil.move(file,lab_path+os.sep+'labels')
+
+        for file in glob(lab_path+os.sep+'*.jpg'):
+            shutil.move(file,lab_path+os.sep+'labels')
+
+# print(imdir)
+# print(lab_path)
+
+if N_DATA_BANDS==4:
+    try:
+        os.mkdir(nimdir+os.sep+'nir')
+        # os.mkdir(imdir2+os.sep+'aug_nir')
+    except:
+        imdir2 = True
+
+    if imdir2:
+        print(' ')
+    else:
+        for file in glob(nimdir+os.sep+'*.png'):
+            shutil.move(file,nimdir+os.sep+'nir')
+        for file in glob(nimdir+os.sep+'*.jpg'):
+            shutil.move(file,nimdir+os.sep+'nir')
+
+
 
 # if DO_AUG:
 # we create two instances with the same arguments
@@ -260,7 +275,7 @@ mask_generator = mask_datagen.flow_from_directory(
 
 if N_DATA_BANDS==4:
     img_generator2 = image_datagen2.flow_from_directory(
-            imdir2,
+            nimdir,
             target_size=(NX, NY),
             batch_size=int(n_im/AUG_LOOPS),
             class_mode=None, seed=SEED, shuffle=True)
@@ -313,14 +328,14 @@ for copy in range(AUG_COPIES):
 
                         #for kk in range(lstack.shape[-1]):
                         if USEMASK:
-                            np.savez(dataset_dir+os.sep+'augimage_000000'+str(i), im.astype(np.uint8), lstack.astype(np.uint8))
+                            np.savez(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), lstack.astype(np.uint8))
                         else:
-                            np.savez(dataset_dir+os.sep+'augimage_000000'+str(i), im.astype(np.uint8), lstack.astype(np.uint8))
+                            np.savez(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), lstack.astype(np.uint8))
                     else:
                         if USEMASK:
-                            np.savez(dataset_dir+os.sep+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(l).astype(np.uint8))
+                            np.savez(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(l).astype(np.uint8))
                         else:
-                            np.savez(dataset_dir+os.sep+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(l).astype(np.uint8))
+                            np.savez(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(l).astype(np.uint8))
 
                 except:
                     print('Error ')
@@ -367,14 +382,14 @@ for copy in range(AUG_COPIES):
                                     lstack[:,:,kk] = np.round(l).astype(np.uint8)
 
                         if USEMASK:
-                            np.savez(dataset_dir+os.sep+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), lstack.astype(np.uint8))
+                            np.savez(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), lstack.astype(np.uint8))
                         else:
-                            np.savez(dataset_dir+os.sep+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), lstack.astype(np.uint8))
+                            np.savez(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), lstack.astype(np.uint8))
                     else:
                         if USEMASK:
-                            np.savez(dataset_dir+os.sep+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), np.squeeze(l).astype(np.uint8))
+                            np.savez(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), np.squeeze(l).astype(np.uint8))
                         else:
-                            np.savez(dataset_dir+os.sep+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), np.squeeze(l).astype(np.uint8))
+                            np.savez(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), np.squeeze(l).astype(np.uint8))
 
                 except:
                     print('Error ')
@@ -392,7 +407,7 @@ for copy in range(AUG_COPIES):
 ## NPZ CREATION
 ##========================================================
 
-filenames = tf.io.gfile.glob(dataset_dir+os.sep+'*.npz')
+filenames = tf.io.gfile.glob(dataset_dir+os.sep+ROOT_STRING+'*.npz')
 shuffle(filenames)
 dataset = tf.data.Dataset.list_files(filenames, shuffle=False)
 
@@ -430,7 +445,7 @@ if N_DATA_BANDS<=3:
          plt.axis('off')
          print(np.unique(lab))
          plt.axis('off')
-         plt.savefig('ex'+str(count)+'.png', dpi=200, bbox_inches='tight')
+         plt.savefig(ROOT_STRING+'ex'+str(count)+'.png', dpi=200, bbox_inches='tight')
          #counter +=1
          plt.close('all')
 elif N_DATA_BANDS==4:
@@ -449,7 +464,7 @@ elif N_DATA_BANDS==4:
          plt.axis('off')
          print(np.unique(lab))
          plt.axis('off')
-         plt.savefig('ex'+str(count)+'.png', dpi=200, bbox_inches='tight')
+         plt.savefig(ROOT_STRING+'ex'+str(count)+'.png', dpi=200, bbox_inches='tight')
          plt.close('all')
 
 

@@ -6,7 +6,9 @@
   "N_DATA_BANDS": 3,
   "DO_CRF_REFINE": false,
   "DO_TRAIN": true,
+  "USE_LOCATION": false,    
   "PATIENCE": 25,
+  "IMS_PER_SHARD": 50,
   "MAX_EPOCHS": 200,
   "VALIDATION_SPLIT": 0.75,
   "RAMPUP_EPOCHS": 20,
@@ -17,6 +19,7 @@
   "MAX_LR": 1e-5,
   "MEDIAN_FILTER_VALUE": 3,
   "DOPLOT": true,
+  "ROOT_STRING": "watermask-oblique-data",
   "USEMASK": true,
   "AUG_ROT": 0,
   "AUG_ZOOM": 0,
@@ -25,5 +28,6 @@
   "AUG_HFLIP": true,
   "AUG_VFLIP": true,
   "AUG_LOOPS": 3,
-  "AUG_COPIES": 2
+  "AUG_COPIES": 2,
+  "DO_AUG": true
 }
