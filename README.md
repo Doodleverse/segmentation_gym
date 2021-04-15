@@ -68,6 +68,14 @@ pip install "h5py==2.10.0" --force-reinstall
 
 and just ignore any errors.
 
+Also, tensorflow version 2.2.0 or higher is now required, which means you may need to
+
+```
+pip install tensorflow-gpu=2.2.0 --user
+```
+
+and just ignore any errors. When you run any script, the tensorflow version should be printed to screen.
+
 
 ## <a name="resunet"></a>Use a Pre-Trained Residual UNet for Image Segmentation
 
