@@ -50,6 +50,81 @@ print("Eager mode: ", tf.executing_eagerly())
 print('GPU name: ', tf.config.experimental.list_physical_devices('GPU'))
 print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
 
+##========================================================
+def rescale(dat,
+    mn,
+    mx):
+    '''
+    rescales an input dat between mn and mx
+    '''
+    m = min(dat.flatten())
+    M = max(dat.flatten())
+    return (mx-mn)*(dat-m)/(M-m)+mn
+
+##====================================
+def standardize(img):
+    #standardization using adjusted standard deviation
+    N = np.shape(img)[0] * np.shape(img)[1]
+    s = np.maximum(np.std(img), 1.0/np.sqrt(N))
+    m = np.mean(img)
+    img = (img - m) / s
+    img = rescale(img, 0, 1)
+    del m, s, N
+
+    if np.ndim(img)!=3:
+        img = np.dstack((img,img,img))
+
+    return img
+
+##========================================================
+def filter_one_hot(label, blobsize):
+    #filter the one-hot encoded  binary masks
+    lstack = (np.arange(label.max()) == label[...,None]-1).astype(int) #one-hot encode
+
+    for kk in range(lstack.shape[-1]):
+        l = remove_small_objects(lstack[:,:,kk].astype('uint8')>0, blobsize)
+        l = remove_small_holes(lstack[:,:,kk].astype('uint8')>0, blobsize)
+        lstack[:,:,kk] = np.round(l).astype(np.uint8)
+        del l
+
+    label = np.argmax(lstack, -1)+1
+    del lstack
+    return label
+
+##========================================================
+def filter_one_hot_spatial(label, distance):
+    #filter the one-hot encoded  binary masks
+    lstack = (np.arange(label.max()) == label[...,None]-1).astype(int) #one-hot encode
+
+    tmp = np.zeros_like(label)
+    for kk in range(lstack.shape[-1]):
+        l = lstack[:,:,kk]
+        d = ndimage.distance_transform_edt(l)
+        l[d<distance] = 0
+        lstack[:,:,kk] = np.round(l).astype(np.uint8)
+        del l
+        tmp[d<=distance] += 1
+
+    label = np.argmax(lstack, -1)+1
+    label[tmp==label.max()] = 0
+    del lstack
+    return label
+
+# ##========================================================
+def inpaint_nans(im):
+    ipn_kernel = np.array([[1,1,1],[1,0,1],[1,1,1]]) # kernel for inpaint_nans
+    nans = np.isnan(im)
+    while np.sum(nans)>0:
+        im[nans] = 0
+        vNeighbors = convolve2d((nans==False),ipn_kernel,mode='same',boundary='symm')
+        im2 = convolve2d(im,ipn_kernel,mode='same',boundary='symm')
+        im2[vNeighbors>0] = im2[vNeighbors>0]/vNeighbors[vNeighbors>0]
+        im2[vNeighbors==0] = np.nan
+        im2[(nans==False)] = im[(nans==False)]
+        im = im2
+        nans = np.isnan(im)
+    return im
+
 #-----------------------------------
 def plot_seg_history_iou(history, train_hist_fig):
     """

@@ -373,7 +373,6 @@ Mean IoU (validation subset)=0.855
 
 The mean IOU is 86% and the mean Dice coefficient is 92% using 500 image files for training and 1400 for validation
 
-
 ## <a name="roadmap"></a>Roadmap
 
 Plans:
@@ -385,3 +384,9 @@ Plans:
 * eventually ... some form of a graphical user interface
 * adaptive learning: rank validation imagery by loss (label those with highest loss)
 * add "2D" NIR sentinel exmaple
+
+
+## version 0.0.1, 06/10/21
+* fixed some bugs in make_datasets.py
+* first named version before watermasking dev branch
+* for 1-class problems, creates 4-band image (band 4 is the probability of clas)

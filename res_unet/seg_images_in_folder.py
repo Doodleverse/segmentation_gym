@@ -26,7 +26,7 @@
 import os, time
 
 USE_GPU = True #False #True
-DO_CRF_REFINE = True
+# DO_CRF_REFINE = True
 
 if USE_GPU == True:
    ##use the first available GPU
@@ -174,6 +174,34 @@ def dice_coef(y_true, y_pred):
     y_pred_f = tf.reshape(tf.dtypes.cast(y_pred, tf.float32), [-1])
     intersection = tf.reduce_sum(y_true_f * y_pred_f)
     return (2. * intersection + smooth) / (tf.reduce_sum(y_true_f) + tf.reduce_sum(y_pred_f) + smooth)
+
+
+##========================================================
+def rescale(dat,
+    mn,
+    mx):
+    '''
+    rescales an input dat between mn and mx
+    '''
+    m = min(dat.flatten())
+    M = max(dat.flatten())
+    return (mx-mn)*(dat-m)/(M-m)+mn
+
+
+##====================================
+def standardize(img):
+    #standardization using adjusted standard deviation
+    N = np.shape(img)[0] * np.shape(img)[1]
+    s = np.maximum(np.std(img), 1.0/np.sqrt(N))
+    m = np.mean(img)
+    img = (img - m) / s
+    img = rescale(img, 0, 1)
+    del m, s, N
+
+    if np.ndim(img)!=3:
+        img = np.dstack((img,img,img))
+
+    return img
 
 ###############################################################
 ### MODEL FUNCTIONS
@@ -531,6 +559,8 @@ try:
 	os.mkdir(sample_direc+os.sep+'masks')
 	os.mkdir(sample_direc+os.sep+'masked')
 	os.mkdir(sample_direc+os.sep+'conf_var')
+	os.mkdir(sample_direc+os.sep+'probs')
+
 except:
 	pass
 
@@ -586,15 +616,16 @@ for counter,f in enumerate(sample_filenames):
 
             print("Working on %i x %i image" % (w,h))
 
-            image = tf.image.per_image_standardization(image)
+            #image = tf.image.per_image_standardization(image)
+            image = standardize(image.numpy())
 
             E = []; W = []
             E.append(model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze())
             W.append(1)
-            E.append(np.fliplr(model.predict(tf.expand_dims(np.fliplr(image), 0) , batch_size=1).squeeze()))
-            W.append(.75)
-            E.append(np.flipud(model.predict(tf.expand_dims(np.flipud(image), 0) , batch_size=1).squeeze()))
-            W.append(.75)
+            # E.append(np.fliplr(model.predict(tf.expand_dims(np.fliplr(image), 0) , batch_size=1).squeeze()))
+            # W.append(.75)
+            # E.append(np.flipud(model.predict(tf.expand_dims(np.flipud(image), 0) , batch_size=1).squeeze()))
+            # W.append(.75)
 
             for k in np.linspace(100,int(TARGET_SIZE[0]),10):
                 #E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, int(k)), 0) , batch_size=1).squeeze(), -int(k)))
@@ -608,16 +639,35 @@ for counter,f in enumerate(sample_filenames):
 
             K.clear_session()
 
-            E = [maximum_filter(resize(e,(w,h)), int(w/200)) for e in E]
+            #E = [maximum_filter(resize(e,(w,h)), int(w/200)) for e in E]
+            E = [resize(e,(w,h)) for e in E]
 
             #est_label = np.median(np.dstack(E), axis=-1)
             est_label = np.average(np.dstack(E), axis=-1, weights=np.array(W))
 
             var = np.std(np.dstack(E), axis=-1)
 
+            if 'jpg' in f:
+                outfile = os.path.normpath(f.replace('.jpg', '_prob.npz'))
+            else:
+                outfile = os.path.normpath(f.replace('.png', '_prob.npz'))
+
+            outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'probs'))
+            np.savez(outfile, est_label.astype(np.float16))
+
+            if 'jpg' in f:
+                outfile = os.path.normpath(f.replace('.jpg', '_prob.tif'))
+            else:
+                outfile = os.path.normpath(f.replace('.png', '_prob.tif'))
+
+            outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'probs'))
+            imsave(outfile, np.dstack((bigimage, 255*est_label)))
+
             if np.max(est_label)-np.min(est_label) > .5:
                 thres = threshold_otsu(est_label)
-                print("Threshold: %f" % (thres))
+                print("Otsu threshold: %f" % (thres))
+                if thres>.75:
+                    thres = .75
             else:
                 thres = .75
                 print("Default threshold: %f" % (thres))
@@ -643,6 +693,7 @@ for counter,f in enumerate(sample_filenames):
             elapsed = (time.time() - start)/60
             print("Image masking took "+ str(elapsed) + " minutes")
             start = time.time()
+
             imsave(segfile, (est_label*255).astype(np.uint8), check_contrast=False)
 
             if 'jpg' in f:
@@ -662,15 +713,18 @@ for counter,f in enumerate(sample_filenames):
             np.savez(outfile, var.astype(np.float16))
 
             if 'jpg' in f:
-                outfile = os.path.normpath(f.replace('.jpg', '_segoverlay.png'))
+                outfile = os.path.normpath(f.replace('.jpg', '_segoverlay.tif'))
             else:
-                outfile = os.path.normpath(f.replace('.png', '_segoverlay.png'))
+                outfile = os.path.normpath(f.replace('.png', '_segoverlay.tif'))
 
             outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masked'))
             try:
-                imsave(outfile, np.dstack((255*bigimage[:,:,:2], (est_label*255))), check_contrast=False)
+                imsave(outfile, np.dstack((bigimage, (255*est_label))), check_contrast=False)
             except:
-                imsave(outfile, np.dstack((255*bigimage, (est_label*255))), check_contrast=False)
+                bigimage = bigimage.numpy().squeeze()
+                if np.ndim(bigimage)!=3:
+                    bigimage = np.dstack((bigimage,bigimage,bigimage))
+                imsave(outfile, np.dstack((bigimage, (255*est_label))), check_contrast=False)
 
             elapsed = (time.time() - start)/60
             print("File writing took "+ str(elapsed) + " minutes")
@@ -706,14 +760,8 @@ for counter,f in enumerate(sample_filenames):
 
             print("Working on %i x %i image" % (w,h))
 
-            # if USE_LOCATION:
-            #     gx,gy = np.meshgrid(np.arange(image.shape[1]), np.arange(image.shape[0]))
-            #     loc = np.sqrt(gx**2 + gy**2)
-            #     loc /= loc.max()
-            #     loc = (255*loc).astype('uint8')
-            #     image = np.dstack((image, loc))
-
-            image = tf.image.per_image_standardization(image)
+            #image = tf.image.per_image_standardization(image)
+            image = standardize(image.numpy())
 
             est_label = model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
             K.clear_session()
@@ -734,7 +782,7 @@ for counter,f in enumerate(sample_filenames):
             try:
                 color_label = label_to_colors(est_label, bigimage.numpy()[:,:,0]==0, alpha=128, colormap=class_label_colormap, color_class_offset=0, do_alpha=False)
             except:
-                color_label = label_to_colors(est_label, bigimage[:,:,0]==0, alpha=128, colormap=class_label_colormap, color_class_offset=0, do_alpha=False)            
+                color_label = label_to_colors(est_label, bigimage[:,:,0]==0, alpha=128, colormap=class_label_colormap, color_class_offset=0, do_alpha=False)
 
             elapsed = (time.time() - start)/60
             print("Image masking took "+ str(elapsed) + " minutes")
@@ -764,159 +812,3 @@ for counter,f in enumerate(sample_filenames):
             elapsed = (time.time() - start)/60
             print("File writing took "+ str(elapsed) + " minutes")
             print("%s done" % (f))
-
-
-# imsave(f.replace('.jpg', '_predseg_col.png'), (color_label).astype(np.uint8), check_contrast=False)
-#cmd = 'convert '+f+' \( '+f.replace('.jpg', '_predseg.png')+' -normalize +level 0,50% \) -compose screen -composite '+f.replace('.jpg', '_segoverlay.png')
-#if os.name=='posix':
-#    os.system(cmd)
-#else:
-
-
-        # if N_DATA_BANDS<=3:
-        #     image = seg_file2tensor_3band(f, resize=False)/255
-        # else:
-        #     image = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir'), resize=False )/255
-
-        #width = image.shape[0]
-        #height = image.shape[1]
-        # E = []
-        # E.append(model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze())
-        # E.append(np.fliplr(model.predict(tf.expand_dims(np.fliplr(image), 0) , batch_size=1).squeeze()))
-        # E.append(np.flipud(model.predict(tf.expand_dims(np.flipud(image), 0) , batch_size=1).squeeze()))
-        #
-        # for k in np.linspace(100,TARGET_SIZE[0],10):
-        #     E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, int(k)), 0) , batch_size=1).squeeze(), -int(k)))
-        #
-        # for k in np.linspace(100,TARGET_SIZE[0],10):
-        #     E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, -int(k)), 0) , batch_size=1).squeeze(), int(k)))
-        #
-        # E = [maximum_filter(resize(e,(width,height)), int(width/100)) for e in E]
-        #
-
-
-    # est_label += 1
-    # est_label[conf<np.mean(conf)/3] = 0
-
-    # conf = conf[:width,:height]
-
-    # try:
-    #     est_label2 = inpaint.inpaint_biharmonic(resize(est_label, (int(width/4), (height/4))), resize(est_label, (int(width/4), (height/4)))==0, multichannel=False)
-    #     est_label = resize(est_label2, (width, height))-1
-    #     est_label[est_label<0]=0
-    # except:
-    #     pass
-
-
-    # padwidth = width + (TARGET_SIZE[0] - width % TARGET_SIZE[0])
-    # padheight = height + (TARGET_SIZE[1] - height % TARGET_SIZE[1])
-    # I = np.zeros((padwidth, padheight, N_DATA_BANDS))
-    # I[:width,:height,:] = image.numpy()
-    #
-    # gridx, gridy = np.meshgrid(np.arange(padheight), np.arange(padwidth))
-    #
-    # E = []
-    # for n in tqdm([2,4,6,8]):
-    #     Zx,_ = sliding_window(gridx, (TARGET_SIZE[0],TARGET_SIZE[1]), (int(TARGET_SIZE[0]/n), int(TARGET_SIZE[1]/n)))
-    #     Zy,_ = sliding_window(gridy, (TARGET_SIZE[0],TARGET_SIZE[1]), (int(TARGET_SIZE[0]/n), int(TARGET_SIZE[1]/n)))
-    #     #print(len(Zx))
-    #
-    #     Z,ind = sliding_window(I, (TARGET_SIZE[0],TARGET_SIZE[1],N_DATA_BANDS), (int(TARGET_SIZE[0]/n), int(TARGET_SIZE[1]/n), N_DATA_BANDS))
-    #     #del I
-    #     est_label = np.zeros((padwidth, padheight))
-    #     N = np.zeros((padwidth, padheight))
-    #
-    #     for z,x,y in zip(Z,Zx,Zy):
-    #         est_label[y,x] = model.predict(tf.expand_dims(z, 0) , batch_size=1).squeeze()
-    #         N[y,x] += 1
-    #     del Z, Zx, Zy
-    #
-    #     #est_label = median(est_label, disk(int(width/100)))/255.
-    #     est_label = maximum_filter(est_label, int(width/100))
-    #
-    #     est_label /= N
-    #     del N
-    #     E.append(est_label)
-    #
-    # #est_label = model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
-    # K.clear_session()
-    #
-    # #est_label = np.median(np.dstack(E), axis=-1)
-    # est_label =  np.max(np.dstack(E), axis=-1)
-    # est_label[np.isnan(est_label)] = 0
-    # est_label[np.isinf(est_label)] = 0
-    #
-    # est_label = maximum_filter(est_label, int(width/100))
-    # est_label = median(est_label, disk(int(width/100)))/255.
-
-#
-# # =========================================================
-# def norm_shape(shap):
-#    '''
-#    Normalize numpy array shapes so they're always expressed as a tuple,
-#    even for one-dimensional shapes.
-#    '''
-#    try:
-#       i = int(shap)
-#       return (i,)
-#    except TypeError:
-#       # shape was not a number
-#       pass
-#
-#    try:
-#       t = tuple(shap)
-#       return t
-#    except TypeError:
-#       # shape was not iterable
-#       pass
-#
-#    raise TypeError('shape must be an int, or a tuple of ints')
-#
-#
-# # =========================================================
-# # Return a sliding window over a in any number of dimensions
-# # version with no memory mapping
-# def sliding_window(a,ws,ss = None,flatten = True):
-#     '''
-#     Return a sliding window over a in any number of dimensions
-#     '''
-#     if None is ss:
-#         # ss was not provided. the windows will not overlap in any direction.
-#         ss = ws
-#     ws = norm_shape(ws)
-#     ss = norm_shape(ss)
-#     # convert ws, ss, and a.shape to numpy arrays
-#     ws = np.array(ws)
-#     ss = np.array(ss)
-#     shap = np.array(a.shape)
-#     # ensure that ws, ss, and a.shape all have the same number of dimensions
-#     ls = [len(shap),len(ws),len(ss)]
-#     if 1 != len(set(ls)):
-#         raise ValueError(\
-#         'a.shape, ws and ss must all have the same length. They were %s' % str(ls))
-#
-#     # ensure that ws is smaller than a in every dimension
-#     if np.any(ws > shap):
-#         raise ValueError(\
-#         'ws cannot be larger than a in any dimension.\
-#  a.shape was %s and ws was %s' % (str(a.shape),str(ws)))
-#     # how many slices will there be in each dimension?
-#     newshape = norm_shape(((shap - ws) // ss) + 1)
-#     # the shape of the strided array will be the number of slices in each dimension
-#     # plus the shape of the window (tuple addition)
-#     newshape += norm_shape(ws)
-#     # the strides tuple will be the array's strides multiplied by step size, plus
-#     # the array's strides (tuple addition)
-#     newstrides = norm_shape(np.array(a.strides) * ss) + a.strides
-#     a = ast(a,shape = newshape,strides = newstrides)
-#     if not flatten:
-#         return a
-#     # Collapse strided so that it has one more dimension than the window.  I.e.,
-#     # the new array is a flat list of slices.
-#     meat = len(ws) if ws.shape else 0
-#     firstdim = (np.product(newshape[:-meat]),) if ws.shape else ()
-#     dim = firstdim + (newshape[-meat:])
-#     # remove any dimensions with size 1
-#     #dim = filter(lambda i : i != 1,dim)
-#
-#     return a.reshape(dim), newshape

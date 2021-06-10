@@ -108,6 +108,7 @@ def load_npz(example):
     if N_DATA_BANDS==4:
         with np.load(example.numpy()) as data:
             image = data['arr_0'].astype('uint8')
+            image = standardize(image)
             nir = data['arr_1'].astype('uint8')
             label = data['arr_2'].astype('uint8')
         if USE_LOCATION:
@@ -121,6 +122,7 @@ def load_npz(example):
     else:
         with np.load(example.numpy()) as data:
             image = data['arr_0'].astype('uint8')
+            image = standardize(image)
             label = data['arr_1'].astype('uint8')
         if USE_LOCATION:
             gx,gy = np.meshgrid(np.arange(image.shape[1]), np.arange(image.shape[0]))
@@ -148,12 +150,12 @@ def read_seg_dataset_multiclass(example):
     """
     if N_DATA_BANDS==4:
         image, nir, label = tf.py_function(func=load_npz, inp=[example], Tout=[tf.uint8, tf.uint8, tf.uint8])
-        nir = tf.cast(nir, tf.float32)/ 255.0
+        nir = tf.cast(nir, tf.float32)#/ 255.0
     else:
-        image, label = tf.py_function(func=load_npz, inp=[example], Tout=[tf.uint8, tf.uint8])
+        image, label = tf.py_function(func=load_npz, inp=[example], Tout=[tf.float32, tf.uint8])
 
-    image = tf.cast(image, tf.float32)/ 255.0
-    label = tf.cast(label, tf.uint8)
+    # image = tf.cast(image, tf.float32)#/ 255.0
+    # label = tf.cast(label, tf.uint8)
 
     if N_DATA_BANDS==4:
         image = tf.concat([image, tf.expand_dims(nir,-1)],-1)
@@ -161,7 +163,7 @@ def read_seg_dataset_multiclass(example):
     if NCLASSES==1:
         label = tf.expand_dims(label,-1)
 
-    image = tf.image.per_image_standardization(image)
+    #image = tf.image.per_image_standardization(image)
 
     if NCLASSES>1:
         if N_DATA_BANDS>1:
@@ -214,7 +216,6 @@ if DO_TRAIN:
     for imgs,lbls in train_ds.take(1):
         print(imgs.shape)
         print(lbls.shape)
-
 
 print('.....................................')
 print('Creating and compiling model ...')
@@ -273,6 +274,25 @@ scores = model.evaluate(val_ds, steps=validation_steps)
 print('loss={loss:0.4f}, Mean IOU={mean_iou:0.4f}, Mean Dice={mean_dice:0.4f}'.format(loss=scores[0], mean_iou=scores[1], mean_dice=scores[2]))
 
 # # # ##########################################################
+
+
+        #
+        # w = Parallel(n_jobs=-2, verbose=0)(delayed(tta_crf)(img, rf_result_filt_inp, k) for k in np.linspace(0,int(img.shape[0]),10))
+        # R,W,n = zip(*w)
+        # del rf_result_filt_inp
+        # crf_result = np.round(np.average(np.dstack(R), axis=-1, weights = W)).astype('uint8')
+        # del R,W,n
+        # crf_result_filt = filter_one_hot(crf_result, 2*crf_result.shape[0])
+        # crf_result_filt = filter_one_hot_spatial(crf_result_filt, orig_distance)
+        # crf_result_filt = crf_result_filt.astype('float')
+        # crf_result_filt[crf_result_filt==0] = np.nan
+        # crf_result_filt_inp = inpaint_nans(crf_result_filt).astype('uint8')
+        # del crf_result_filt, crf_result
+        #
+        # lstack = (np.arange(crf_result_filt_inp.max()) == crf_result_filt_inp[...,None]-1).astype(int) #one-hot encode
+        # data['label'] = lstack
+        #
+
 
 IOUc = []
 

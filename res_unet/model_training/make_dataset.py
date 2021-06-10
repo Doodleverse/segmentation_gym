@@ -88,7 +88,6 @@ print(dataset_dir)
 root.withdraw()
 
 
-
 ###############################################################
 ## FUNCTIONS
 ###############################################################
@@ -100,12 +99,14 @@ def load_npz(example):
     if N_DATA_BANDS==4:
         with np.load(example.numpy()) as data:
             image = data['arr_0'].astype('uint8')
+            image = standardize(image)
             nir = data['arr_1'].astype('uint8')
             label = data['arr_2'].astype('uint8')
         return image, nir,label
     else:
         with np.load(example.numpy()) as data:
             image = data['arr_0'].astype('uint8')
+            image = standardize(image)
             label = data['arr_1'].astype('uint8')
         return image, label
 
@@ -125,12 +126,12 @@ def read_seg_dataset_multiclass(example):
     """
     if N_DATA_BANDS==4:
         image, nir, label = tf.py_function(func=load_npz, inp=[example], Tout=[tf.uint8, tf.uint8, tf.uint8])
-        nir = tf.cast(nir, tf.float32)/ 255.0
+        nir = tf.cast(nir, tf.float32)#/ 255.0
     else:
-        image, label = tf.py_function(func=load_npz, inp=[example], Tout=[tf.uint8, tf.uint8])
+        image, label = tf.py_function(func=load_npz, inp=[example], Tout=[tf.float32, tf.uint8])
 
-    image = tf.cast(image, tf.float32)/ 255.0
-    label = tf.cast(label, tf.uint8)
+    # image = tf.cast(image, tf.float32)#/ 255.0
+    # label = tf.cast(label, tf.uint8)
 
     if NCLASSES==1:
         label = tf.expand_dims(label,-1)
@@ -298,6 +299,8 @@ for copy in range(AUG_COPIES):
                 #print(np.unique(l.flatten()))
 
                 if 'REMAP_CLASSES' not in locals():
+                    if np.min(l)==1:
+                        l -= 1
                     if NCLASSES==1:
                         l[l>0]=1
 
@@ -333,9 +336,9 @@ for copy in range(AUG_COPIES):
                             np.savez(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), lstack.astype(np.uint8))
                     else:
                         if USEMASK:
-                            np.savez(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(l).astype(np.uint8))
+                            np.savez(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(lstack).astype(np.uint8))
                         else:
-                            np.savez(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(l).astype(np.uint8))
+                            np.savez(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(lstack).astype(np.uint8))
 
                 except:
                     print('Error ')
@@ -355,6 +358,8 @@ for copy in range(AUG_COPIES):
                     l = np.round(median(l, disk(MEDIAN_FILTER_VALUE))).astype(np.uint8)
 
                 if 'REMAP_CLASSES' not in locals():
+                    if np.min(l)==1:
+                        l -= 1
                     if NCLASSES==1:
                         l[l>0]=1 #null is water
 
@@ -387,9 +392,9 @@ for copy in range(AUG_COPIES):
                             np.savez(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), lstack.astype(np.uint8))
                     else:
                         if USEMASK:
-                            np.savez(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), np.squeeze(l).astype(np.uint8))
+                            np.savez(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), lstack.astype(np.uint8))
                         else:
-                            np.savez(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), np.squeeze(l).astype(np.uint8))
+                            np.savez(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), lstack.astype(np.uint8))
 
                 except:
                     print('Error ')
