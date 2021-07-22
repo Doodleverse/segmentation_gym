@@ -320,14 +320,14 @@ for copy in range(AUG_COPIES):
 
                     if NCLASSES>1:
 
-                        if DO_CRF_REFINE:
-                            for kk in range(lstack.shape[-1]):
-                                #print(k)
-                                l,_ = crf_refine(lstack[:,:,kk], im, nclasses = NCLASSES, theta_col=40, theta_spat=1, compat=100)
-                                if MEDIAN_FILTER_VALUE>1:
-                                    lstack[:,:,kk] = np.round(median(l, disk(MEDIAN_FILTER_VALUE))).astype(np.uint8)
-                                else:
-                                    lstack[:,:,kk] = np.round(l).astype(np.uint8)
+                        # if DO_CRF_REFINE:
+                        #     for kk in range(lstack.shape[-1]):
+                        #         #print(k)
+                        #         l,_ = crf_refine(lstack[:,:,kk], im, nclasses = NCLASSES, theta_col=40, theta_spat=1, compat=100)
+                        #         if MEDIAN_FILTER_VALUE>1:
+                        #             lstack[:,:,kk] = np.round(median(l, disk(MEDIAN_FILTER_VALUE))).astype(np.uint8)
+                        #         else:
+                        #             lstack[:,:,kk] = np.round(l).astype(np.uint8)
 
                         #for kk in range(lstack.shape[-1]):
                         if USEMASK:
@@ -377,14 +377,14 @@ for copy in range(AUG_COPIES):
 
                     if NCLASSES>1:
 
-                        if DO_CRF_REFINE:
-                            for kk in range(lstack.shape[-1]):
-                                #print(k)
-                                l,_ = crf_refine(lstack[:,:,kk], im, nclasses = NCLASSES, theta_col=40, theta_spat=1, compat=100)
-                                if MEDIAN_FILTER_VALUE>1:
-                                    lstack[:,:,kk] = np.round(median(l, disk(MEDIAN_FILTER_VALUE))).astype(np.uint8)
-                                else:
-                                    lstack[:,:,kk] = np.round(l).astype(np.uint8)
+                        # if DO_CRF_REFINE:
+                        #     for kk in range(lstack.shape[-1]):
+                        #         #print(k)
+                        #         l,_ = crf_refine(lstack[:,:,kk], im, nclasses = NCLASSES, theta_col=40, theta_spat=1, compat=100)
+                        #         if MEDIAN_FILTER_VALUE>1:
+                        #             lstack[:,:,kk] = np.round(median(l, disk(MEDIAN_FILTER_VALUE))).astype(np.uint8)
+                        #         else:
+                        #             lstack[:,:,kk] = np.round(l).astype(np.uint8)
 
                         if USEMASK:
                             np.savez(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), lstack.astype(np.uint8))

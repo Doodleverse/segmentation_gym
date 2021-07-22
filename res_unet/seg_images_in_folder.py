@@ -41,7 +41,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 #utils
 #keras functions for early stopping and model weights saving
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+# from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 import numpy as np
 import tensorflow as tf #numerical operations on gpu
 from joblib import Parallel, delayed
@@ -52,6 +52,9 @@ from scipy.ndimage import maximum_filter
 from skimage.transform import resize
 from tqdm import tqdm
 from skimage.filters import threshold_otsu
+from skimage.morphology import rectangle, erosion  # noqa
+
+import matplotlib.pyplot as plt
 
 SEED=42
 np.random.seed(SEED)
@@ -74,44 +77,7 @@ from tkinter import filedialog
 from tkinter import *
 import json
 from skimage.io import imsave
-from skimage.transform import resize
-
-
-#-----------------------------------
-def crf_refine(label, img, nclasses,theta_col=100, mu=120, theta_spat=3, mu_spat=3):
-    """
-    "crf_refine(label, img)"
-    This function refines a label image based on an input label image and the associated image
-    Uses a conditional random field algorithm using spatial and image features
-    INPUTS:
-        * label [ndarray]: label image 2D matrix of integers
-        * image [ndarray]: image 3D matrix of integers
-    OPTIONAL INPUTS: None
-    GLOBAL INPUTS: None
-    OUTPUTS: label [ndarray]: label image 2D matrix of integers
-    """
-
-    H = label.shape[0]
-    W = label.shape[1]
-    U = unary_from_labels(1+label,nclasses,gt_prob=0.51)
-    d = dcrf.DenseCRF2D(H, W, nclasses)
-    d.setUnaryEnergy(U)
-
-    # to add the color-independent term, where features are the locations only:
-    d.addPairwiseGaussian(sxy=(theta_spat, theta_spat),
-                 compat=mu_spat,
-                 kernel=dcrf.DIAG_KERNEL,
-                 normalization=dcrf.NORMALIZE_SYMMETRIC)
-    feats = create_pairwise_bilateral(
-                          sdims=(theta_col, theta_col),
-                          schan=(2,2,2),
-                          img=img,
-                          chdim=2)
-
-    d.addPairwiseEnergy(feats, compat=mu,kernel=dcrf.DIAG_KERNEL,normalization=dcrf.NORMALIZE_SYMMETRIC)
-    Q = d.inference(10)
-    #kl1 = d.klDivergence(Q)
-    return np.argmax(Q, axis=0).reshape((H, W)).astype(np.uint8)#, kl1
+from numpy.lib.stride_tricks import as_strided as ast
 
 #-----------------------------------
 def mean_iou(y_true, y_pred):
@@ -422,7 +388,11 @@ def seg_file2tensor_3band(f, resize):
         # image = tf.cast(image, tf.uint8) #/ 255.0
 
 
-    return image, w, h, bigimage
+
+        return image, w, h, bigimage
+
+    else:
+        return None, w, h, bigimage
 
 
 #-----------------------------------
@@ -481,7 +451,12 @@ def seg_file2tensor_4band(f, fir, resize):
         image = tf.image.crop_to_bounding_box(image, (nw - tw) // 2, (nh - th) // 2, tw, th)
         # image = tf.cast(image, tf.uint8) #/ 255.0
 
-    return image, w, h, bigimage
+        return image, w, h, bigimage
+
+    else:
+        return None, w, h, bigimage
+
+
 
 ##========================================================
 def fromhex(n):
@@ -531,73 +506,32 @@ def label_to_colors(
         return cimg
 
 
-#====================================================
-
-root = Tk()
-root.filename =  filedialog.askopenfilename(initialdir = "/model_training/weights",title = "Select file",filetypes = (("weights file","*.h5"),("all files","*.*")))
-weights = root.filename
-print(weights)
-root.withdraw()
-
-root = Tk()
-root.filename =  filedialog.askdirectory(initialdir = "/samples",title = "Select directory of images to segment")
-sample_direc = root.filename
-print(sample_direc)
-root.withdraw()
+# =========================================================
+def do_seg(f):
 
 
-configfile = weights.replace('.h5','.json').replace('weights', 'config')
+    #=======================================================
+    if USE_LOCATION:
+        model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS+1), BATCH_SIZE, NCLASSES)
+    else:
+        model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), BATCH_SIZE, NCLASSES)
 
-with open(configfile) as f:
-    config = json.load(f)
+    model.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics = [mean_iou, dice_coef])
 
-for k in config.keys():
-    exec(k+'=config["'+k+'"]')
-
-
-try:
-	os.mkdir(sample_direc+os.sep+'masks')
-	os.mkdir(sample_direc+os.sep+'masked')
-	os.mkdir(sample_direc+os.sep+'conf_var')
-	os.mkdir(sample_direc+os.sep+'probs')
-
-except:
-	pass
-
-#=======================================================
-if USE_LOCATION:
-    model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS+1), BATCH_SIZE, NCLASSES)
-else:
-    model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), BATCH_SIZE, NCLASSES)
-
-model.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics = [mean_iou, dice_coef])
-
-model.load_weights(weights)
-
-
-### predict
-print('.....................................')
-print('Using model for prediction on images ...')
-
-sample_filenames = sorted(tf.io.gfile.glob(sample_direc+os.sep+'*.jpg'))
-if len(sample_filenames)==0:
-    sample_filenames = sorted(tf.io.gfile.glob(sample_direc+os.sep+'*.png'))
-
-print('Number of samples: %i' % (len(sample_filenames)))
-
-for counter,f in enumerate(sample_filenames):
+    model.load_weights(weights)
 
     if NCLASSES==1:
         if 'jpg' in f:
-            segfile = f.replace('.jpg', '_predseg.png')
+            segfile = f.replace('.jpg', '_seg.tif')
         elif 'png' in f:
-            segfile = f.replace('.png', '_predseg.png')
+            segfile = f.replace('.png', '_seg.tif')
 
         segfile = os.path.normpath(segfile)
-        segfile = segfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masks'))
-        if os.path.exists(segfile):
+        # segfile = segfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masks'))
+
+        if os.path.exists(segfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'certainty'))):
             print('%s exists ... skipping' % (segfile))
-            continue
+            pass
         else:
             print('%s does not exist ... creating' % (segfile))
 
@@ -605,72 +539,70 @@ for counter,f in enumerate(sample_filenames):
 
             if N_DATA_BANDS<=3:
                 image, w, h, bigimage = seg_file2tensor_3band(f, resize=True)
-                image = image#/255
-                bigimage = bigimage#/255
+                if image is None:
+                    image = bigimage#/255
+                    #bigimage = bigimage#/255
                 w = w.numpy(); h = h.numpy()
             else:
                 image, w, h, bigimage = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir'), resize=True )
-                image = image#/255
-                bigimage = bigimage#/255
+                if image is None:
+                    image = bigimage#/255
                 w = w.numpy(); h = h.numpy()
 
             print("Working on %i x %i image" % (w,h))
 
-            #image = tf.image.per_image_standardization(image)
-            image = standardize(image.numpy())
+            image = standardize(image.numpy()).squeeze()
+
 
             E = []; W = []
             E.append(model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze())
             W.append(1)
-            # E.append(np.fliplr(model.predict(tf.expand_dims(np.fliplr(image), 0) , batch_size=1).squeeze()))
-            # W.append(.75)
-            # E.append(np.flipud(model.predict(tf.expand_dims(np.flipud(image), 0) , batch_size=1).squeeze()))
-            # W.append(.75)
+            E.append(np.fliplr(model.predict(tf.expand_dims(np.fliplr(image), 0) , batch_size=1).squeeze()))
+            W.append(.5)
+            E.append(np.flipud(model.predict(tf.expand_dims(np.flipud(image), 0) , batch_size=1).squeeze()))
+            W.append(.5)
 
-            for k in np.linspace(100,int(TARGET_SIZE[0]),10):
-                #E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, int(k)), 0) , batch_size=1).squeeze(), -int(k)))
-                E.append(model.predict(tf.expand_dims(np.roll(image, int(k)), 0) , batch_size=1).squeeze())
-                W.append(2*(1/np.sqrt(k)))
-
-            for k in np.linspace(100,int(TARGET_SIZE[0]),10):
-                #E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, -int(k)), 0) , batch_size=1).squeeze(), int(k)))
-                E.append(model.predict(tf.expand_dims(np.roll(image, -int(k)), 0) , batch_size=1).squeeze())
-                W.append(2*(1/np.sqrt(k)))
+            # for k in np.linspace(100,int(TARGET_SIZE[0]),10):
+            #     #E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, int(k)), 0) , batch_size=1).squeeze(), -int(k)))
+            #     E.append(model.predict(tf.expand_dims(np.roll(image, int(k)), 0) , batch_size=1).squeeze())
+            #     W.append(2*(1/np.sqrt(k)))
+            #
+            # for k in np.linspace(100,int(TARGET_SIZE[0]),10):
+            #     #E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, -int(k)), 0) , batch_size=1).squeeze(), int(k)))
+            #     E.append(model.predict(tf.expand_dims(np.roll(image, -int(k)), 0) , batch_size=1).squeeze())
+            #     W.append(2*(1/np.sqrt(k)))
 
             K.clear_session()
 
             #E = [maximum_filter(resize(e,(w,h)), int(w/200)) for e in E]
-            E = [resize(e,(w,h)) for e in E]
+            E = [resize(e,(w,h), preserve_range=True, clip=True) for e in E]
 
             #est_label = np.median(np.dstack(E), axis=-1)
             est_label = np.average(np.dstack(E), axis=-1, weights=np.array(W))
 
+            est_label /= est_label.max()
+
             var = np.std(np.dstack(E), axis=-1)
-
-            if 'jpg' in f:
-                outfile = os.path.normpath(f.replace('.jpg', '_prob.npz'))
-            else:
-                outfile = os.path.normpath(f.replace('.png', '_prob.npz'))
-
-            outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'probs'))
-            np.savez(outfile, est_label.astype(np.float16))
-
-            if 'jpg' in f:
-                outfile = os.path.normpath(f.replace('.jpg', '_prob.tif'))
-            else:
-                outfile = os.path.normpath(f.replace('.png', '_prob.tif'))
-
-            outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'probs'))
-            imsave(outfile, np.dstack((bigimage, 255*est_label)))
 
             if np.max(est_label)-np.min(est_label) > .5:
                 thres = threshold_otsu(est_label)
-                print("Otsu threshold: %f" % (thres))
-                if thres>.75:
-                    thres = .75
+                print("Probability of land threshold: %f" % (thres))
             else:
-                thres = .75
+                thres = .9
                 print("Default threshold: %f" % (thres))
+
+            # if 'jpg' in f:
+            #     outfile = os.path.normpath(f.replace('.jpg', '_contour.png'))
+            # else:
+            #     outfile = os.path.normpath(f.replace('.png', '_contour.png'))
+            #
+            # outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masked'))
+            # plt.imshow(bigimage, cmap='gray')
+            # plt.contourf(est_label, alpha=0.2, cmap='bwr'); plt.colorbar()
+            # plt.contour(est_label,[thres - (thres/100)*50, thres, thres + (thres/100)*50])
+            # plt.savefig(outfile, dpi=300, bbox_inches='tight')
+            # plt.close()
+
 
             conf = 1-est_label
             conf[est_label<thres] = est_label[est_label<thres]
@@ -682,53 +614,41 @@ for counter,f in enumerate(sample_filenames):
             model_conf = np.sum(conf)/np.prod(conf.shape)
             print('Overall model confidence = %f'%(model_conf))
 
-            est_label[est_label<thres] = 0
-            est_label[est_label>thres] = 1
-            est_label = remove_small_holes(est_label.astype('uint8')*2, 2*w)
-            est_label = remove_small_objects(est_label.astype('uint8')*2, 2*w)
-            est_label[est_label<thres] = 0
-            est_label[est_label>thres] = 1
-            est_label = np.squeeze(est_label[:w,:h])
+            out_stack = np.dstack((est_label,conf,var))
+            outfile = segfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'prob_stack'))
+
+            imsave(outfile.replace('.tif','.png'),(100*out_stack).astype('uint8'),compression=9)
+
+            #yellow = high prob land , high confidence, low variability
+            #green = low prob of land, high confidence, low variability
+            #purple = high prob land, low confidence, high variability
+            #blue = low prob land, low confidence, high variability
+            #red = high probability of land, low confidence, low variability
+
+            thres_conf = threshold_otsu(conf)
+            thres_var = threshold_otsu(var)
+            print("Confidence threshold: %f" % (thres_conf))
+            print("Variance threshold: %f" % (thres_var))
+
+            land = (est_label>thres) & (conf>thres_conf) & (var<thres_conf)
+            water = (est_label<thres)
+            certainty = np.average(np.dstack((np.abs(est_label-thres) , conf , (1-var))), axis=2, weights=[2,1,1])
+            outfile = segfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'certainty'))
+
+            imsave(outfile,(100*certainty).astype('uint8'),photometric='minisblack',compress=0)
+
+
+            land = remove_small_holes(land.astype('uint8'), 5*w)
+            land = remove_small_objects(land.astype('uint8'), 5*w)
+            outfile = segfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masks'))
+
+            imsave(outfile.replace('.tif','.jpg'),255*land.astype('uint8'),quality=100)
 
             elapsed = (time.time() - start)/60
             print("Image masking took "+ str(elapsed) + " minutes")
-            start = time.time()
 
-            imsave(segfile, (est_label*255).astype(np.uint8), check_contrast=False)
-
-            if 'jpg' in f:
-                outfile = os.path.normpath(f.replace('.jpg', '_conf.npz'))
-            else:
-                outfile = os.path.normpath(f.replace('.png', '_conf.npz'))
-
-            outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'conf_var'))
-            np.savez(outfile, conf.astype(np.float16))
-
-            if 'jpg' in f:
-                outfile = os.path.normpath(f.replace('.jpg', '_var.npz'))
-            else:
-                outfile = os.path.normpath(f.replace('.png', '_var.npz'))
-
-            outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'conf_var'))
-            np.savez(outfile, var.astype(np.float16))
-
-            if 'jpg' in f:
-                outfile = os.path.normpath(f.replace('.jpg', '_segoverlay.tif'))
-            else:
-                outfile = os.path.normpath(f.replace('.png', '_segoverlay.tif'))
-
-            outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masked'))
-            try:
-                imsave(outfile, np.dstack((bigimage, (255*est_label))), check_contrast=False)
-            except:
-                bigimage = bigimage.numpy().squeeze()
-                if np.ndim(bigimage)!=3:
-                    bigimage = np.dstack((bigimage,bigimage,bigimage))
-                imsave(outfile, np.dstack((bigimage, (255*est_label))), check_contrast=False)
-
-            elapsed = (time.time() - start)/60
-            print("File writing took "+ str(elapsed) + " minutes")
             print("%s done" % (f))
+
 
     else: ###NCLASSES>1
 
@@ -741,7 +661,7 @@ for counter,f in enumerate(sample_filenames):
         segfile = segfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masks'))
         if os.path.exists(segfile):
             print('%s exists ... skipping' % (segfile))
-            continue
+            pass
         else:
             print('%s does not exist ... creating' % (segfile))
 
@@ -759,6 +679,13 @@ for counter,f in enumerate(sample_filenames):
                 w = w.numpy(); h = h.numpy()
 
             print("Working on %i x %i image" % (w,h))
+
+            # if USE_LOCATION:
+            #     gx,gy = np.meshgrid(np.arange(image.shape[1]), np.arange(image.shape[0]))
+            #     loc = np.sqrt(gx**2 + gy**2)
+            #     loc /= loc.max()
+            #     loc = (255*loc).astype('uint8')
+            #     image = np.dstack((image, loc))
 
             #image = tf.image.per_image_standardization(image)
             image = standardize(image.numpy())
@@ -812,3 +739,64 @@ for counter,f in enumerate(sample_filenames):
             elapsed = (time.time() - start)/60
             print("File writing took "+ str(elapsed) + " minutes")
             print("%s done" % (f))
+
+#====================================================
+
+root = Tk()
+root.filename =  filedialog.askopenfilename(initialdir = "/model_training/weights",title = "Select file",filetypes = (("weights file","*.h5"),("all files","*.*")))
+weights = root.filename
+print(weights)
+root.withdraw()
+
+root = Tk()
+root.filename =  filedialog.askdirectory(initialdir = "/samples",title = "Select directory of images to segment")
+sample_direc = root.filename
+print(sample_direc)
+root.withdraw()
+
+# sample_direc = '/media/marda/TWOTB1/WATERMASKING/imagery/benchmark/20170125'
+# weights = '/media/marda/TWOTB/USGS/SOFTWARE/Projects/UNets/segmentation_zoo_data/model_training/weights/oblique_coast_watermask/watermask_planecam_2class_batch_5_july2021_1024.h5'
+
+configfile = weights.replace('.h5','.json').replace('weights', 'config')
+
+with open(configfile) as f:
+    config = json.load(f)
+
+for k in config.keys():
+    exec(k+'=config["'+k+'"]')
+
+
+try:
+	os.mkdir(sample_direc+os.sep+'masks')
+    os.mkdir(sample_direc+os.sep+'certainty')
+    os.mkdir(sample_direc+os.sep+'prob_stack')
+except:
+	pass
+
+# #=======================================================
+# if USE_LOCATION:
+#     model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS+1), BATCH_SIZE, NCLASSES)
+# else:
+#     model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), BATCH_SIZE, NCLASSES)
+#
+# model.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics = [mean_iou, dice_coef])
+#
+# model.load_weights(weights)
+
+
+### predict
+print('.....................................')
+print('Using model for prediction on images ...')
+
+sample_filenames = sorted(tf.io.gfile.glob(sample_direc+os.sep+'*.jpg'))
+if len(sample_filenames)==0:
+    sample_filenames = sorted(tf.io.gfile.glob(sample_direc+os.sep+'*.png'))
+
+print('Number of samples: %i' % (len(sample_filenames)))
+
+for counter,f in enumerate(sample_filenames):
+    do_seg(f)
+    print('%i out of %i done'%(counter,len(sample_filenames)))
+
+
+# w = Parallel(n_jobs=2, verbose=0, max_nbytes=None)(delayed(do_seg)(f) for f in tqdm(sample_filenames))

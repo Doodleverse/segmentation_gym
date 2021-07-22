@@ -183,9 +183,24 @@ def read_seg_dataset_multiclass(example):
 ###############################################################
 
 #-------------------------------------------------
+# ROOT_STRING = 'watermask'
 
 filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'*.npz')
 shuffle(filenames)
+
+
+#
+#
+# for f in filenames:
+#     with np.load(f) as data:
+#         if np.shape(data['arr_1'])[-1]!=1024:
+#             print(f)
+#         if np.ndim(data['arr_1'])!=2:
+#             print(f)
+#
+#         # print('%s:%i' % (f.split(os.sep)[-1],np.shape(data['arr_1'])[-1] ))
+
+
 list_ds = tf.data.Dataset.list_files(filenames, shuffle=False)
 
 val_size = int(len(filenames) * VALIDATION_SPLIT)
@@ -213,9 +228,27 @@ val_ds = val_ds.prefetch(AUTO) #
 
 if DO_TRAIN:
     # if N_DATA_BANDS<=3:
-    for imgs,lbls in train_ds.take(1):
+    for imgs,lbls in train_ds.take(10):
         print(imgs.shape)
         print(lbls.shape)
+
+# plt.figure(figsize=(16,16))
+# for imgs,lbls in train_ds.take(100):
+#   #print(lbls)
+#   for count,(im,lab) in enumerate(zip(imgs, lbls)):
+#      plt.subplot(int(BATCH_SIZE+1/2),2,count+1)
+#      plt.imshow(im)
+#      if NCLASSES==1:
+#          plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
+#      else:
+#          lab = np.argmax(lab,-1)
+#          plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES)
+#
+#      plt.axis('off')
+#      print(np.unique(lab))
+#      plt.axis('off')
+#      plt.close('all')
+
 
 print('.....................................')
 print('Creating and compiling model ...')
@@ -310,16 +343,16 @@ for i,l in val_ds.take(10):
             est_label[est_label<.5] = 0
             est_label[est_label>.5] = 1
         else:
-            if DO_CRF_REFINE:
-                L = []
-                for k in range(NCLASSES):
-                    l = est_label[:,:,k]>.5
-                    l = l.astype(np.uint8)
-                    l,_ = crf_refine(l, img.numpy().astype(np.uint8), nclasses=2, theta_col=10, theta_spat=3, compat=10)
-                    L.append(l)
-                est_label = np.argmax(np.dstack(L), -1)
-            else:
-                est_label = np.argmax(est_label, -1)
+            # if DO_CRF_REFINE:
+            #     L = []
+            #     for k in range(NCLASSES):
+            #         l = est_label[:,:,k]>.5
+            #         l = l.astype(np.uint8)
+            #         l,_ = crf_refine(l, img.numpy().astype(np.uint8), nclasses=2, theta_col=10, theta_spat=3, compat=10)
+            #         L.append(l)
+            #     est_label = np.argmax(np.dstack(L), -1)
+            # else:
+            est_label = np.argmax(est_label, -1)
 
         if MEDIAN_FILTER_VALUE>1:
             if NCLASSES==1:
