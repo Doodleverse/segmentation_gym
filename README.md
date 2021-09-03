@@ -1,6 +1,6 @@
 # Zoo (Coastal Image Segmentation Zoo)
 
-*Warning* this is alpha software, i.e. not finished with several known bugs. Please be patient, thanks.
+*Warning* this is alpha software, i.e. not finished with several known bugs. Please be patient, thanks. We welcome pull requests and posting issues - please don't be shy!
 
 > Daniel Buscombe, Marda Science. Developed for the USGS Coastal Marine Geology program, as part of the Florence Supplemental project
 
