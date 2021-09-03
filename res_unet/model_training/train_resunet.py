@@ -77,6 +77,13 @@ valsamples_fig = weights.replace('.h5','_val_sample_batch.png').replace('weights
 
 hist_fig = weights.replace('.h5','_trainhist_'+str(BATCH_SIZE)+'.png').replace('weights', 'examples')
 
+try:
+    direc = os.path.dirname(hist_fig)
+    print("Making new directory for example model outputs: %s"% (direc))
+    os.mkdir(direc)
+except:
+    pass
+
 test_samples_fig =  weights.replace('.h5','_val.png').replace('weights', 'examples')
 
 #---------------------------------------------------
@@ -188,19 +195,6 @@ def read_seg_dataset_multiclass(example):
 filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'*.npz')
 shuffle(filenames)
 
-
-#
-#
-# for f in filenames:
-#     with np.load(f) as data:
-#         if np.shape(data['arr_1'])[-1]!=1024:
-#             print(f)
-#         if np.ndim(data['arr_1'])!=2:
-#             print(f)
-#
-#         # print('%s:%i' % (f.split(os.sep)[-1],np.shape(data['arr_1'])[-1] ))
-
-
 list_ds = tf.data.Dataset.list_files(filenames, shuffle=False)
 
 val_size = int(len(filenames) * VALIDATION_SPLIT)
@@ -226,11 +220,11 @@ val_ds = val_ds.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be 
 val_ds = val_ds.prefetch(AUTO) #
 
 
-if DO_TRAIN:
-    # if N_DATA_BANDS<=3:
-    for imgs,lbls in train_ds.take(10):
-        print(imgs.shape)
-        print(lbls.shape)
+# if DO_TRAIN:
+#     # if N_DATA_BANDS<=3:
+#     for imgs,lbls in train_ds.take(10):
+#         print(imgs.shape)
+#         print(lbls.shape)
 
 # plt.figure(figsize=(16,16))
 # for imgs,lbls in train_ds.take(100):
@@ -308,25 +302,6 @@ print('loss={loss:0.4f}, Mean IOU={mean_iou:0.4f}, Mean Dice={mean_dice:0.4f}'.f
 
 # # # ##########################################################
 
-
-        #
-        # w = Parallel(n_jobs=-2, verbose=0)(delayed(tta_crf)(img, rf_result_filt_inp, k) for k in np.linspace(0,int(img.shape[0]),10))
-        # R,W,n = zip(*w)
-        # del rf_result_filt_inp
-        # crf_result = np.round(np.average(np.dstack(R), axis=-1, weights = W)).astype('uint8')
-        # del R,W,n
-        # crf_result_filt = filter_one_hot(crf_result, 2*crf_result.shape[0])
-        # crf_result_filt = filter_one_hot_spatial(crf_result_filt, orig_distance)
-        # crf_result_filt = crf_result_filt.astype('float')
-        # crf_result_filt[crf_result_filt==0] = np.nan
-        # crf_result_filt_inp = inpaint_nans(crf_result_filt).astype('uint8')
-        # del crf_result_filt, crf_result
-        #
-        # lstack = (np.arange(crf_result_filt_inp.max()) == crf_result_filt_inp[...,None]-1).astype(int) #one-hot encode
-        # data['label'] = lstack
-        #
-
-
 IOUc = []
 
 counter = 0
@@ -400,284 +375,3 @@ for i,l in val_ds.take(10):
         counter += 1
 
 print('Mean IoU (validation subset)={mean_iou:0.3f}'.format(mean_iou=np.mean(IOUc)))
-
-
-
-
-#     print('.....................................')
-#     print('Printing examples to file ...')
-#
-#     plt.figure(figsize=(16,16))
-#     for imgs,lbls in train_ds.take(1):
-#       #print(lbls)
-#       for count,(im,lab) in enumerate(zip(imgs, lbls)):
-#          plt.subplot(int(BATCH_SIZE/2),2,count+1)
-#          plt.imshow(im)
-#          if NCLASSES==1:
-#              plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
-#          else:
-#              lab = np.argmax(lab,-1)
-#              plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES)
-#
-#          plt.axis('off')
-#          print(np.unique(lab))
-#     # plt.show()
-#     plt.savefig(trainsamples_fig, dpi=200, bbox_inches='tight')
-#     plt.close('all')
-#
-#     del imgs, lbls
-#
-#     plt.figure(figsize=(16,16))
-#     for imgs,lbls in val_ds.take(1):
-#
-#       #print(lbls)
-#       for count,(im,lab) in enumerate(zip(imgs, lbls)):
-#          plt.subplot(int(BATCH_SIZE/2),2,count+1) #int(BATCH_SIZE/2)
-#          plt.imshow(im)
-#          if NCLASSES==1:
-#              plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
-#          else:
-#              lab = np.argmax(lab,-1)
-#              plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES)
-#          plt.axis('off')
-#          print(np.unique(lab))
-#     # plt.show()
-#     plt.savefig(valsamples_fig, dpi=200, bbox_inches='tight')
-#     plt.close('all')
-#     del imgs, lbls
-
-            # if NCLASSES==1:
-            #     est_label[est_label<0.5] = 0
-            #     est_label[est_label>0.5] = 1
-# @tf.autograph.experimental.do_not_convert
-# #-----------------------------------
-# def read_seg_tfrecord_multiclass(example):
-
-    # if N_DATA_BANDS<=3:
-    #     features = {
-    #         "image": tf.io.FixedLenFeature([], tf.string),  # tf.string = bytestring (not text string)
-    #         "label": tf.io.FixedLenFeature([], tf.string),   # shape [] means scalar
-    #     }
-    # else:
-    #     features = {
-    #         "image": tf.io.FixedLenFeature([], tf.string),  # tf.string = bytestring (not text string)
-    #         "nir": tf.io.FixedLenFeature([], tf.string),   # shape [] means scalar
-    #         "label": tf.io.FixedLenFeature([], tf.string),   # shape [] means scalar
-    #     }
-    #
-    # # decode the TFRecord
-    # example = tf.io.parse_single_example(example, features)
-    #
-    # if N_DATA_BANDS==4:
-    #     image = tf.image.decode_png(example['image']) #jpeg(example['image'], channels=3)
-    # else:
-    #     image = tf.image.decode_png(example['image']) #jpeg(example['image'], channels=3)
-
-    # image = tf.cast(image, tf.float32)/ 255.0
-    #image = tf.reshape(image, [TARGET_SIZE[0],TARGET_SIZE[1], 3])
-    #print(image.shape)
-    #image = tf.reshape(tf.image.rgb_to_grayscale(image), [TARGET_SIZE,TARGET_SIZE, 1])
-
-    # if N_DATA_BANDS==4:
-    #     nir = tf.image.decode_png(example['nir']) #jpeg(example['nir'], channels=3)
-    #     nir = tf.cast(nir, tf.float32)/ 255.0
-    #     #nir = tf.reshape(nir, [TARGET_SIZE[0],TARGET_SIZE[1], 3])
-    #     #print(nir.shape)
-    #
-    #     image = tf.concat([image, nir],-1)[:,:,:4]
-    #     #print(image.shape)
-
-    # label = tf.image.decode_png(example['label'], channels=0)
-    # label = tf.cast(label, tf.uint8)#/ 255.0
-    #label = tf.reshape(label, [TARGET_SIZE[0],TARGET_SIZE[1], 1])
-
-    # cond = tf.equal(label, tf.ones(tf.shape(label),dtype=tf.uint8)*0)
-    # label = tf.where(cond,  tf.ones(tf.shape(label),dtype=tf.uint8)*4, label)
-    #print(label.shape)
-
-    # if NCLASSES>1:
-    #     label = tf.one_hot(tf.cast(label, tf.uint8), NCLASSES+1) # 5 classes (water, surf, wet, dry) + null (0)
-    #     label = tf.squeeze(label)
-
-    #image = tf.reshape(image, (image.shape[0], image.shape[1], image.shape[2]))
-
-    #image = tf.image.per_image_standardization(image)
-    # return image, label
-
-# #-----------------------------------
-# def get_batched_dataset(filenames):
-#     """
-#     "get_batched_dataset(filenames)"
-#     This function defines a workflow for the model to read data from
-#     tfrecord files by defining the degree of parallelism, batch size, pre-fetching, etc
-#     and also formats the imagery properly for model training
-#     INPUTS:
-#         * filenames [list]
-#     OPTIONAL INPUTS: None
-#     GLOBAL INPUTS: BATCH_SIZE, AUTO
-#     OUTPUTS: tf.data.Dataset object
-#     """
-#     dataset = tf.data.Dataset.list_files(filenames)
-#     #dataset = tf.data.Dataset.list_files('/media/marda/TWOTB/USGS/SOFTWARE/Projects/segmentation_zoo_data/model_training/data/coastcam_tfrecords/*.npz')
-#
-#     option_no_order = tf.data.Options()
-#     option_no_order.experimental_deterministic = True
-#
-#     dataset = dataset.with_options(option_no_order)
-#     dataset = dataset.interleave(tf.data.TFRecordDataset, cycle_length=16, num_parallel_calls=AUTO)
-#
-#     dataset = dataset.as_numpy_iterator()
-#
-#     dataset = dataset.map(read_seg_tfrecord_multiclass, num_parallel_calls=AUTO)
-#     #
-#     # dataset = dataset.repeat()
-#     # #dataset = dataset.shuffle(2048)
-#     # dataset = dataset.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be needed on TPU
-#     # dataset = dataset.prefetch(AUTO) #
-#
-#     return dataset
-
-# #-----------------------------------
-# def get_training_dataset(training_filenames):
-#     """
-#     This function will return a batched dataset for model training
-#     INPUTS: None
-#     OPTIONAL INPUTS: None
-#     GLOBAL INPUTS: training_filenames
-#     OUTPUTS: batched data set object
-#     """
-#     return get_batched_dataset(training_filenames)
-#
-# def get_validation_dataset(validation_filenames):
-#     """
-#     This function will return a batched dataset for model training
-#     INPUTS: None
-#     OPTIONAL INPUTS: None
-#     GLOBAL INPUTS: validation_filenames
-#     OUTPUTS: batched data set object
-#     """
-#     return get_batched_dataset(validation_filenames)
-
-
-# filenames = tf.io.gfile.glob(data_path+os.sep+'*.tfrec')
-
-# filenames = tf.io.gfile.glob(data_path+os.sep+'*.npz')
-
-# print(filenames[:10])
-# shuffle(filenames)
-# print(filenames[:10])
-
-# print('.....................................')
-# print('Reading files and making datasets ...')
-#
-# nb_images = IMS_PER_SHARD * len(filenames)
-# print(nb_images)
-#
-# split = int(len(filenames) * VALIDATION_SPLIT)
-#
-# training_filenames = filenames[split:]
-# validation_filenames = filenames[:split]
-#
-# validation_steps = int(nb_images // len(filenames) * len(validation_filenames)) // BATCH_SIZE
-# steps_per_epoch = int(nb_images // len(filenames) * len(training_filenames)) // BATCH_SIZE
-#
-# print(steps_per_epoch)
-# print(validation_steps)
-#
-# n = len(training_filenames)*IMS_PER_SHARD
-# print("training files: %i" % (n))
-# n = len(validation_filenames)*IMS_PER_SHARD
-# print("validation files: %i" % (n))
-#
-# train_ds = get_training_dataset(training_filenames)
-# val_ds = get_validation_dataset(validation_filenames)
-
-
-
-
-    #
-    # elif N_DATA_BANDS==4:
-    #         for imgs,nirs,lbls in train_ds.take(1):
-    #             print(imgs.shape)
-    #             print(lbls.shape)
-    #             print(nirs.shape)
-    #
-    #         print('.....................................')
-    #         print('Printing examples to file ...')
-    #
-    #         plt.figure(figsize=(16,16))
-    #         for imgs,nirs,lbls in train_ds.take(1):
-    #           #print(lbls)
-    #           for count,(im,nir,lab) in enumerate(zip(imgs,nirs, lbls)):
-    #              plt.subplot(int(BATCH_SIZE/2),2,count+1)
-    #              plt.imshow(nir, cmap='gray')
-    #              if NCLASSES==1:
-    #                  plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
-    #              else:
-    #                  lab = np.argmax(lab,-1)
-    #                  plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES)
-    #
-    #              plt.axis('off')
-    #              print(np.unique(lab))
-    #         # plt.show()
-    #         plt.savefig(trainsamples_fig, dpi=200, bbox_inches='tight')
-    #         plt.close('all')
-    #
-    #         del imgs, lbls, nirs
-    #
-    #         plt.figure(figsize=(16,16))
-    #         for imgs,nirs,lbls in val_ds.take(1):
-    #
-    #           #print(lbls)
-    #           for count,(im,nir,lab) in enumerate(zip(imgs, nirs,lbls)):
-    #              plt.subplot(int(BATCH_SIZE/2),2,count+1) #int(BATCH_SIZE/2)
-    #              plt.imshow(nir)
-    #              if NCLASSES==1:
-    #                  plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
-    #              else:
-    #                  lab = np.argmax(lab,-1)
-    #                  plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES)
-    #              plt.axis('off')
-    #              print(np.unique(lab))
-    #         # plt.show()
-    #         plt.savefig(valsamples_fig, dpi=200, bbox_inches='tight')
-    #         plt.close('all')
-    #         del imgs, lbls
-
-
-# @tf.autograph.experimental.do_not_convert
-# #-----------------------------------
-# def read_seg_tfrecord_binary(example):
-#     """
-#     "read_seg_tfrecord_binary(example)"
-#     This function reads an example from a TFrecord file into a single image and label
-#     This is the "multiclass" version for imagery, where the classes are mapped as follows:
-#     INPUTS:
-#         * TFRecord example object
-#     OPTIONAL INPUTS: None
-#     GLOBAL INPUTS: TARGET_SIZE
-#     OUTPUTS:
-#         * image [tensor array]
-#         * class_label [tensor array]
-#     """
-#
-#     features = {
-#         "image": tf.io.FixedLenFeature([], tf.string),  # tf.string = bytestring (not text string)
-#         "label": tf.io.FixedLenFeature([], tf.string),   # shape [] means scalar
-#     }
-#     # decode the TFRecord
-#     example = tf.io.parse_single_example(example, features)
-#
-#     image = tf.image.decode_jpeg(example['image'], channels=N_DATA_BANDS)
-#     image = tf.cast(image, tf.float32)/ 255.0
-#     image = tf.reshape(image, [TARGET_SIZE[0],TARGET_SIZE[1], N_DATA_BANDS])
-#     #print(image.shape)
-#
-#     label = tf.image.decode_png(example['label'], channels=0)[:,:,0]>1 #, channels=1)[:,:,0]>0
-#     label = tf.cast(label, tf.uint8)#/ 255.0
-#     label = tf.reshape(label, [TARGET_SIZE[0],TARGET_SIZE[1], 1])
-#
-#     #print(label.shape)
-#     image = tf.reshape(image, (image.shape[0], image.shape[1], image.shape[2]))
-#
-#     return image, label
