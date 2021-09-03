@@ -59,6 +59,11 @@ root.withdraw()
 
 weights = configfile.replace('.json','.h5').replace('config', 'weights')
 
+try:
+    os.mkdir(os.path.dirname(weights))
+except:
+    pass
+
 #---------------------------------------------------
 with open(configfile) as f:
     config = json.load(f)
