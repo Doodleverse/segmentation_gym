@@ -294,6 +294,9 @@ for copy in range(AUG_COPIES):
             # wrute them to file and increment the counter
             for im,lab in zip(x,y):
                 l = np.round(lab[:,:,0]).astype(np.uint8)
+                # plt.imshow(im.astype('uint8'))
+                # plt.imshow(l, cmap='bwr', alpha=0.2)
+                # plt.show()
                 if MEDIAN_FILTER_VALUE>1:
                     l = np.round(median(l, disk(MEDIAN_FILTER_VALUE))).astype(np.uint8)
                 #print(np.unique(l.flatten()))
@@ -310,16 +313,24 @@ for copy in range(AUG_COPIES):
 
                 l[l>NCLASSES]=NCLASSES
 
-                if 1+len(np.unique(l))!=NCLASSES:
+
+                print(np.unique(l))
+                if len(np.unique(l))==1:
+                    nx,ny = l.shape
+                    lstack = np.zeros((nx,ny,NCLASSES))
+                    lstack[:,:,np.unique(l)[0]]=np.ones((nx,ny))
+                else:
                     nx,ny = l.shape
                     lstack = np.zeros((nx,ny,NCLASSES))
 
                     lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+l[...,None]-1).astype(int) #one-hot encode
-                else:
-                    lstack = (np.arange(l.max()) == l[...,None]-1).astype(int) #one-hot encode
+                # else:
+                #     lstack = (np.arange(l.max()) == l[...,None]-1).astype(int) #one-hot encode
 
-                if lstack.shape[-1]!=NCLASSES:
-                    lstack = np.dstack(( lstack, np.zeros(lstack.shape[:2]).astype(np.uint8) ))
+                # if lstack.shape[-1]!=NCLASSES:
+                #     # lstack = np.dstack(( lstack, np.zeros(lstack.shape[:2]).astype(np.uint8) ))
+                #     print(lstack.shape)
+                #     break
 
                 # plt.subplot(221);plt.imshow(lstack[:,:,0])
                 #
@@ -334,15 +345,6 @@ for copy in range(AUG_COPIES):
                 try:
 
                     if NCLASSES>1:
-
-                        # if DO_CRF_REFINE:
-                        #     for kk in range(lstack.shape[-1]):
-                        #         #print(k)
-                        #         l,_ = crf_refine(lstack[:,:,kk], im, nclasses = NCLASSES, theta_col=40, theta_spat=1, compat=100)
-                        #         if MEDIAN_FILTER_VALUE>1:
-                        #             lstack[:,:,kk] = np.round(median(l, disk(MEDIAN_FILTER_VALUE))).astype(np.uint8)
-                        #         else:
-                        #             lstack[:,:,kk] = np.round(l).astype(np.uint8)
 
                         #for kk in range(lstack.shape[-1]):
                         if USEMASK:
@@ -392,15 +394,6 @@ for copy in range(AUG_COPIES):
 
                     if NCLASSES>1:
 
-                        # if DO_CRF_REFINE:
-                        #     for kk in range(lstack.shape[-1]):
-                        #         #print(k)
-                        #         l,_ = crf_refine(lstack[:,:,kk], im, nclasses = NCLASSES, theta_col=40, theta_spat=1, compat=100)
-                        #         if MEDIAN_FILTER_VALUE>1:
-                        #             lstack[:,:,kk] = np.round(median(l, disk(MEDIAN_FILTER_VALUE))).astype(np.uint8)
-                        #         else:
-                        #             lstack[:,:,kk] = np.round(l).astype(np.uint8)
-
                         if USEMASK:
                             np.savez(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), lstack.astype(np.uint8))
                         else:
@@ -438,7 +431,7 @@ dataset = dataset.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will b
 dataset = dataset.prefetch(AUTO) #
 
 # if N_DATA_BANDS==4:
-for imgs,lbls in dataset.take(1):
+for imgs,lbls in dataset.take(10):
     print(imgs.shape)
     print(lbls.shape)
 # else:
@@ -488,414 +481,3 @@ elif N_DATA_BANDS==4:
          plt.axis('off')
          plt.savefig(ROOT_STRING+'ex'+str(count)+'.png', dpi=200, bbox_inches='tight')
          plt.close('all')
-
-
-
-
-
-#
-# @tf.autograph.experimental.do_not_convert
-# #-----------------------------------
-# def read_seg_tfrecord_multiclass(example):
-#     """
-#     "read_seg_tfrecord_multiclass(example)"
-#     This function reads an example from a npz file into a single image and label
-#     INPUTS:
-#         * TFRecord example object (filename of npz)
-#     OPTIONAL INPUTS: None
-#     GLOBAL INPUTS: TARGET_SIZE
-#     OUTPUTS:
-#         * image [tensor array]
-#         * class_label [tensor array]
-#     """
-#     image, label = tf.py_function(func=load_npz, inp=[example], Tout=[tf.uint8, tf.uint8])
-#
-#     image = tf.cast(image, tf.float32)/ 255.0
-#     label = tf.cast(label, tf.uint8)
-#     return tf.squeeze(image), tf.squeeze(label)
-
-
-                            #imsave(lab_path+os.sep+os.sep+'aug_masks'+os.sep+'augimage_000000'+str(i)+'_'+str(k)+'.jpg', lstack[:,:,k].astype(np.uint8), quality=100, check_contrast=False)
-                            #imsave(lab_path+os.sep+os.sep+'aug_masks'+os.sep+'augimage_000000'+str(i)+'_'+str(k)+'.png', lstack[:,:,k].astype(np.uint8), compression=0, check_contrast=False)
-
-                            #imsave(lab_path+os.sep+os.sep+'aug_labels'+os.sep+'augimage_000000'+str(i)+'_'+str(k)+'.jpg', lstack[:,:,k].astype(np.uint8), quality=100, check_contrast=False)
-                            #imsave(lab_path+os.sep+os.sep+'aug_labels'+os.sep+'augimage_000000'+str(i)+'_'+str(k)+'.png', lstack[:,:,k].astype(np.uint8), compression=0, check_contrast=False)
-
-                            #imsave(lab_path+os.sep+os.sep+'aug_masks'+os.sep+'augimage_000000'+str(i)+'.jpg', np.squeeze(l).astype(np.uint8), quality=100, check_contrast=False)
-                            #imsave(lab_path+os.sep+os.sep+'aug_masks'+os.sep+'augimage_000000'+str(i)+'.png', np.squeeze(l).astype(np.uint8), compression=0, check_contrast=False)
-                            #imsave(lab_path+os.sep+os.sep+'aug_labels'+os.sep+'augimage_000000'+str(i)+'.jpg', np.squeeze(l).astype(np.uint8), quality=100, check_contrast=False)
-                            #imsave(lab_path+os.sep+os.sep+'aug_labels'+os.sep+'augimage_000000'+str(i)+'.png', np.squeeze(l).astype(np.uint8), compression=0, check_contrast=False)
-                    #imsave(imdir+os.sep+'aug_images'+os.sep+'augimage_000000'+str(i)+'.jpg', im.astype(np.uint8), quality=100, check_contrast=False)
-                    #imsave(imdir+os.sep+'aug_images'+os.sep+'augimage_000000'+str(i)+'.png', im.astype(np.uint8), compression=0, check_contrast=False)
-                    #np.savez(imdir+os.sep+'aug_images'+os.sep+'augimage_000000'+str(i), im.astype(np.uint8))
-                # if NCLASSES>1:
-                #     l[l==0]=1
-                    #if NCLASSES>1:
-                        # for k in range(lstack.shape[-1]):
-                            #imsave(lab_path+os.sep+os.sep+'aug_masks'+os.sep+'augimage_000000'+str(i)+'_'+str(k)+'.jpg', lstack[:,:,k].astype(np.uint8), quality=100, check_contrast=False)
-                            #imsave(lab_path+os.sep+os.sep+'aug_masks'+os.sep+'augimage_000000'+str(i)+'_'+str(k)+'.png', lstack[:,:,k].astype(np.uint8), compression=0, check_contrast=False)
-                            #imsave(lab_path+os.sep+os.sep+'aug_labels'+os.sep+'augimage_000000'+str(i)+'_'+str(k)+'.jpg', lstack[:,:,k].astype(np.uint8), quality=100, check_contrast=False)
-                            #imsave(lab_path+os.sep+os.sep+'aug_labels'+os.sep+'augimage_000000'+str(i)+'_'+str(k)+'.png', lstack[:,:,k].astype(np.uint8), compression=0, check_contrast=False)
-                            #imsave(lab_path+os.sep+os.sep+'aug_masks'+os.sep+'augimage_000000'+str(i)+'.jpg', np.squeeze(l).astype(np.uint8), quality=100, check_contrast=False)
-                            #imsave(lab_path+os.sep+os.sep+'aug_masks'+os.sep+'augimage_000000'+str(i)+'.png', np.squeeze(l).astype(np.uint8), compression=0, check_contrast=False)
-                            #imsave(lab_path+os.sep+os.sep+'aug_labels'+os.sep+'augimage_000000'+str(i)+'.jpg', np.squeeze(l).astype(np.uint8), quality=100, check_contrast=False)
-                            #imsave(lab_path+os.sep+os.sep+'aug_labels'+os.sep+'augimage_000000'+str(i)+'.png', np.squeeze(l).astype(np.uint8), compression=0, check_contrast=False)
-
-                    #imsave(imdir+os.sep+'aug_images'+os.sep+'augimage_000000'+str(i)+'.jpg', im.astype(np.uint8), quality=100, check_contrast=False)
-                    #imsave(imdir+os.sep+'aug_images'+os.sep+'augimage_000000'+str(i)+'.png', im.astype(np.uint8), compression=0, check_contrast=False)
-                    #np.savez(imdir+os.sep+'aug_images'+os.sep+'augimage_000000'+str(i), im.astype(np.uint8))
-
-                    #imsave(imdir2+os.sep+'aug_nir'+os.sep+'augimage_000000'+str(i)+'.jpg', nir.astype(np.uint8), quality=100, check_contrast=False)
-                    #imsave(imdir2+os.sep+'aug_nir'+os.sep+'augimage_000000'+str(i)+'.png', nir.astype(np.uint8), compression=0, check_contrast=False)
-                    #np.savez(imdir2+os.sep+'aug_nir'+os.sep+'augimage_000000'+str(i), nir.astype(np.uint8))
-
-#================================================================
-# images = sorted(tf.io.gfile.glob(imdir+os.sep+'aug_images'+os.sep+'*.png'))
-# if USEMASK:
-# images = sorted(tf.io.gfile.glob(tfrecord_dir+os.sep+'*.npz'))
-# else:
-#     images = sorted(tf.io.gfile.glob(imdir.replace('images', 'labels')+os.sep+'aug_labels'+os.sep+'*.npz'))
-# #
-# else:
-#
-#     images = sorted(tf.io.gfile.glob(imdir+os.sep+'images'+os.sep+'*.jpg'))
-#
-
-
-# nb_images=len(images)
-# print(nb_images)
-
-# SHARDS = int(nb_images / IMS_PER_SHARD) + (1 if nb_images % IMS_PER_SHARD != 0 else 0)
-#
-# shared_size = int(np.ceil(1.0 * nb_images / SHARDS))
-#
-# if DO_AUG:
-#     dataset = get_seg_dataset_for_tfrecords(imdir+os.sep+'aug_images',  shared_size) #[], lab_path+os.sep+'aug_labels',
-# else:
-#     dataset = get_seg_dataset_for_tfrecords(imdir+os.sep+'images',  shared_size) #[], lab_path+os.sep+'aug_labels',
-
-# # write tfrecords
-# if N_DATA_BANDS<=3:
-#     write_seg_records(dataset, tfrecord_dir, ROOT_STRING)
-# elif N_DATA_BANDS==4:
-#     write_seg_records_4bands(dataset, tfrecord_dir, ROOT_STRING)
-
-
-# counter = 0
-# for imgs,lbls in dataset:
-#     try:
-#         if N_DATA_BANDS<=3:
-#         ##print(imgs.shape)
-#             np.savez(tfrecord_dir+os.sep+ROOT_STRING+str(counter), imgs, lbls)
-#         elif N_DATA_BANDS==4:
-#             np.savez(tfrecord_dir+os.sep+ROOT_STRING+str(counter), imgs, nirs, lbls)
-#         counter+=1
-#     except:
-#         print('Error %i' % counter)
-
-# path = tfrecord_dir+os.sep+ROOT_STRING+str(counter)+'.npz'
-# with np.load(path) as data:
-#     train_examples = data['arr_0'].astype('uint8')
-#     train_labels = data['arr_1'].astype('uint8')
-#plt.imshow(train_examples[0]); plt.imshow(np.argmax(train_labels[0],-1), alpha=0.4); plt.show()
-
-
-#
-# #visualize some examples
-# counter = 0
-# if N_DATA_BANDS<=3:
-#
-#     for imgs,lbls in dataset.take(1):
-#
-#       for count,(im,lab) in enumerate(zip(imgs,lbls)):
-#          print(im.shape)
-#          print(lab.shape)
-#          if N_DATA_BANDS==4:
-#              plt.imshow(im[:,:,:3]) #tf.image.decode_png(im))#jpeg(im, channels=3))
-#          else:
-#              plt.imshow(im) #tf.image.decode_png(im)) #jpeg(im, channels=N_DATA_BANDS))
-#
-#          if NCLASSES==1:
-#              #lab = tf.image.decode_png(lab, channels=0)
-#              plt.imshow(lab, alpha=0.3, cmap='bwr',vmin=0, vmax=NCLASSES)
-#          else:
-#              #lab = tf.argmax(lab, -1) #tf.image.decode_png(lab, channels=0)
-#              plt.imshow(lab, alpha=0.3, cmap='bwr',vmin=0, vmax=NCLASSES)
-#          plt.axis('off')
-#          plt.savefig('ex'+str(counter)+'.png', dpi=200, bbox_inches='tight')
-#          counter +=1
-#          plt.close('all')
-#
-# elif N_DATA_BANDS==4:
-#
-#     for imgs,nirs,lbls in dataset.take(1):
-#
-#       for count,(im,ii,lab) in enumerate(zip(imgs,nirs,lbls)):
-#
-#          #im = tf.image.decode_png(im) #jpeg(im, channels=3)
-#          plt.imshow(im)
-#
-#          if NCLASSES==1:
-#              plt.imshow(lab, alpha=0.3, cmap='bwr',vmin=0, vmax=NCLASSES)
-#          else:
-#              #lab = tf.argmax(lab, -1) #tf.image.decode_png(lab, channels=0)
-#              plt.imshow(lab, alpha=0.3, cmap='bwr',vmin=0, vmax=NCLASSES)
-#
-#          plt.colorbar()
-#          plt.axis('off')
-#          plt.savefig('ex'+str(counter)+'.png', dpi=200, bbox_inches='tight')
-#          plt.close('all')
-#
-#          plt.imshow(tf.image.decode_png(ii), cmap='gray') #jpeg(ii, channels=1), cmap='gray')
-#          plt.imshow(lab, alpha=0.3, cmap='bwr',vmin=0, vmax=NCLASSES)
-#          plt.colorbar()
-#          plt.axis('off')
-#          plt.savefig('ex'+str(counter)+'_band4.png', dpi=200, bbox_inches='tight')
-#          plt.close('all')
-#          counter +=1
-#
-
-
-# #-----------------------------------
-# def read_seg_image_and_label(img_path):
-#     """
-#     "read_seg_image_and_label_obx(img_path)"
-#     This function reads an image and label and decodes both jpegs
-#     into bytestring arrays.
-#     This works by parsing out the label image filename from its image pair
-#     Thre are different rules for non-augmented versus augmented imagery
-#     INPUTS:
-#         * img_path [tensor string]
-#     OPTIONAL INPUTS: None
-#     GLOBAL INPUTS: None
-#     OUTPUTS:
-#         * image [bytestring]
-#         * label [bytestring]
-#     """
-#     bits = tf.io.read_file(img_path)
-#     image = tf.image.decode_png(bits) #jpeg(bits)
-#
-#     # have to use this tf.strings.regex_replace utility because img_path is a Tensor object
-#     if USEMASK:
-#         lab_path = tf.strings.regex_replace(img_path, "images", "masks")
-#
-#     else:
-#         lab_path = tf.strings.regex_replace(img_path, "images", "labels")
-#
-#
-#     if NCLASSES==1:
-#         bits = tf.io.read_file(lab_path)
-#         label = tf.image.decode_png(bits) #jpeg(bits)
-#     else:
-#         L = []
-#         for k in range(NCLASSES):
-#             bits = tf.io.read_file(tf.strings.regex_replace(lab_path, ".png", "_"+str(k)+".png"))
-#             L.append(tf.image.decode_png(bits)) #jpeg(bits))
-#
-#         label = tf.squeeze(tf.cast(L, tf.uint8))
-#         label = tf.transpose(label, perm=[1,2,0]) # X, Y, N_DATA_BANDS
-#
-#     return image, label
-#
-# #-----------------------------------
-# def read_seg_image_and_label_4bands(img_path): #, nir_path):
-#     """
-#     This function reads an image and label and decodes both jpegs
-#     into bytestring arrays.
-#     This works by parsing out the label image filename from its image pair
-#     Thre are different rules for non-augmented versus augmented imagery
-#     INPUTS:
-#         * img_path [tensor string]
-#     OPTIONAL INPUTS: None
-#     GLOBAL INPUTS: None
-#     OUTPUTS:
-#         * image [bytestring]
-#         * label [bytestring]
-#     """
-#     bits = tf.io.read_file(img_path)
-#     image = tf.image.decode_png(bits) #jpeg(bits)
-#
-#     # have to use this tf.strings.regex_replace utility because img_path is a Tensor object
-#     if USEMASK:
-#         lab_path = tf.strings.regex_replace(img_path, "images", "masks")
-#
-#     else:
-#         lab_path = tf.strings.regex_replace(img_path, "images", "labels")
-#
-#
-#     if NCLASSES==1:
-#         bits = tf.io.read_file(lab_path)
-#         label = tf.image.decode_png(bits)#jpeg(bits)
-#     else:
-#         L = []
-#         for k in range(NCLASSES):
-#             bits = tf.io.read_file(tf.strings.regex_replace(lab_path, ".png", "_"+str(k)+".png"))
-#             L.append(tf.image.decode_png(bits))#jpeg(bits))
-#
-#         label = tf.squeeze(tf.cast(L, tf.uint8))
-#         label = tf.transpose(label, perm=[1,2,0])
-#
-#     nir_path = tf.strings.regex_replace(img_path, "images", "nir")
-#
-#     bits = tf.io.read_file(nir_path)
-#     nir = tf.image.decode_png(bits) #jpeg(bits)
-#
-#     return image, nir, label
-#
-# #-----------------------------------
-# def resize_and_crop_seg_image(image, label):
-#     """
-#     "resize_and_crop_seg_image_obx"
-#     This function crops to square and resizes an image and label
-#     INPUTS:
-#         * image [tensor array]
-#         * label [tensor array]
-#     OPTIONAL INPUTS: None
-#     GLOBAL INPUTS: TARGET_SIZE
-#     OUTPUTS:
-#         * image [tensor array]
-#         * label [tensor array]
-#     """
-#     w = tf.shape(image)[0]
-#     h = tf.shape(image)[1]
-#     tw = TARGET_SIZE[0]
-#     th = TARGET_SIZE[1]
-#     resize_crit = (w * th) / (h * tw)
-#     image = tf.cond(resize_crit < 1,
-#                   lambda: tf.image.resize(image, [w*tw/w, h*tw/w]), # if true
-#                   lambda: tf.image.resize(image, [w*th/h, h*th/h])  # if false
-#                  )
-#     nw = tf.shape(image)[0]
-#     nh = tf.shape(image)[1]
-#     image = tf.image.crop_to_bounding_box(image, (nw - tw) // 2, (nh - th) // 2, tw, th)
-#
-#     label = tf.cond(resize_crit < 1,
-#                   lambda: tf.image.resize(label, [w*tw/w, h*tw/w]), # if true
-#                   lambda: tf.image.resize(label, [w*th/h, h*th/h])  # if false
-#                  )
-#     label = tf.image.crop_to_bounding_box(label, (nw - tw) // 2, (nh - th) // 2, tw, th)
-#
-#     return image, label
-#
-#
-# #-----------------------------------
-# def resize_and_crop_seg_image_4bands(image, nir, label):
-#     """
-#     This function crops to square and resizes an image and label
-#     INPUTS:
-#         * image [tensor array]
-#         * label [tensor array]
-#     OPTIONAL INPUTS: None
-#     GLOBAL INPUTS: TARGET_SIZE
-#     OUTPUTS:
-#         * image [tensor array]
-#         * label [tensor array]
-#     """
-#     w = tf.shape(image)[0]
-#     h = tf.shape(image)[1]
-#     tw = TARGET_SIZE[0]
-#     th = TARGET_SIZE[1]
-#     resize_crit = (w * th) / (h * tw)
-#     image = tf.cond(resize_crit < 1,
-#                   lambda: tf.image.resize(image, [w*tw/w, h*tw/w]), # if true
-#                   lambda: tf.image.resize(image, [w*th/h, h*th/h])  # if false
-#                  )
-#     nw = tf.shape(image)[0]
-#     nh = tf.shape(image)[1]
-#     image = tf.image.crop_to_bounding_box(image, (nw - tw) // 2, (nh - th) // 2, tw, th)
-#
-#     label = tf.cond(resize_crit < 1,
-#                   lambda: tf.image.resize(label, [w*tw/w, h*tw/w]), # if true
-#                   lambda: tf.image.resize(label, [w*th/h, h*th/h])  # if false
-#                  )
-#     label = tf.image.crop_to_bounding_box(label, (nw - tw) // 2, (nh - th) // 2, tw, th)
-#
-#
-#     nir = tf.cond(resize_crit < 1,
-#                   lambda: tf.image.resize(nir, [w*tw/w, h*tw/w]), # if true
-#                   lambda: tf.image.resize(nir, [w*th/h, h*th/h])  # if false
-#                  )
-#     nir = tf.image.crop_to_bounding_box(nir, (nw - tw) // 2, (nh - th) // 2, tw, th)
-#
-#     return image, nir, label
-#
-# #-----------------------------------
-# def get_seg_dataset_for_tfrecords(imdir, shared_size):
-#     """
-#     "get_seg_dataset_for_tfrecords"
-#     This function reads an image and label and decodes both jpegs
-#     into bytestring arrays.
-#     INPUTS:
-#         * image [tensor array]
-#         * label [tensor array]
-#     OPTIONAL INPUTS: None
-#     GLOBAL INPUTS: TARGET_SIZE
-#     OUTPUTS:
-#         * image [tensor array]
-#         * label [tensor array]
-#     """
-#     dataset = tf.data.Dataset.list_files(imdir+os.sep+'*.png', seed=10000) # This also shuffles the images
-#     if N_DATA_BANDS<=3:
-#         dataset = dataset.map(read_seg_image_and_label)
-#         dataset = dataset.map(resize_and_crop_seg_image, num_parallel_calls=AUTO)
-#         # dataset = dataset.map(recompress_seg_image, num_parallel_calls=AUTO)
-#     elif N_DATA_BANDS==4:
-#         dataset = dataset.map(read_seg_image_and_label_4bands)
-#         dataset = dataset.map(resize_and_crop_seg_image_4bands, num_parallel_calls=AUTO)
-#         # dataset = dataset.map(recompress_seg_image_4bands, num_parallel_calls=AUTO)
-#
-#     dataset = dataset.batch(shared_size)
-#     return dataset
-
-
-
-
-
-
-
-
-# #-----------------------------------
-# def recompress_seg_image_4bands(image, nir_image, label):
-#     """
-#     "recompress_seg_image"
-#     This function takes an image and label encoded as a byte string
-#     and recodes as an 8-bit jpeg
-#     INPUTS:
-#         * image [tensor array]
-#         * label [tensor array]
-#     OPTIONAL INPUTS: None
-#     GLOBAL INPUTS: None
-#     OUTPUTS:
-#         * image [tensor array]
-#         * label [tensor array]
-#     """
-#     image = tf.cast(image, tf.uint8)
-#     image = tf.image.encode_png(image, compression=0) #jpeg(image, optimize_size=False, chroma_downsampling=False, quality=100, x_density=1000, y_density=1000)
-#
-#     nir_image = tf.cast(nir_image, tf.uint8)
-#     nir_image = tf.image.encode_png(nir_image, compression=0) #jpeg(nir_image, optimize_size=False, chroma_downsampling=False, quality=100, x_density=1000, y_density=1000)
-#
-#     label = tf.cast(label, tf.uint8)
-#
-#     label = tf.image.encode_png(label, compression=0) #, optimize_size=False, chroma_downsampling=False, quality=100, x_density=1000, y_density=1000)
-#
-#     return image, nir_image, label
-
-
-
-
-#
-         # if NCLASSES>1:
-         #     if DO_CRF_REFINE:
-         #         l = np.argmax(lab, -1)
-         #         lstack = (np.arange(l.max()) == l[...,None]-1).astype(int) #one-hot encode
-         #         for k in range(lstack.shape[-1]):
-         #            #print(k)
-         #             l,_ = crf_refine(lstack[:,:,k], im.numpy(), nclasses = NCLASSES, theta_col=40, theta_spat=1, compat=100)
-         #             if MEDIAN_FILTER_VALUE>1:
-         #                 lstack[:,:,k] = np.round(median(l, disk(MEDIAN_FILTER_VALUE))).astype(np.uint8)
-         #             else:
-         #                 lstack[:,:,k] = np.round(l).astype(np.uint8)
-         #             lab = np.argmax(lstack, -1)
-         #     else:
-         #             lab = np.argmax(lab, -1)

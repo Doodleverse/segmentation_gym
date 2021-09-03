@@ -193,7 +193,7 @@ def read_seg_dataset_multiclass(example):
 # ROOT_STRING = 'watermask'
 
 filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'*.npz')
-shuffle(filenames)
+# shuffle(filenames)
 
 list_ds = tf.data.Dataset.list_files(filenames, shuffle=False)
 
@@ -220,11 +220,11 @@ val_ds = val_ds.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be 
 val_ds = val_ds.prefetch(AUTO) #
 
 
-# if DO_TRAIN:
-#     # if N_DATA_BANDS<=3:
-#     for imgs,lbls in train_ds.take(10):
-#         print(imgs.shape)
-#         print(lbls.shape)
+if DO_TRAIN:
+    # if N_DATA_BANDS<=3:
+    for imgs,lbls in train_ds.take(10):
+        print(imgs.shape)
+        print(lbls.shape)
 
 # plt.figure(figsize=(16,16))
 # for imgs,lbls in train_ds.take(100):
