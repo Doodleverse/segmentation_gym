@@ -310,11 +310,26 @@ for copy in range(AUG_COPIES):
 
                 l[l>NCLASSES]=NCLASSES
 
-                lstack = (np.arange(l.max()) == l[...,None]-1).astype(int) #one-hot encode
+                if 1+len(np.unique(l))!=NCLASSES:
+                    nx,ny = l.shape
+                    lstack = np.zeros((nx,ny,NCLASSES))
+
+                    lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+l[...,None]-1).astype(int) #one-hot encode
+                else:
+                    lstack = (np.arange(l.max()) == l[...,None]-1).astype(int) #one-hot encode
+
                 if lstack.shape[-1]!=NCLASSES:
                     lstack = np.dstack(( lstack, np.zeros(lstack.shape[:2]).astype(np.uint8) ))
 
-                #print(lstack.shape)
+                # plt.subplot(221);plt.imshow(lstack[:,:,0])
+                #
+                # plt.subplot(222); plt.imshow(lstack[:,:,1])
+                #
+                # plt.subplot(223); plt.imshow(lstack[:,:,2])
+                #
+                # plt.subplot(224); plt.imshow(lstack[:,:,3])
+                # plt.show()
+
 
                 try:
 
@@ -441,6 +456,7 @@ if N_DATA_BANDS<=3:
       for count,(im,lab) in enumerate(zip(imgs, lbls)):
          plt.subplot(int(BATCH_SIZE/2),2,count+1)
          plt.imshow(im)
+         print(lab.shape)
          if NCLASSES==1:
              plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
          else:
@@ -449,6 +465,7 @@ if N_DATA_BANDS<=3:
 
          plt.axis('off')
          print(np.unique(lab))
+
          plt.axis('off')
          plt.savefig(ROOT_STRING+'ex'+str(count)+'.png', dpi=200, bbox_inches='tight')
          #counter +=1
