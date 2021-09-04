@@ -390,3 +390,9 @@ Plans:
 * fixed some bugs in make_datasets.py
 * first named version before watermasking dev branch
 * for 1-class problems, creates 4-band image (band 4 is the probability of clas)
+
+
+##version 0.0.2, 09/03/21
+* fixed some bugs in make_datasets.py
+* no median filter on 2d label image, now a morphology holes/islands on the one-hot stack (much better)
+* removed CRF pre or post processing option

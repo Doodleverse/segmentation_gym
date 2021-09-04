@@ -8,7 +8,6 @@ dependencies:
  - numpy
  - scikit-image
  - cython
- - pydensecrf
  - tensorflow-gpu
  - ipython
  - joblib

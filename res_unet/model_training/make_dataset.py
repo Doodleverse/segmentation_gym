@@ -37,6 +37,8 @@ import os, json, shutil
 from tkinter import filedialog
 from tkinter import *
 from random import shuffle
+from skimage.morphology import remove_small_objects, remove_small_holes
+from tqdm import tqdm
 
 ###############################################################
 ## VARIABLES
@@ -130,9 +132,6 @@ def read_seg_dataset_multiclass(example):
     else:
         image, label = tf.py_function(func=load_npz, inp=[example], Tout=[tf.float32, tf.uint8])
 
-    # image = tf.cast(image, tf.float32)#/ 255.0
-    # label = tf.cast(label, tf.uint8)
-
     if NCLASSES==1:
         label = tf.expand_dims(label,-1)
 
@@ -210,9 +209,6 @@ else:
         for file in glob(lab_path+os.sep+'*.jpg'):
             shutil.move(file,lab_path+os.sep+'labels')
 
-# print(imdir)
-# print(lab_path)
-
 if N_DATA_BANDS==4:
     try:
         os.mkdir(nimdir+os.sep+'nir')
@@ -243,8 +239,6 @@ data_gen_args = dict(featurewise_center=False,
                      vertical_flip=AUG_VFLIP)
 
 #get image dimensions
-# NX, NY, NZ = imread(glob(imdir+os.sep+'images'+os.sep+'*.jpg')[0]).shape
-
 NX = TARGET_SIZE[0]
 NY = TARGET_SIZE[1]
 
@@ -282,7 +276,7 @@ if N_DATA_BANDS==4:
             class_mode=None, seed=SEED, shuffle=True)
 
 i = 0
-for copy in range(AUG_COPIES):
+for copy in tqdm(range(AUG_COPIES)):
     for k in range(AUG_LOOPS):
 
         if N_DATA_BANDS<=3:
@@ -294,12 +288,6 @@ for copy in range(AUG_COPIES):
             # wrute them to file and increment the counter
             for im,lab in zip(x,y):
                 l = np.round(lab[:,:,0]).astype(np.uint8)
-                # plt.imshow(im.astype('uint8'))
-                # plt.imshow(l, cmap='bwr', alpha=0.2)
-                # plt.show()
-                if MEDIAN_FILTER_VALUE>1:
-                    l = np.round(median(l, disk(MEDIAN_FILTER_VALUE))).astype(np.uint8)
-                #print(np.unique(l.flatten()))
 
                 if 'REMAP_CLASSES' not in locals():
                     if np.min(l)==1:
@@ -313,8 +301,6 @@ for copy in range(AUG_COPIES):
 
                 l[l>NCLASSES]=NCLASSES
 
-
-                print(np.unique(l))
                 if len(np.unique(l))==1:
                     nx,ny = l.shape
                     lstack = np.zeros((nx,ny,NCLASSES))
@@ -327,10 +313,15 @@ for copy in range(AUG_COPIES):
                 # else:
                 #     lstack = (np.arange(l.max()) == l[...,None]-1).astype(int) #one-hot encode
 
-                # if lstack.shape[-1]!=NCLASSES:
-                #     # lstack = np.dstack(( lstack, np.zeros(lstack.shape[:2]).astype(np.uint8) ))
-                #     print(lstack.shape)
-                #     break
+                if FILTER_VALUE>1:
+
+                    for kk in range(lstack.shape[-1]):
+                        #l = median(lstack[:,:,kk], disk(FILTER_VALUE))
+                        l = remove_small_objects(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
+                        l = remove_small_holes(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
+                        lstack[:,:,kk] = np.round(l).astype(np.uint8)
+                        del l
+
 
                 # plt.subplot(221);plt.imshow(lstack[:,:,0])
                 #
@@ -348,14 +339,14 @@ for copy in range(AUG_COPIES):
 
                         #for kk in range(lstack.shape[-1]):
                         if USEMASK:
-                            np.savez(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), lstack.astype(np.uint8))
+                            np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), lstack.astype(np.uint8))
                         else:
-                            np.savez(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), lstack.astype(np.uint8))
+                            np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), lstack.astype(np.uint8))
                     else:
                         if USEMASK:
-                            np.savez(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(lstack).astype(np.uint8))
+                            np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(lstack).astype(np.uint8))
                         else:
-                            np.savez(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(lstack).astype(np.uint8))
+                            np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(lstack).astype(np.uint8))
 
                 except:
                     print('Error ')
@@ -371,8 +362,8 @@ for copy in range(AUG_COPIES):
             # wrute them to file and increment the counter
             for im,nir,lab in zip(x,ii,y):
                 l = np.round(lab[:,:,0]).astype(np.uint8)
-                if MEDIAN_FILTER_VALUE>1:
-                    l = np.round(median(l, disk(MEDIAN_FILTER_VALUE))).astype(np.uint8)
+                # if FILTER_VALUE>1:
+                #     l = np.round(median(l, disk(FILTER_VALUE))).astype(np.uint8)
 
                 if 'REMAP_CLASSES' not in locals():
                     if np.min(l)==1:
@@ -384,25 +375,43 @@ for copy in range(AUG_COPIES):
                     for k in REMAP_CLASSES.items():
                         l[l==int(k[0])] = int(k[1])
 
+
                 l[l>NCLASSES]=NCLASSES
-                #print(np.unique(l.flatten()))
-                lstack = (np.arange(l.max()) == l[...,None]-1).astype(int) #one-hot encode
-                if lstack.shape[-1]!=NCLASSES:
-                    lstack = np.dstack(( lstack, np.zeros(lstack.shape[:2]).astype(np.uint8) ))
+
+                if len(np.unique(l))==1:
+                    nx,ny = l.shape
+                    lstack = np.zeros((nx,ny,NCLASSES))
+                    lstack[:,:,np.unique(l)[0]]=np.ones((nx,ny))
+                else:
+                    nx,ny = l.shape
+                    lstack = np.zeros((nx,ny,NCLASSES))
+
+                    lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+l[...,None]-1).astype(int) #one-hot encode
+                # else:
+                #     lstack = (np.arange(l.max()) == l[...,None]-1).astype(int) #one-hot encode
+
+                if FILTER_VALUE>1:
+
+                    for kk in range(lstack.shape[-1]):
+                        #l = median(lstack[:,:,kk], disk(FILTER_VALUE))
+                        l = remove_small_objects(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
+                        l = remove_small_holes(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
+                        lstack[:,:,kk] = np.round(l).astype(np.uint8)
+                        del l
 
                 try:
 
                     if NCLASSES>1:
 
                         if USEMASK:
-                            np.savez(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), lstack.astype(np.uint8))
+                            np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), lstack.astype(np.uint8))
                         else:
-                            np.savez(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), lstack.astype(np.uint8))
+                            np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), lstack.astype(np.uint8))
                     else:
                         if USEMASK:
-                            np.savez(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), lstack.astype(np.uint8))
+                            np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), lstack.astype(np.uint8))
                         else:
-                            np.savez(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), lstack.astype(np.uint8))
+                            np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), lstack.astype(np.uint8))
 
                 except:
                     print('Error ')
@@ -411,10 +420,8 @@ for copy in range(AUG_COPIES):
                 i += 1
 
         #save memory
-        del x, y, im, lab
+        #del x, y, im, lab
         #get a new batch
-
-
 
 ##========================================================
 ## NPZ CREATION
@@ -430,15 +437,6 @@ dataset = dataset.repeat()
 dataset = dataset.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be needed on TPU
 dataset = dataset.prefetch(AUTO) #
 
-# if N_DATA_BANDS==4:
-for imgs,lbls in dataset.take(10):
-    print(imgs.shape)
-    print(lbls.shape)
-# else:
-#     for imgs,nirs,lbls in dataset.take(1):
-#         print(imgs.shape)
-#         print(nirs.shape)
-#         print(lbls.shape)
 
 print('.....................................')
 print('Printing examples to file ...')
@@ -457,7 +455,7 @@ if N_DATA_BANDS<=3:
              plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES)
 
          plt.axis('off')
-         print(np.unique(lab))
+         #print(np.unique(lab))
 
          plt.axis('off')
          plt.savefig(ROOT_STRING+'ex'+str(count)+'.png', dpi=200, bbox_inches='tight')
@@ -477,7 +475,7 @@ elif N_DATA_BANDS==4:
              plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES)
 
          plt.axis('off')
-         print(np.unique(lab))
+         #print(np.unique(lab))
          plt.axis('off')
          plt.savefig(ROOT_STRING+'ex'+str(count)+'.png', dpi=200, bbox_inches='tight')
          plt.close('all')

@@ -24,14 +24,14 @@
 # SOFTWARE.
 
 import os
-# USE_GPU = False #True
-#
-# if USE_GPU == True:
-#    ##use the first available GPU
-#    os.environ['CUDA_VISIBLE_DEVICES'] = '0' #'1'
-# else:
-#    ## to use the CPU (not recommended):
-#    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+USE_GPU = True
+
+if USE_GPU == True:
+   ##use the first available GPU
+   os.environ['CUDA_VISIBLE_DEVICES'] = '0' #'1'
+else:
+   ## to use the CPU (not recommended):
+   os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 #suppress tensorflow warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -179,26 +179,23 @@ def read_seg_dataset_multiclass(example):
 
     if NCLASSES>1:
         if N_DATA_BANDS>1:
-            return tf.squeeze(image), tf.squeeze(label) # 3/5
+            return tf.squeeze(image), tf.squeeze(label)
         else:
-            return image, label #1/4
+            return image, label
     else:
-        return image, label  # 1/1, 3/1
+        return image, label
 
-    # # return image, label
-    # return tf.squeeze(image), tf.squeeze(label)
-        # if N_DATA_BANDS==1:
-        #     return image[0,:,:,:], label[0,:,:,:]
-        # else:
 ###############################################################
 ### main
 ###############################################################
+if USE_GPU == True:
+    print('GPU name: ', tf.config.experimental.list_physical_devices('GPU'))
+    print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
 
 #-------------------------------------------------
-# ROOT_STRING = 'watermask'
 
 filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'*.npz')
-# shuffle(filenames)
+shuffle(filenames)
 
 list_ds = tf.data.Dataset.list_files(filenames, shuffle=False)
 
@@ -225,11 +222,11 @@ val_ds = val_ds.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be 
 val_ds = val_ds.prefetch(AUTO) #
 
 
-if DO_TRAIN:
-    # if N_DATA_BANDS<=3:
-    for imgs,lbls in train_ds.take(10):
-        print(imgs.shape)
-        print(lbls.shape)
+# if DO_TRAIN:
+#     # if N_DATA_BANDS<=3:
+#     for imgs,lbls in train_ds.take(10):
+#         print(imgs.shape)
+#         print(lbls.shape)
 
 # plt.figure(figsize=(16,16))
 # for imgs,lbls in train_ds.take(100):
@@ -323,22 +320,7 @@ for i,l in val_ds.take(10):
             est_label[est_label<.5] = 0
             est_label[est_label>.5] = 1
         else:
-            # if DO_CRF_REFINE:
-            #     L = []
-            #     for k in range(NCLASSES):
-            #         l = est_label[:,:,k]>.5
-            #         l = l.astype(np.uint8)
-            #         l,_ = crf_refine(l, img.numpy().astype(np.uint8), nclasses=2, theta_col=10, theta_spat=3, compat=10)
-            #         L.append(l)
-            #     est_label = np.argmax(np.dstack(L), -1)
-            # else:
             est_label = np.argmax(est_label, -1)
-
-        if MEDIAN_FILTER_VALUE>1:
-            if NCLASSES==1:
-                est_label = (median(est_label, disk(MEDIAN_FILTER_VALUE))/255.).astype(np.uint8)
-            else:
-                est_label = median(est_label, disk(MEDIAN_FILTER_VALUE)).astype(np.uint8)
 
         if NCLASSES==1:
             lbl = lbl.numpy().squeeze()
