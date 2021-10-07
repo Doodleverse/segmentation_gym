@@ -177,7 +177,7 @@ def standardize(img):
     s = np.maximum(np.std(img), 1.0/np.sqrt(N))
     m = np.mean(img)
     img = (img - m) / s
-    #img = rescale(img, 0, 1)
+    # img = rescale(img, 0, 1)
     del m, s, N
     #
     # if np.ndim(img)!=3:
