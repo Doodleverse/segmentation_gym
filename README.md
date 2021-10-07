@@ -6,18 +6,30 @@
 
 ![Zoo](https://raw.githubusercontent.com/dbuscombe-usgs/segmentation_zoo/main/zoo-logo.png)
 
-A toolbox to segment imagery using a residual UNet model. This repository allows you to do three things:
+We are building a toolbox to segment imagery with a variety of models. Current work is focused on building a family of residual UNet models. This repository allows you to do three things:
 
-* Use an existing (i.e. pre-trained) model to segment new sample imagery using provided model weights
-* Create a dataset to train a new model for a particular task
-* Train a new model using your new dataset
+* Use an existing (i.e. pre-trained) model to segment new imagery (by using provided code and model weights)
+* Use images & masks to develp a 'model-ready' dataset
+* Train a new model using this new dataset
 
-## Navigation
+## Example uses:
+
+* Mask water from imagery (i.e., use the pretrained watermasking models on your own imagery)
+* Use your [Doodled images](https://github.com/dbuscombe-usgs/dash_doodler) to train a new model
+
+
+## Table of Contents:
+
+### The basics:
 
 * [Residual U-Net model](#model)
 * [Implementation](#implementation)
-* [Installation](#install)
 * [Provided Datasets](#data)
+
+### Code use:
+
+* [Installation](#install)
+* [Directory Structure](#dir)
 * [Use a Pre-Trained Residual UNet for Image Segmentation](#resunet)
 * [Creation of `config` files for model retraining and training](#config)
 * [Train a model for image segmentation using provided datasets](#retrain)
@@ -76,6 +88,33 @@ pip install tensorflow-gpu=2.2.0 --user
 
 and just ignore any errors. When you run any script, the tensorflow version should be printed to screen.
 
+
+## <a name="dir"></a>Directory Structure
+
+After Zoo downloads, we recommend you make a directory structure that mirrors below. the src directory contains the Zoo source code. A config folder will store *.json config files, which determine how the dataset is made and the model is trained. The data folder stores data used to make a zoo-compatible dataset (i.e., images & labels), and also serves as a useful directory for storing model ready data (which is *.npz) and images that are used by a trained model for prediction. The weights folder holds *.h5 files _ the weights and biases for your trained tensorflow model. 
+
+
+```{sh}
+/Users/Someone/segmentation_zoo
+                └── install
+                    ├── res_unet
+                    │   ├── config
+                    │   |    └── *.json
+                    │   ├── data
+                    |   |   ├── fromDoodler
+                    |   |   |     ├──images
+                    │   |   |     └──labels
+                    |   |   ├──forModel
+                    │   |   └──toPredict
+                    │   ├── src
+                    │   └── weights
+                    │       └── *.h5
+                    ├── LICENSE
+                    ├── .gitignore
+                    ├── zoo-logo.png
+                    └── README.md
+
+```
 
 ## <a name="resunet"></a>Use a Pre-Trained Residual UNet for Image Segmentation
 
@@ -320,7 +359,8 @@ The IOU and Dice coefficients are accuracy metrics. The model then prints severa
 
 ## <a name="train"></a>Train a model for image segmentation using your own datasets
 
-*Note*: you require an NVIDIA GPU with >6GB memory to train models from scratch using datasets
+*Note*: An NVIDIA GPU with >6GB memory is required to train models from scratch.
+
 
 ### Example: Watermasker for oblique aircraft coastal imagery (R, G, B)
 
