@@ -1,0 +1,15 @@
+name: imageseg
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+ - python
+ - scipy
+ - numpy
+ - scikit-image
+ - cython
+ - tensorflow-gpu
+ - ipython
+ - joblib
+ - tqdm
+ - pandas
