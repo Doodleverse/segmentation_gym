@@ -79,10 +79,10 @@ else:
 from imports import *
 #---------------------------------------------------
 
-trainsamples_fig = weights.replace('.h5','_train_sample_batch.png').replace('weights', 'examples')
-valsamples_fig = weights.replace('.h5','_val_sample_batch.png').replace('weights', 'examples')
+trainsamples_fig = weights.replace('.h5','_train_sample_batch.png').replace('weights', 'data')
+valsamples_fig = weights.replace('.h5','_val_sample_batch.png').replace('weights', 'data')
 
-hist_fig = weights.replace('.h5','_trainhist_'+str(BATCH_SIZE)+'.png').replace('weights', 'examples')
+hist_fig = weights.replace('.h5','_trainhist_'+str(BATCH_SIZE)+'.png').replace('weights', 'data')
 
 try:
     direc = os.path.dirname(hist_fig)
@@ -91,7 +91,7 @@ try:
 except:
     pass
 
-test_samples_fig =  weights.replace('.h5','_val.png').replace('weights', 'examples')
+test_samples_fig =  weights.replace('.h5','_val.png').replace('weights', 'data')
 
 #---------------------------------------------------
 # learning rate function

@@ -458,7 +458,7 @@ if N_DATA_BANDS<=3:
          #print(np.unique(lab))
 
          plt.axis('off')
-         plt.savefig(ROOT_STRING+'ex'+str(count)+'.png', dpi=200, bbox_inches='tight')
+         plt.savefig('data/' + ROOT_STRING + 'ex'+str(count)+'.png', dpi=200, bbox_inches='tight')
          #counter +=1
          plt.close('all')
 elif N_DATA_BANDS==4:
