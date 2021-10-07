@@ -62,15 +62,16 @@ def rescale(dat,
 ##====================================
 def standardize(img):
     #standardization using adjusted standard deviation
+
     N = np.shape(img)[0] * np.shape(img)[1]
     s = np.maximum(np.std(img), 1.0/np.sqrt(N))
     m = np.mean(img)
     img = (img - m) / s
-    img = rescale(img, 0, 1)
+    #img = rescale(img, 0, 1)
     del m, s, N
-
-    if np.ndim(img)!=3:
-        img = np.dstack((img,img,img))
+    # 
+    # if np.ndim(img)!=3:
+    #     img = np.dstack((img,img,img))
 
     return img
 

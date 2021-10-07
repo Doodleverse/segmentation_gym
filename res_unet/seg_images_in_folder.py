@@ -154,18 +154,34 @@ def rescale(dat,
     return (mx-mn)*(dat-m)/(M-m)+mn
 
 
+# ##====================================
+# def standardize(img):
+#     #standardization using adjusted standard deviation
+#     N = np.shape(img)[0] * np.shape(img)[1]
+#     s = np.maximum(np.std(img), 1.0/np.sqrt(N))
+#     m = np.mean(img)
+#     img = (img - m) / s
+#     img = rescale(img, 0, 1)
+#     del m, s, N
+#
+#     if np.ndim(img)!=3:
+#         img = np.dstack((img,img,img))
+#
+#     return img
+
 ##====================================
 def standardize(img):
     #standardization using adjusted standard deviation
+
     N = np.shape(img)[0] * np.shape(img)[1]
     s = np.maximum(np.std(img), 1.0/np.sqrt(N))
     m = np.mean(img)
     img = (img - m) / s
-    img = rescale(img, 0, 1)
+    #img = rescale(img, 0, 1)
     del m, s, N
-
-    if np.ndim(img)!=3:
-        img = np.dstack((img,img,img))
+    #
+    # if np.ndim(img)!=3:
+    #     img = np.dstack((img,img,img))
 
     return img
 
@@ -509,7 +525,6 @@ def label_to_colors(
 # =========================================================
 def do_seg(f):
 
-
     #=======================================================
     if USE_LOCATION:
         model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS+1), BATCH_SIZE, NCLASSES)
@@ -637,7 +652,6 @@ def do_seg(f):
 
             imsave(outfile,(100*certainty).astype('uint8'),photometric='minisblack',compress=0)
 
-
             land = remove_small_holes(land.astype('uint8'), 5*w)
             land = remove_small_objects(land.astype('uint8'), 5*w)
             outfile = segfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masks'))
@@ -658,14 +672,20 @@ def do_seg(f):
             segfile = f.replace('.png', '_predseg.png')
 
         segfile = os.path.normpath(segfile)
-        segfile = segfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masks'))
+        segfile = segfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'out'))
+
+        try:
+            os.mkdir(os.path.normpath(sample_direc+os.sep+'out'))
+        except:
+            pass
+
         if os.path.exists(segfile):
             print('%s exists ... skipping' % (segfile))
             pass
         else:
             print('%s does not exist ... creating' % (segfile))
 
-            start = time.time()
+            # start = time.time()
 
             if N_DATA_BANDS<=3:
                 image, w, h, bigimage = seg_file2tensor_3band(f, resize=True)
@@ -693,8 +713,8 @@ def do_seg(f):
             est_label = model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
             K.clear_session()
 
-            E = [maximum_filter(est_label[:,:,k], int(w/2/NCLASSES)) for k in range(NCLASSES)]
-            est_label = np.dstack(E)
+            # E = [maximum_filter(est_label[:,:,k], int(w/2/NCLASSES)) for k in range(NCLASSES)]
+            # est_label = np.dstack(E)
 
             est_label = resize(est_label,(w,h))
             conf = np.max(est_label, -1)
@@ -711,33 +731,33 @@ def do_seg(f):
             except:
                 color_label = label_to_colors(est_label, bigimage[:,:,0]==0, alpha=128, colormap=class_label_colormap, color_class_offset=0, do_alpha=False)
 
-            elapsed = (time.time() - start)/60
-            print("Image masking took "+ str(elapsed) + " minutes")
-            start = time.time()
+            # elapsed = (time.time() - start)/60
+            # print("Image masking took "+ str(elapsed) + " minutes")
+            # start = time.time()
 
-            imsave(segfile, est_label.astype(np.uint8), check_contrast=False)
+            #imsave(segfile, est_label.astype(np.uint8), check_contrast=False)
             #np.savez(f.replace('.jpg', '_conf.npz').replace(sample_direc, sample_direc+os.sep+'conf_var'), conf.astype(np.float16))
-            #imsave(f.replace('.jpg', '_segoverlay.png').replace(sample_direc, sample_direc+os.sep+'masked'), np.dstack((255*bigimage.numpy(), (est_label*255))), check_contrast=False)
+            # imsave(segfile, np.dstack((255*bigimage.numpy(), (est_label*255))), check_contrast=False)
 
+            # if 'jpg' in f:
+            #     outfile = os.path.normpath(f.replace('.jpg', '_conf.npz'))
+            # else:
+            #     outfile = os.path.normpath(f.replace('.png', '_conf.npz'))
+            #
+            # outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'conf_var'))
+            # np.savez(outfile, conf.astype(np.float16))
+            #
             if 'jpg' in f:
-                outfile = os.path.normpath(f.replace('.jpg', '_conf.npz'))
-            else:
-                outfile = os.path.normpath(f.replace('.png', '_conf.npz'))
-
-            outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'conf_var'))
-            np.savez(outfile, conf.astype(np.float16))
-
-            if 'jpg' in f:
-                outfile = f.replace('.jpg', '_predseg_col.png')
-                outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masked'))
-                imsave(outfile, (color_label).astype(np.uint8), check_contrast=False)
+                # outfile = f.replace('.jpg', '_predseg_col.png')
+                # outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masked'))
+                imsave(segfile, (color_label).astype(np.uint8), check_contrast=False)
             elif 'png' in f:
-                outfile = f.replace('.png', '_predseg_col.png')
-                outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masked'))
-                imsave(outfile, (color_label).astype(np.uint8), check_contrast=False)
+                # outfile = f.replace('.png', '_predseg_col.png')
+                # outfile = outfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masked'))
+                imsave(segfile, (color_label).astype(np.uint8), check_contrast=False)
 
-            elapsed = (time.time() - start)/60
-            print("File writing took "+ str(elapsed) + " minutes")
+            # elapsed = (time.time() - start)/60
+            # print("File writing took "+ str(elapsed) + " minutes")
             print("%s done" % (f))
 
 #====================================================
@@ -766,22 +786,22 @@ for k in config.keys():
     exec(k+'=config["'+k+'"]')
 
 
-try:
-	os.mkdir(sample_direc+os.sep+'masks')
-    os.mkdir(sample_direc+os.sep+'certainty')
-    os.mkdir(sample_direc+os.sep+'prob_stack')
-except:
-	pass
+# try:
+# 	os.mkdir(sample_direc+os.sep+'masks')
+#     os.mkdir(sample_direc+os.sep+'certainty')
+#     os.mkdir(sample_direc+os.sep+'prob_stack')
+# except:
+# 	pass
 
-# #=======================================================
-# if USE_LOCATION:
-#     model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS+1), BATCH_SIZE, NCLASSES)
-# else:
-#     model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), BATCH_SIZE, NCLASSES)
-#
-# model.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics = [mean_iou, dice_coef])
-#
-# model.load_weights(weights)
+#=======================================================
+if USE_LOCATION:
+    model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS+1), BATCH_SIZE, NCLASSES)
+else:
+    model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), BATCH_SIZE, NCLASSES)
+
+model.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics = [mean_iou, dice_coef])
+
+model.load_weights(weights)
 
 
 ### predict

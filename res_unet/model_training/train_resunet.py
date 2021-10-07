@@ -73,6 +73,8 @@ for k in config.keys():
 
 if "USE_LOCATION" not in locals():
     USE_LOCATION = False
+else:
+    print('Location will be used')
 
 from imports import *
 #---------------------------------------------------
@@ -122,13 +124,21 @@ def load_npz(example):
             image = data['arr_0'].astype('uint8')
             image = standardize(image)
             nir = data['arr_1'].astype('uint8')
+            nir = standardize(nir)
             label = data['arr_2'].astype('uint8')
+            image = tf.stack([image, nir], axis=-1)
         if USE_LOCATION:
             gx,gy = np.meshgrid(np.arange(image.shape[1]), np.arange(image.shape[0]))
             loc = np.sqrt(gx**2 + gy**2)
             loc /= loc.max()
             loc = (255*loc).astype('uint8')
             image = np.dstack((image, loc))
+
+            mx = np.max(image)
+            m = np.min(image)
+            tmp = rescale(loc, m, mx)
+            image = tf.stack([image[:,:,0], image[:,:,1], image[:,:,2], nir, tmp], axis=-1)
+            image = tf.cast(image, 'float32')
 
         return image, nir,label
     else:
@@ -142,6 +152,13 @@ def load_npz(example):
             loc /= loc.max()
             loc = (255*loc).astype('uint8')
             image = np.dstack((image, loc))
+            image = standardize(image)
+
+            mx = np.max(image)
+            m = np.min(image)
+            tmp = rescale(loc, m, mx)
+            image = tf.stack([image[:,:,0], image[:,:,1], image[:,:,2], tmp], axis=-1)
+            image = tf.cast(image, 'float32')
 
         return image, label
 
@@ -310,11 +327,20 @@ counter = 0
 for i,l in val_ds.take(10):
 
     for img,lbl in zip(i,l):
-        print(img.shape)
+        # print(img.shape)
 
-        img = tf.image.per_image_standardization(img)
+        # img = tf.image.per_image_standardization(img)
+        # if USE_LOCATION:
+        #     img = standardize(img)
+        #     mx = np.max(img)
+        #     m = np.min(img)
+        #     tmp = rescale(loc, m, mx)
+        #     img = tf.stack([img[:,:,0], img[:,:,1], img[:,:,2], tmp], axis=-1)
+        # else:
+        #     img = standardize(img)
+        img2 = standardize(img)
 
-        est_label = model.predict(tf.expand_dims(img, 0) , batch_size=1).squeeze()
+        est_label = model.predict(tf.expand_dims(img2, 0) , batch_size=1).squeeze()
 
         if NCLASSES==1:
             est_label[est_label<.5] = 0
@@ -329,28 +355,30 @@ for i,l in val_ds.take(10):
 
         iouscore = iou(lbl, est_label, NCLASSES+1)
 
+        img = rescale(img.numpy(), 0, 1)
+
         if DOPLOT:
             plt.subplot(221)
             if np.ndim(img)>=3:
-                plt.imshow(img[:,:,:3])
+                plt.imshow(img[:,:,0], cmap='gray')
             else:
-                plt.imshow(img)
+                plt.imshow(img)#, cmap='gray')
             if NCLASSES==1:
-                plt.imshow(lbl, alpha=0.3, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES)
+                plt.imshow(lbl, alpha=0.1, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES)
             else:
-                plt.imshow(lbl, alpha=0.3, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES-1)
+                plt.imshow(lbl, alpha=0.1, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES-1)
 
             plt.axis('off')
 
             plt.subplot(222)
             if np.ndim(img)>=3:
-                plt.imshow(img[:,:,:3])
+                plt.imshow(img[:,:,0], cmap='gray')
             else:
-                plt.imshow(img)
+                plt.imshow(img)#, cmap='gray')
             if NCLASSES==1:
-                plt.imshow(est_label, alpha=0.3, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES)
+                plt.imshow(est_label, alpha=0.1, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES)
             else:
-                plt.imshow(est_label, alpha=0.3, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES-1)
+                plt.imshow(est_label, alpha=0.1, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES-1)
 
             plt.axis('off')
             plt.title('iou = '+str(iouscore)[:5], fontsize=6)
@@ -362,3 +390,75 @@ for i,l in val_ds.take(10):
         counter += 1
 
 print('Mean IoU (validation subset)={mean_iou:0.3f}'.format(mean_iou=np.mean(IOUc)))
+
+
+##### training subset
+IOUc = []
+
+counter = 0
+for i,l in train_ds.take(10):
+
+    for img,lbl in zip(i,l):
+        # print(img.shape)
+
+        # img = tf.image.per_image_standardization(img)
+        # if USE_LOCATION:
+        #     img = standardize(img)
+        #     mx = np.max(img)
+        #     m = np.min(img)
+        #     tmp = rescale(loc, m, mx)
+        #     img = tf.stack([img[:,:,0], img[:,:,1], img[:,:,2], tmp], axis=-1)
+        # else:
+        #     img = standardize(img)
+        img2 = standardize(img)
+
+        est_label = model.predict(tf.expand_dims(img2, 0) , batch_size=1).squeeze()
+
+        if NCLASSES==1:
+            est_label[est_label<.5] = 0
+            est_label[est_label>.5] = 1
+        else:
+            est_label = np.argmax(est_label, -1)
+
+        if NCLASSES==1:
+            lbl = lbl.numpy().squeeze()
+        else:
+            lbl = np.argmax(lbl.numpy(), -1)
+
+        iouscore = iou(lbl, est_label, NCLASSES+1)
+
+        img = rescale(img.numpy(), 0, 1)
+
+        if DOPLOT:
+            plt.subplot(221)
+            if np.ndim(img)>=3:
+                plt.imshow(img[:,:,0], cmap='gray')
+            else:
+                plt.imshow(img)#, cmap='gray')
+            if NCLASSES==1:
+                plt.imshow(lbl, alpha=0.1, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES)
+            else:
+                plt.imshow(lbl, alpha=0.1, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES-1)
+
+            plt.axis('off')
+
+            plt.subplot(222)
+            if np.ndim(img)>=3:
+                plt.imshow(img[:,:,0], cmap='gray')
+            else:
+                plt.imshow(img)#, cmap='gray')
+            if NCLASSES==1:
+                plt.imshow(est_label, alpha=0.1, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES)
+            else:
+                plt.imshow(est_label, alpha=0.1, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES-1)
+
+            plt.axis('off')
+            plt.title('iou = '+str(iouscore)[:5], fontsize=6)
+            IOUc.append(iouscore)
+
+            plt.savefig(test_samples_fig.replace('_val.png', '_train_'+str(counter)+'.png'),
+                    dpi=200, bbox_inches='tight')
+            plt.close('all')
+        counter += 1
+
+print('Mean IoU (train subset)={mean_iou:0.3f}'.format(mean_iou=np.mean(IOUc)))
