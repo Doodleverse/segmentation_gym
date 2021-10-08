@@ -11,10 +11,6 @@ We are building a toolbox to segment imagery with a variety of models. Current w
 * Use an existing (i.e. pre-trained) model to segment new imagery (by using provided code and model weights)
 * Use images & masks to develp a 'model-ready' dataset
 * Train a new model using this new dataset
-
-## Example uses:
-
-* Mask water from imagery (i.e., use the pretrained watermasking models on your own imagery)
 * Use your [Doodled images](https://github.com/dbuscombe-usgs/dash_doodler) to train a new model
 
 
@@ -29,12 +25,11 @@ We are building a toolbox to segment imagery with a variety of models. Current w
 ### Code use:
 
 * [Installation](#install)
-* [Directory Structure](#dir)
+* [Directory Structure and Tests](#dir)
 * [Use a Pre-Trained Residual UNet for Image Segmentation](#resunet)
 * [Creation of `config` files for model retraining and training](#config)
 * [Train a model for image segmentation using provided datasets](#retrain)
-* [Train a model for image segmentation using your own dataset](#train)
-* [Roadmap](#roadmap)
+* [Changelog](#changelog)
 
 
 ## <a name="model"></a>Residual U-Net model
@@ -89,69 +84,33 @@ pip install tensorflow-gpu=2.2.0 --user
 and just ignore any errors. When you run any script, the tensorflow version should be printed to screen.
 
 
-## <a name="dir"></a>Directory Structure
+## <a name="dir"></a>Directory Structure and Tests
 
-After Zoo downloads, we recommend you make a directory structure that mirrors below. the src directory contains the Zoo source code. A config folder will store *.json config files, which determine how the dataset is made and the model is trained. The data folder stores data used to make a zoo-compatible dataset (i.e., images & labels), and also serves as a useful directory for storing model ready data (which is *.npz) and images that are used by a trained model for prediction. The weights folder holds *.h5 files _ the weights and biases for your trained tensorflow model. 
+After Zoo downloads, we recommend you make a directory structure that mirrors below, *entirely separate from* the src directory contains the Zoo source code. A config folder will store *.json config files, which determine how the dataset is made and the model is trained. The data folder stores data used to make a zoo-compatible dataset (i.e., images & labels), and also serves as a useful directory for storing model ready data (which is *.npz) and images that are used by a trained model for prediction. The weights folder holds *.h5 files _ the weights and biases for your trained tensorflow model.
 
 
 ```{sh}
-/Users/Someone/segmentation_zoo
-                └── install
-                    ├── res_unet
+/Users/Someone/my_segmentation_zoo_datasets
                     │   ├── config
                     │   |    └── *.json
                     │   ├── data
                     |   |   ├── fromDoodler
                     |   |   |     ├──images
                     │   |   |     └──labels
-                    |   |   ├──forModel
+                    |   |   ├──npzForModel
                     │   |   └──toPredict
-                    │   ├── src
                     │   └── weights
                     │       └── *.h5
-                    ├── LICENSE
-                    ├── .gitignore
-                    ├── zoo-logo.png
-                    └── README.md
 
 ```
 
-## <a name="resunet"></a>Use a Pre-Trained Residual UNet for Image Segmentation
+A full dataset is available from [here](https://github.com/dbuscombe-usgs/segmentation_zoo/releases/download/v0.0.4-testdata/my_segmentation_zoo_datasets.zip) that is organized in the above way. We strongly suggest downloading and testing Zoo with this dataset before attempting to use Zoo with your own data.
 
-1. Change directory to the `res_unet` directory (perhaps some day this repo will contain other models, in which case this top-level directory will contain additional folders)
+Download that, unzip it, and test zoo with it.
 
-```
-cd res_unet
-```
+Then, and only then(!), attempt to test zoo with your own data - your own data must be organized in the same way
 
-2. Run the program like so to use a model that you have weights for (either provided with this repository or generated yourself using a procedure described below) o a directory of images
-
-```
-python seg_images_in_folder.py
-```
-
-You will be prompted to select a weights file (with file extension `*.h5`), then a directory containing the images you wish to segment
-
-When the program has completed, go to the folder of samples you asked the model to segment and you will see a model predictions as new images (*_predseg.png). If the segmentation is binary (i.e. NCLASSES = 1 in the config file), the program will additionally create a composite of the sample image and its estimated mask.
-
-The image is downsized to 1024x768, and the model makes multiple predictions on 1) the original image, 2) the horizontally flipped image, 3) the vertically flipped image, and 4) a series of images that have been rolled/wrapped about the x-axis. For each image, a different model prediction is obtained. Those predictions are then ensembled to form the final softmax scores for the image. If there are 2 classes present, indicated by a range in softmax scores > .5, then the Otsu threshold is found and used as the binarizing threshold. Otherwise, a threshold of 0.75 is applied.
-
-
-### Example: Watermasker for oblique aircraft coastal imagery (R, G, B)
-* Select the weights file 'weights/oblique_coast_watermask/watermask_oblique_2class_batch_4.h5'
-
-* Select the sample folder 'sample/oblique_coast_watermask', or whatever folder of appropriate you may have
-
-
-### Example: Watermasker for Sentinel2 satellite coastal imagery (R, G, B)
-Prototype version, research in progress
-
-* Select the weights file 'weights/sentinel2_coast_watermask/s2_4class_batch_12.h5'
-
-* Select the sample folder 'sample/sentinel2_coast_watermask', or whatever folder of appropriate you may have
-
-
-## <a name="config"></a>Creation of `config` files for model retraining and training
+## <a name="config"></a>Creation of `config` files for model training
 Configuration or `config` files in [JSON format](https://en.wikipedia.org/wiki/JSON) where all relevant parameters are set. There are a few of them
 
 An example config file (saved as `res_unet/model_training/config/oblique_coast_watermask/watermask_oblique_2class_batch_4.json`):
@@ -163,7 +122,6 @@ An example config file (saved as `res_unet/model_training/config/oblique_coast_w
   "NCLASSES": 1,
   "BATCH_SIZE": 4,
   "N_DATA_BANDS": 3,
-  "DO_CRF_REFINE": true,
   "DO_TRAIN": false,
   "PATIENCE": 25,
   "MAX_EPOCHS": 200,
@@ -198,7 +156,6 @@ Notice the last entry does *NOT* have a comma. It does not matter what order the
 * `DO_TRAIN`: (bool) `true` to retrain model from scratch. Otherwise, program will use existing model weights and evaluate the model based on the validation set
 * `MEDIAN_FILTER_VALUE`: (integer) radius of disk used to apply median filter, if > 1
 * `DOPLOT`: (bool) `true` to make plots
-* `DO_CRF_REFINE`: (bool) `true` to apply CRF post-processing to model outputs
 
 #### Model training
 Model training and performance is sensitive to these hyperparameters. Use a `TARGET_SIZE` that makes sense for your problem, that conforms roughly with the dimensions of the imagery and labels you have for model training, and that fits in available GPU memory. You might be very surprised at the accuracy and utility of models trained with significantly downsized imagery
@@ -211,7 +168,6 @@ Model training and performance is sensitive to these hyperparameters. Use a `TAR
 * `PATIENCE`: (integer) the number of epochs with no improvement in validation loss to wait before exiting model training
 * `MAX_EPOCHS`: (integer) the maximum number of epochs to train the model over. Early stopping should ensure this maximum is never reached
 * `VALIDATION_SPLIT`: (float) the proportion of the dataset to use for validation. The rest will be used for model training. Typically in the range 0.5 -- 0.9 for model training on large datasets
-* `USE_LOCATION` (bool) `true` to use band specifying relative pixel location in model
 
 #### Learning rate scheduler
 The model training script uses a learning rate scheduler to cycle through a range of learning rates at every training epoch using a prescribed function. Model training can sometimes be sensitive to the specification of these parameters, especially the `MAX_LR`, so be prepared to try a few values if the model is not performing optimally
@@ -225,33 +181,6 @@ The model training script uses a learning rate scheduler to cycle through a rang
 
 #### Label pre-processing (optional)
 * `REMAP_CLASSES`: (dict) A dictionary of values in the data and what values you'd like to replace them with, for example `{"0": 0, "1": 0, "2": 0, "3":1, "4":1}` says "recode ones and twos as zeros and threes and fours as ones". Used to reclassify data on the fly without written new files to disk
-
-
-
-## <a name="data"></a>Provided datasets
-
-### Oblique aircraft coastal imagery (R, G, B)
-
-This dataset is used here to demonstrate `binary segmentation` (i.e. 1 class of interest, and 1 null class). The classes are `water` and `null`
-
-732 (as of 3/9/2021) images and associated binary (2-class land and water) masks. Prototype version, research in progress. Full version forthcoming
-
-Thanks to Andy Ritchie and Jon Warrick for creating label images. Additional labels were created by Daniel Buscombe
-
-
-### Nadir aircraft/UAV coastal imagery (R, G, B)
-
-This dataset is used here to demonstrate `binary segmentation` (i.e. 1 class of interest, and 1 null class). The classes are `water` and `null`
-
-2564 (as of 3/9/2021) images and associated binary (2-class land and water) masks. Prototype version, research in progress. Full version forthcoming
-
-Thanks to Stephen Bosse, Jin-Si Over, Christine Kranenberg, Chris Sherwood, and Phil Wernette for creating label images. Additional labels were created by Daniel Buscombe
-
-
-### Sentinel2 satellite coastal imagery (R, G, B)
-This dataset is used here to demonstrate `multiclass segmentation` (i.e. more than 1 class of interest, and 1 null class). The classes are `blue water` (unbroken water), `white water` (active wave breaking), `wet sand` (swash, lower intertidal), and `dry land`
-
-Labels were created by Daniel Buscombe. Prototype version (72 labeled images from Santa Cruz, CA), research in progress. Full version forthcoming
 
 
 ## Dataset creation
@@ -294,26 +223,7 @@ Make a configuration file that will contain all the information the program need
 python train_resunet.py
 ```
 
-### Example: Watermasker for oblique aircraft coastal imagery (R, G, B)
-
-Change directory to the appropriate tf records directory and run the `download_datasets.py` script to get the data
-
-```
-cd res_unet/model_training/data/watermask_oblique_datasets
-python download_datasets.py
-cd ../..
-```
-
-Run the program
-
-```
-python train_resunet.py
-```
-
-* Select the config file `weights/sentinel2_coast_watermask/watermask_oblique_2class_batch_4.json`
-* Select the datasets data folder `data/watermask_oblique_datasets`
-
-The program will first print some example training and validation samples. See the file `watermask_oblique_2class_batch_4_train_sample_batch.png` and `watermask_oblique_2class_batch_4_val_sample_batch.png` in `model_training/examples/oblique_coast_watermask` directory.
+The program will first print some example training and validation samples.
 
 Then the model will begin training. You will see output similar to ...
 
@@ -356,74 +266,7 @@ loss=0.1229, Mean IOU=0.7988, Mean Dice=0.8771
 The IOU and Dice coefficients are accuracy metrics. The model then prints several model output examples from the validation set to files located in the `examples` folder (for this example, `res_unet/model_training/examples/oblique_coast_watermask`)
 
 
-
-## <a name="train"></a>Train a model for image segmentation using your own datasets
-
-*Note*: An NVIDIA GPU with >6GB memory is required to train models from scratch.
-
-
-### Example: Watermasker for oblique aircraft coastal imagery (R, G, B)
-
-Example workflow using the data encoded in the datasets for the "oblique coastal watermasker" dataset below. Note that the most difficult aspect of this is usually creating the TF-REcords properly. You should be prepared to modify the `make_datasets.py` script to deal with specific data folder structures, and file naming conventions. I therefore urge you to prepare your data in a similar way to the provided examples
-
-1. Change directory, download images
-
-```
-cd res_unet/model_training/data/watermask_oblique_jpegs
-python download_jpegs.py
-cd ../..
-```
-
-2. create TF-Records from your images/labels files
-
-```
-python make_dataset.py
-```
-
-This program will ask you for 4 things:
-* the location of the `config` file
-* the location of the folder of images (it expects a single subdirectory containing .png extension image files)
-* the location of the folder of corresponding label images (it expects a single subdirectory containing .png extension image files)
-* the location where to write dataset files for model training
-
-It expects the same number of images and labels (i.e. you should provide 1 label image per image). It creates augmented images and corresponding labels in batches to save memory. Once all augmented images have been made, they are written to datasets. Note that the original images are not used in model training, only augmented images. That provides an opportunity to use the original image/label set as a hold-out or independent test set. All augmented images will have the same size, i.e. `TARGET_SIZE`. Augmentation is controlled by the `AUG_*` parameters in the `config` file. I advise you use only small shifts and zooms. Use vertical and horizontal flips often.
-
-
-3. Create a config file for model training (see appropriate section above)
-
-4. Run the following to train a new model on your data from scratch:
-
-```
-python train_resunet.py
-```
-
-(see above for explanation of this script/process). The model takes a long time to train using the `config` file `weights/sentinel2_coast_watermask/watermask_oblique_2class_batch_4.json` and the datasets in `data/watermask_oblique_datasets`. After possibly a few hours (depending on your GPU speed) the model training finishes with an output like this:
-
-```
-Epoch 00141: LearningRateScheduler reducing learning rate to 1.0003196953557818e-07.
-Epoch 141/200
-125/125 [==============================] - 92s 739ms/step - loss: 0.0791 - mean_iou: 0.8631 - dice_coef: 0.9209 - val_loss: 0.0751 - val_mean_iou: 0.8687 - val_dice_coef: 0.9249 - lr: 1.0003e-07
-.....................................
-Evaluating model on entire validation set ...
-350/350 [==============================] - 42s 119ms/step - loss: 0.0751 - mean_iou: 0.8686 - dice_coef: 0.9249
-loss=0.0751, Mean IOU=0.8686, Mean Dice=0.9249
-sys:1: UserWarning: Possible precision loss converting image of type float32 to uint8 as required by rank filters. Convert manually using skimage.util.img_as_ubyte to silence this warning.
-Mean IoU (validation subset)=0.855
-```
-
-The mean IOU is 86% and the mean Dice coefficient is 92% using 500 image files for training and 1400 for validation
-
-## <a name="roadmap"></a>Roadmap
-
-Plans:
-
-* add "4D" satellite shorelines example
-* add "3D" dune segmentation example
-* add "4D" dune segmentation example
-* continue to refine data and train models for existing dataset examples
-* eventually ... some form of a graphical user interface
-* adaptive learning: rank validation imagery by loss (label those with highest loss)
-* add "2D" NIR sentinel exmaple
+## <a name="changelog"></a>CHANGELOG
 
 
 ## version 0.0.1, 06/10/21
@@ -436,3 +279,11 @@ Plans:
 * fixed some bugs in make_datasets.py
 * no median filter on 2d label image, now a morphology holes/islands on the one-hot stack (much better)
 * removed CRF pre or post processing option
+
+##version 0.0.4, 10/07/21
+* no USE_LOCATION
+* 1 example dataset, shipped separately
+* code cleaned, sharing all functions through `imports.py`
+* seg-images-in-folder working ok for multiclass Imagery
+* code and directory structure greatly simplified
+* standarized imagery is now [-1, 1], rather than [0,1] - old models will break with the new implementation - you should retrain your old model

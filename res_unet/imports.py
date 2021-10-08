@@ -25,8 +25,6 @@
 
 from skimage.io import imsave, imread
 from glob import glob
-# import pydensecrf.densecrf as dcrf
-# from pydensecrf.utils import create_pairwise_bilateral, unary_from_labels
 from skimage.filters.rank import median
 from skimage.morphology import disk
 from scipy.ndimage import rotate
@@ -69,7 +67,7 @@ def standardize(img):
     img = (img - m) / s
     #img = rescale(img, 0, 1)
     del m, s, N
-    # 
+    #
     # if np.ndim(img)!=3:
     #     img = np.dstack((img,img,img))
 

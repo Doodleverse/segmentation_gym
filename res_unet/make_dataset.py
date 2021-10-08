@@ -437,6 +437,10 @@ dataset = dataset.repeat()
 dataset = dataset.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be needed on TPU
 dataset = dataset.prefetch(AUTO) #
 
+try:
+    os.mkdir(dataset_dir+os.sep+'sample')
+except:
+    pass
 
 print('.....................................')
 print('Printing examples to file ...')
@@ -458,7 +462,7 @@ if N_DATA_BANDS<=3:
          #print(np.unique(lab))
 
          plt.axis('off')
-         plt.savefig('data/' + ROOT_STRING + 'ex'+str(count)+'.png', dpi=200, bbox_inches='tight')
+         plt.savefig(dataset_dir+os.sep+'sample'+os.sep+ ROOT_STRING + 'ex'+str(count)+'.png', dpi=200, bbox_inches='tight')
          #counter +=1
          plt.close('all')
 elif N_DATA_BANDS==4:
@@ -477,5 +481,5 @@ elif N_DATA_BANDS==4:
          plt.axis('off')
          #print(np.unique(lab))
          plt.axis('off')
-         plt.savefig(ROOT_STRING+'ex'+str(count)+'.png', dpi=200, bbox_inches='tight')
+         plt.savefig(dataset_dir+os.sep+'sample'+os.sep+ROOT_STRING+'ex'+str(count)+'.png', dpi=200, bbox_inches='tight')
          plt.close('all')
