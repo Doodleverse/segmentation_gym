@@ -340,6 +340,222 @@ def res_unet(sz, f, nclasses=1, kernel_size=(7,7)):
     model = tf.keras.models.Model(inputs=[inputs], outputs=[outputs])
     return model
 
+
+
+def conv2d_block(inputs,use_batch_norm=True,dropout=0.2,dropout_type="spatial",
+                 filters=16,kernel_size=(3, 3),activation="relu",
+                 kernel_initializer="he_normal",padding="same"):
+
+    if dropout_type == "spatial":
+        DO = tf.keras.layers.SpatialDropout2D
+    elif dropout_type == "standard":
+        DO = tf.keras.layers.Dropout
+    else:
+        raise ValueError(f"dropout_type must be one of ['spatial', 'standard'], got {dropout_type}")
+
+    c = tf.keras.layers.Conv2D(filters, kernel_size,activation=activation,
+        kernel_initializer=kernel_initializer, padding=padding,
+        use_bias=not use_batch_norm)(inputs)
+
+    if use_batch_norm:
+        c = tf.keras.layers.BatchNormalization()(c)
+    if dropout > 0.0:
+        c = DO(dropout)(c)
+
+    c = tf.keras.layers.Conv2D(filters, kernel_size, activation=activation,
+        kernel_initializer=kernel_initializer, padding=padding,
+        use_bias=not use_batch_norm)(c)
+
+    if use_batch_norm:
+        c = tf.keras.layers.BatchNormalization()(c)
+    return c
+
+
+def upsample_conv(filters, kernel_size, strides, padding):
+    return tf.keras.layers.Conv2DTranspose(filters, kernel_size, strides=strides, padding=padding)
+
+def upsample_simple(filters, kernel_size, strides, padding):
+    return tf.keras.layers.UpSampling2D(strides)
+
+
+def custom_unet(input_shape, kernel = (2,2), num_classes=1,activation="relu",use_batch_norm=True,
+    upsample_mode="deconv",
+    dropout=0.1, dropout_change_per_layer=0.0, dropout_type="spatial",
+    use_dropout_on_upsampling=False,
+    filters=16,
+    num_layers=4,
+    output_activation="sigmoid"):
+
+    """
+    Customisable UNet architecture (Ronneberger et al. 2015 https://arxiv.org/abs/1505.04597)
+
+    input_shape: shape (x, y, num_channels)
+
+    num_classes (int): 1 for binary segmentation
+
+    activation (str): A keras.activations.Activation to use. ReLu by default.
+
+    use_batch_norm (bool): Whether to use Batch Normalisation across the channel axis between convolutions
+
+    upsample_mode ( "deconv" or "simple"): transposed convolutions or simple upsampling in the decoder
+
+    dropout (float , 0. and 1.): dropout after the first convolutional block. 0. = no dropout
+
+    dropout_change_per_layer (float , 0. and 1.): Factor to add to the Dropout after each convolutional block
+
+    dropout_type (one of "spatial" or "standard"): Spatial is recommended  by  https://arxiv.org/pdf/1411.4280.pdf
+
+    use_dropout_on_upsampling (bool): Whether to use dropout in the decoder part of the network
+
+    filters (int): Convolutional filters in the initial convolutional block. Will be doubled every block
+
+    num_layers (int): Number of total layers in the encoder not including the bottleneck layer
+
+    output_activation (str): A keras.activations.Activation to use. Sigmoid by default for binary segmentation
+
+    """
+
+    if upsample_mode == "deconv":
+        upsample = upsample_conv
+    else:
+        upsample = upsample_simple
+
+    # Build U-Net model
+    inputs = tf.keras.layers.Input(input_shape)
+    x = inputs
+
+    down_layers = []
+    for l in range(num_layers):
+        x = conv2d_block(
+            inputs=x,
+            filters=filters,
+            use_batch_norm=use_batch_norm,
+            dropout=dropout,
+            dropout_type=dropout_type,
+            activation=activation,
+        )
+        down_layers.append(x)
+        x =  tf.keras.layers.MaxPooling2D(kernel)(x)
+        dropout += dropout_change_per_layer
+        filters = filters * 2  # double the number of filters with each layer
+
+    x = conv2d_block(
+        inputs=x,
+        filters=filters,
+        use_batch_norm=use_batch_norm,
+        dropout=dropout,
+        dropout_type=dropout_type,
+        activation=activation,
+    )
+
+    if not use_dropout_on_upsampling:
+        dropout = 0.0
+        dropout_change_per_layer = 0.0
+
+    for conv in reversed(down_layers):
+        filters //= 2  # decreasing number of filters with each layer
+        dropout -= dropout_change_per_layer
+        x = upsample(filters, kernel, strides=(2, 2), padding="same")(x)
+        x = tf.keras.layers.concatenate([x, conv])
+        x = conv2d_block(inputs=x, filters=filters,
+            use_batch_norm=use_batch_norm, dropout=dropout,
+            dropout_type=dropout_type, activation=activation)
+
+    outputs = tf.keras.layers.Conv2D(num_classes, (1, 1), activation=output_activation)(x)
+
+    model = tf.keras.models.Model(inputs=[inputs], outputs=[outputs])
+    return model
+
+##========================================================================
+
+def bn_conv_relu(input, filters, bachnorm_momentum, **conv2d_args):
+    x = tf.keras.layers.BatchNormalization(momentum=bachnorm_momentum)(input)
+    x = tf.keras.layers.Conv2D(filters, **conv2d_args)(x)
+    return x
+
+def bn_upconv_relu(input, filters, bachnorm_momentum, **conv2d_trans_args):
+    x = tf.keras.layers.BatchNormalization(momentum=bachnorm_momentum)(input)
+    x = tf.keras.layers.Conv2DTranspose(filters, **conv2d_trans_args)(x)
+    return x
+
+
+def sat_unet(input_shape, num_classes=1, output_activation='sigmoid', num_layers=4):
+
+    inputs = tf.keras.layers.Input(input_shape)
+
+    filters = 16 #64
+    upconv_filters = 24 #96
+
+    kernel_size = (3,3)
+    activation = 'relu'
+    strides = (1,1)
+    padding = 'same'
+    kernel_initializer = 'he_normal'
+
+    conv2d_args = {
+        'kernel_size':kernel_size,
+        'activation':activation,
+        'strides':strides,
+        'padding':padding,
+        'kernel_initializer':kernel_initializer
+        }
+
+    conv2d_trans_args = {
+        'kernel_size':kernel_size,
+        'activation':activation,
+        'strides':(2,2),
+        'padding':padding,
+        'output_padding':(1,1)
+        }
+
+    bachnorm_momentum = 0.01
+
+    pool_size = (2,2)
+    pool_strides = (2,2)
+    pool_padding = 'valid'
+
+    maxpool2d_args = {
+        'pool_size':pool_size,
+        'strides':pool_strides,
+        'padding':pool_padding,
+        }
+
+    x = tf.keras.layers.Conv2D(filters, **conv2d_args)(inputs)
+    c1 = bn_conv_relu(x, filters, bachnorm_momentum, **conv2d_args)
+    x = bn_conv_relu(c1, filters, bachnorm_momentum, **conv2d_args)
+    x = tf.keras.layers.MaxPooling2D(**maxpool2d_args)(x)
+
+    down_layers = []
+
+    for l in range(num_layers):
+        x = bn_conv_relu(x, filters, bachnorm_momentum, **conv2d_args)
+        x = bn_conv_relu(x, filters, bachnorm_momentum, **conv2d_args)
+        down_layers.append(x)
+        x = bn_conv_relu(x, filters, bachnorm_momentum, **conv2d_args)
+        x = tf.keras.layers.MaxPooling2D(**maxpool2d_args)(x)
+
+    x = bn_conv_relu(x, filters, bachnorm_momentum, **conv2d_args)
+    x = bn_conv_relu(x, filters, bachnorm_momentum, **conv2d_args)
+    x = bn_upconv_relu(x, filters, bachnorm_momentum, **conv2d_trans_args)
+
+    for conv in reversed(down_layers):
+        x = tf.keras.layers.concatenate([x, conv])
+        x = bn_conv_relu(x, upconv_filters, bachnorm_momentum, **conv2d_args)
+        x = bn_conv_relu(x, filters, bachnorm_momentum, **conv2d_args)
+        x = bn_upconv_relu(x, filters, bachnorm_momentum, **conv2d_trans_args)
+
+    x = tf.keras.layers.concatenate([x, c1])
+    x = bn_conv_relu(x, upconv_filters, bachnorm_momentum, **conv2d_args)
+    x = bn_conv_relu(x, filters, bachnorm_momentum, **conv2d_args)
+
+    outputs = tf.keras.layers.Conv2D(num_classes, kernel_size=(1,1), strides=(1,1), activation=output_activation, padding='valid') (x)
+
+    model = tf.keras.models.Model(inputs=[inputs], outputs=[outputs])
+    return model
+## https://deepsense.ai/deep-learning-for-satellite-imagery-via-image-segmentation/
+
+
+
 #-----------------------------------
 def mean_iou(y_true, y_pred):
     """

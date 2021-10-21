@@ -122,18 +122,6 @@ def load_npz(example):
             nir = standardize(nir)
             label = data['arr_2'].astype('uint8')
             image = tf.stack([image, nir], axis=-1)
-        # if USE_LOCATION:
-        #     gx,gy = np.meshgrid(np.arange(image.shape[1]), np.arange(image.shape[0]))
-        #     loc = np.sqrt(gx**2 + gy**2)
-        #     loc /= loc.max()
-        #     loc = (255*loc).astype('uint8')
-        #     image = np.dstack((image, loc))
-        #
-        #     mx = np.max(image)
-        #     m = np.min(image)
-        #     tmp = rescale(loc, m, mx)
-        #     image = tf.stack([image[:,:,0], image[:,:,1], image[:,:,2], nir, tmp], axis=-1)
-        #     image = tf.cast(image, 'float32')
 
         return image, nir,label
     else:
@@ -141,19 +129,6 @@ def load_npz(example):
             image = data['arr_0'].astype('uint8')
             image = standardize(image)
             label = data['arr_1'].astype('uint8')
-        # if USE_LOCATION:
-        #     gx,gy = np.meshgrid(np.arange(image.shape[1]), np.arange(image.shape[0]))
-        #     loc = np.sqrt(gx**2 + gy**2)
-        #     loc /= loc.max()
-        #     loc = (255*loc).astype('uint8')
-        #     image = np.dstack((image, loc))
-        #     image = standardize(image)
-        #
-        #     mx = np.max(image)
-        #     m = np.min(image)
-        #     tmp = rescale(loc, m, mx)
-        #     image = tf.stack([image[:,:,0], image[:,:,1], image[:,:,2], tmp], axis=-1)
-        #     image = tf.cast(image, 'float32')
 
         return image, label
 
@@ -260,11 +235,27 @@ val_ds = val_ds.prefetch(AUTO) #
 
 print('.....................................')
 print('Creating and compiling model ...')
-num_filters = 8 # initial filters
+
+KERNEL_SIZE = 2
+
 # if NCLASSES==1:
-#     model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), num_filters, NCLASSES, (KERNEL_SIZE, KERNEL_SIZE))
+model = custom_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+            kernel = (KERNEL_SIZE, KERNEL_SIZE), num_classes=NCLASSES,
+            activation="relu",use_batch_norm=True,
+            upsample_mode="deconv",
+            dropout=0.1, dropout_change_per_layer=0.0, dropout_type="spatial",
+            use_dropout_on_upsampling=False,
+            filters=16,
+            num_layers=4,
+            output_activation="sigmoid")
 # else:
-model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), num_filters, NCLASSES, (KERNEL_SIZE, KERNEL_SIZE))
+# custom_unet(input_shape,num_classes=1,activation="relu",use_batch_norm=True,
+#     upsample_mode="deconv",
+#     dropout=0.1, dropout_change_per_layer=0.0, dropout_type="spatial",
+#     use_dropout_on_upsampling=False,
+#     filters=16,
+#     num_layers=4,
+#     output_activation="sigmoid"):
 
 model.compile(optimizer = 'adam', loss =dice_coef_loss, metrics = [mean_iou, dice_coef])
 
@@ -316,17 +307,7 @@ counter = 0
 for i,l in val_ds.take(10):
 
     for img,lbl in zip(i,l):
-        # print(img.shape)
 
-        # img = tf.image.per_image_standardization(img)
-        # if USE_LOCATION:
-        #     img = standardize(img)
-        #     mx = np.max(img)
-        #     m = np.min(img)
-        #     tmp = rescale(loc, m, mx)
-        #     img = tf.stack([img[:,:,0], img[:,:,1], img[:,:,2], tmp], axis=-1)
-        # else:
-        #     img = standardize(img)
         img2 = standardize(img)
 
         est_label = model.predict(tf.expand_dims(img2, 0) , batch_size=1).squeeze()
