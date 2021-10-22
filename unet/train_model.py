@@ -44,25 +44,19 @@ from random import shuffle
 ###############################################################
 ## VARIABLES
 ###############################################################
-#
-# root = Tk()
-# root.filename =  filedialog.askopenfilename(initialdir = "/data",title = "Select config file",filetypes = (("config files","*.json"),("all files","*.*")))
-# configfile = root.filename
-# print(configfile)
-# root.withdraw()
-#
-# root = Tk()
-# root.filename =  filedialog.askdirectory(initialdir = "/samples",title = "Select directory of data files")
-# data_path = root.filename
-# print(data_path)
-# root.withdraw()
 
+root = Tk()
+root.filename =  filedialog.askopenfilename(initialdir = "/data",title = "Select config file",filetypes = (("config files","*.json"),("all files","*.*")))
+configfile = root.filename
+print(configfile)
+root.withdraw()
 
-configfile = '/media/marda/TWOTB1/USGS/SOFTWARE/Projects/UNets/my_segmentation_zoo_datasets/config/hatteras_l8_resunet.json'
+root = Tk()
+root.filename =  filedialog.askdirectory(initialdir = "/samples",title = "Select directory of data files")
+data_path = root.filename
+print(data_path)
+root.withdraw()
 
-# configfile = '/media/marda/TWOTB1/USGS/SOFTWARE/Projects/UNets/my_segmentation_zoo_datasets/config/hatteras_l8_unet.json'
-
-data_path = '/media/marda/TWOTB1/USGS/SOFTWARE/Projects/UNets/my_segmentation_zoo_datasets/capehatteras_data/npzForModel'
 
 
 weights = configfile.replace('.json','.h5').replace('config', 'weights')
