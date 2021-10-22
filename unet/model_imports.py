@@ -445,6 +445,38 @@ def batchnorm_act(x):
 ###############################################################
 
 #-----------------------------------
+# def mean_iou_eval(y_true, y_pred):
+#     """
+#     mean_iou(y_true, y_pred)
+#     This function computes the mean IoU between `y_true` and `y_pred`: this version is tensorflow (not numpy) and is used by tensorflow training and evaluation functions
+#
+#     INPUTS:
+#         * y_true: true masks, one-hot encoded.
+#             * Inputs are B*W*H*N tensors, with
+#                 B = batch size,
+#                 W = width,
+#                 H = height,
+#                 N = number of classes
+#         * y_pred: predicted masks, either softmax outputs, or one-hot encoded.
+#             * Inputs are B*W*H*N tensors, with
+#                 B = batch size,
+#                 W = width,
+#                 H = height,
+#                 N = number of classes
+#     OPTIONAL INPUTS: None
+#     GLOBAL INPUTS: None
+#     OUTPUTS:
+#         * IoU score [tensor]
+#     """
+#     yt0 = tf.keras.backend.cast(y_true, 'float32')#[:,:,:,0]
+#     yp0 = tf.keras.backend.cast(y_pred.numpy()> 0.5, 'float32')
+#     inter = tf.math.count_nonzero(tf.logical_and(tf.equal(yt0, 1), tf.equal(yp0, 1)))
+#     union = tf.math.count_nonzero(tf.add(yt0, yp0))
+#     iou = tf.where(tf.equal(union, 0), 1., tf.cast(inter/union, 'float32'))
+#     return iou
+
+
+#-----------------------------------
 def mean_iou(y_true, y_pred):
     """
     mean_iou(y_true, y_pred)
@@ -537,16 +569,17 @@ def dice_coef_loss(y_true, y_pred):
 #-----------------------------------
 def iou(obs, est,nclasses):
     IOU=0
-    for n in range(1,nclasses):
+    smooth = 1.
+    for n in range(nclasses):
         component1 = obs==n
         component2 = est==n
         overlap = component1*component2 # Logical AND
         union = component1 + component2 # Logical OR
-        calc = overlap.sum()/float(union.sum())
+        calc = overlap.sum()/(float(union.sum())+smooth)
         if not np.isnan(calc):
             IOU += calc
-        if IOU>1:
-            IOU=IOU/n
+    if IOU>1:
+        IOU=IOU/n
     return IOU
 
 
