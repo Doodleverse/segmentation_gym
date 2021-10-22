@@ -44,7 +44,7 @@ from random import shuffle
 ###############################################################
 ## VARIABLES
 ###############################################################
-
+#
 root = Tk()
 root.filename =  filedialog.askopenfilename(initialdir = "/data",title = "Select config file",filetypes = (("config files","*.json"),("all files","*.*")))
 configfile = root.filename
@@ -56,6 +56,7 @@ root.filename =  filedialog.askdirectory(initialdir = "/samples",title = "Select
 data_path = root.filename
 print(data_path)
 root.withdraw()
+
 
 weights = configfile.replace('.json','.h5').replace('config', 'weights')
 
@@ -87,6 +88,14 @@ except:
     pass
 
 test_samples_fig =  weights.replace('.h5','_val.png').replace('weights', 'data')
+
+
+###############################################################
+### main
+###############################################################
+if USE_GPU == True:
+    print('GPU name: ', tf.config.experimental.list_physical_devices('GPU'))
+    print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
 
 #---------------------------------------------------
 # learning rate function
@@ -153,16 +162,12 @@ def read_seg_dataset_multiclass(example):
     else:
         image, label = tf.py_function(func=load_npz, inp=[example], Tout=[tf.float32, tf.uint8])
 
-    # image = tf.cast(image, tf.float32)#/ 255.0
-    # label = tf.cast(label, tf.uint8)
 
     if N_DATA_BANDS==4:
         image = tf.concat([image, tf.expand_dims(nir,-1)],-1)
 
     if NCLASSES==1:
         label = tf.expand_dims(label,-1)
-
-    #image = tf.image.per_image_standardization(image)
 
     if NCLASSES>1:
         if N_DATA_BANDS>1:
@@ -172,13 +177,90 @@ def read_seg_dataset_multiclass(example):
     else:
         return image, label
 
-###############################################################
-### main
-###############################################################
-if USE_GPU == True:
-    print('GPU name: ', tf.config.experimental.list_physical_devices('GPU'))
-    print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
 
+
+def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_batches=10):
+
+    class_label_colormap = ['#3366CC','#DC3912','#FF9900','#109618','#990099','#0099C6','#DD4477','#66AA00','#B82E2E', '#316395']
+    #add classes for more than 10 classes
+
+    class_label_colormap = class_label_colormap[:NCLASSES]
+
+    IOUc = []
+
+    counter = 0
+    for i,l in ds.take(num_batches):
+
+        for img,lbl in zip(i,l):
+
+            img = standardize(img)
+
+            est_label = model.predict(tf.expand_dims(img, 0) , batch_size=1).squeeze()
+
+            if NCLASSES==1:
+                est_label[est_label<.5] = 0
+                est_label[est_label>.5] = 1
+            else:
+                est_label = np.argmax(est_label, -1)
+
+            if NCLASSES==1:
+                lbl = lbl.numpy().squeeze()
+            else:
+                lbl = np.argmax(lbl.numpy(), -1)
+
+            iouscore = iou(lbl, est_label, NCLASSES+1)
+
+            img = rescale(img.numpy(), 0, 1)
+
+            color_estlabel = label_to_colors(est_label, tf.cast(img[:,:,0]==0,tf.uint8),
+                                            alpha=128, colormap=class_label_colormap,
+                                             color_class_offset=0, do_alpha=False)
+
+            color_label = label_to_colors(lbl, tf.cast(img[:,:,0]==0,tf.uint8),
+                                            alpha=128, colormap=class_label_colormap,
+                                             color_class_offset=0, do_alpha=False)
+
+            if DOPLOT:
+                plt.subplot(221)
+                if np.ndim(img)>=3:
+                    plt.imshow(img[:,:,0], cmap='gray')
+                else:
+                    plt.imshow(img)#, cmap='gray')
+                if NCLASSES==1:
+                    plt.imshow(lbl, alpha=0.1, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES)
+                else:
+                    plt.imshow(color_label, alpha=0.5)#, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES-1)
+
+                plt.axis('off')
+
+                plt.subplot(222)
+                if np.ndim(img)>=3:
+                    plt.imshow(img[:,:,0], cmap='gray')
+                else:
+                    plt.imshow(img)#, cmap='gray')
+                if NCLASSES==1:
+                    plt.imshow(est_label, alpha=0.1, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES)
+                else:
+                    plt.imshow(color_estlabel, alpha=0.5)#, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES-1)
+
+                plt.axis('off')
+                plt.title('iou = '+str(iouscore)[:5], fontsize=6)
+                IOUc.append(iouscore)
+
+                if subset=='val':
+                    plt.savefig(test_samples_fig.replace('_val.png', '_val_'+str(counter)+'.png'),
+                            dpi=200, bbox_inches='tight')
+                else:
+                    plt.savefig(test_samples_fig.replace('_val.png', '_train_'+str(counter)+'.png'),
+                            dpi=200, bbox_inches='tight')
+
+                plt.close('all')
+            counter += 1
+
+    return IOUc
+
+
+###==========================================================
 #-------------------------------------------------
 
 filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'*.npz')
@@ -209,57 +291,68 @@ val_ds = val_ds.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be 
 val_ds = val_ds.prefetch(AUTO) #
 
 
-# if DO_TRAIN:
-#     # if N_DATA_BANDS<=3:
-#     for imgs,lbls in train_ds.take(10):
-#         print(imgs.shape)
-#         print(lbls.shape)
-
-# plt.figure(figsize=(16,16))
-# for imgs,lbls in train_ds.take(100):
-#   #print(lbls)
-#   for count,(im,lab) in enumerate(zip(imgs, lbls)):
-#      plt.subplot(int(BATCH_SIZE+1/2),2,count+1)
-#      plt.imshow(im)
-#      if NCLASSES==1:
-#          plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
-#      else:
-#          lab = np.argmax(lab,-1)
-#          plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES)
-#
-#      plt.axis('off')
-#      print(np.unique(lab))
-#      plt.axis('off')
-#      plt.close('all')
-
-
 print('.....................................')
 print('Creating and compiling model ...')
 
-KERNEL_SIZE = 2
+if MODEL =='resunet':
+    # num_filters = 8 # initial filters
+    # model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), num_filters, NCLASSES, (KERNEL_SIZE, KERNEL_SIZE))
 
-# if NCLASSES==1:
-model = custom_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-            kernel = (KERNEL_SIZE, KERNEL_SIZE), num_classes=NCLASSES,
-            activation="relu",use_batch_norm=True,
-            upsample_mode="deconv",
-            dropout=0.1, dropout_change_per_layer=0.0, dropout_type="spatial",
-            use_dropout_on_upsampling=False,
-            filters=16,
-            num_layers=4,
-            output_activation="sigmoid")
-# else:
-# custom_unet(input_shape,num_classes=1,activation="relu",use_batch_norm=True,
-#     upsample_mode="deconv",
-#     dropout=0.1, dropout_change_per_layer=0.0, dropout_type="spatial",
-#     use_dropout_on_upsampling=False,
-#     filters=16,
-#     num_layers=4,
-#     output_activation="sigmoid"):
+    model = custom_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                kernel = (2, 2),
+                num_classes=NCLASSES,
+                activation="relu",
+                use_batch_norm=True,
+                upsample_mode=UPSAMPLE_MODE,#"deconv",
+                dropout=DROPOUT,#0.1,
+                dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
+                dropout_type=DROPOUT_TYPE,#"standard",
+                use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
+                filters=FILTERS,#8,
+                num_layers=4,
+                strides=(1,1))
+#346,564
+elif MODEL=='unet':
+    model = custom_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                kernel = (2, 2),
+                num_classes=NCLASSES,
+                activation="relu",
+                use_batch_norm=True,
+                upsample_mode=UPSAMPLE_MODE,#"deconv",
+                dropout=DROPOUT,#0.1,
+                dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
+                dropout_type=DROPOUT_TYPE,#"standard",
+                use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
+                filters=FILTERS,#8,
+                num_layers=4,
+                strides=(1,1))
+#242,812
+
+elif MODEL=='satunet':
+    model = sat_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), num_classes=NCLASSES)
+
+else:
+    print("Model must be one of 'unet', 'resunet', or 'satunet'")
+    sys.exit(2)
+
+# Open the file
+with open(MODEL+'_report.txt','w') as fh:
+    # Pass the file handle in as a lambda function to make it callable
+    model.summary(print_fn=lambda x: fh.write(x + '\n'))
 
 model.compile(optimizer = 'adam', loss =dice_coef_loss, metrics = [mean_iou, dice_coef])
 
 
+if MODEL =='resunet':
+    try:
+        tf.keras.utils.plot_model(model,to_file="residual_unet_test.png",dpi=200)
+    except:
+        pass
+elif MODEL=='unet':
+    try:
+        tf.keras.utils.plot_model(model,to_file="unet_test.png",dpi=200)
+    except:
+        pass
 earlystop = EarlyStopping(monitor="val_loss",
                               mode="min", patience=PATIENCE)
 
@@ -301,124 +394,32 @@ print('loss={loss:0.4f}, Mean IOU={mean_iou:0.4f}, Mean Dice={mean_dice:0.4f}'.f
 
 # # # ##########################################################
 
-IOUc = []
-
-counter = 0
-for i,l in val_ds.take(10):
-
-    for img,lbl in zip(i,l):
-
-        img2 = standardize(img)
-
-        est_label = model.predict(tf.expand_dims(img2, 0) , batch_size=1).squeeze()
-
-        if NCLASSES==1:
-            est_label[est_label<.5] = 0
-            est_label[est_label>.5] = 1
-        else:
-            est_label = np.argmax(est_label, -1)
-
-        if NCLASSES==1:
-            lbl = lbl.numpy().squeeze()
-        else:
-            lbl = np.argmax(lbl.numpy(), -1)
-
-        iouscore = iou(lbl, est_label, NCLASSES+1)
-
-        img = rescale(img.numpy(), 0, 1)
-
-        if DOPLOT:
-            plt.subplot(221)
-            if np.ndim(img)>=3:
-                plt.imshow(img[:,:,0], cmap='gray')
-            else:
-                plt.imshow(img)#, cmap='gray')
-            if NCLASSES==1:
-                plt.imshow(lbl, alpha=0.1, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES)
-            else:
-                plt.imshow(lbl, alpha=0.1, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES-1)
-
-            plt.axis('off')
-
-            plt.subplot(222)
-            if np.ndim(img)>=3:
-                plt.imshow(img[:,:,0], cmap='gray')
-            else:
-                plt.imshow(img)#, cmap='gray')
-            if NCLASSES==1:
-                plt.imshow(est_label, alpha=0.1, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES)
-            else:
-                plt.imshow(est_label, alpha=0.1, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES-1)
-
-            plt.axis('off')
-            plt.title('iou = '+str(iouscore)[:5], fontsize=6)
-            IOUc.append(iouscore)
-
-            plt.savefig(test_samples_fig.replace('_val.png', '_val_'+str(counter)+'.png'),
-                    dpi=200, bbox_inches='tight')
-            plt.close('all')
-        counter += 1
-
+IOUc = plotcomp_n_getiou(val_ds,model,NCLASSES,DOPLOT,test_samples_fig,'val')
 print('Mean IoU (validation subset)={mean_iou:0.3f}'.format(mean_iou=np.mean(IOUc)))
 
-
-##### training subset
-IOUc = []
-
-counter = 0
-for i,l in train_ds.take(10):
-
-    for img,lbl in zip(i,l):
-
-        img2 = standardize(img)
-
-        est_label = model.predict(tf.expand_dims(img2, 0) , batch_size=1).squeeze()
-
-        if NCLASSES==1:
-            est_label[est_label<.5] = 0
-            est_label[est_label>.5] = 1
-        else:
-            est_label = np.argmax(est_label, -1)
-
-        if NCLASSES==1:
-            lbl = lbl.numpy().squeeze()
-        else:
-            lbl = np.argmax(lbl.numpy(), -1)
-
-        iouscore = iou(lbl, est_label, NCLASSES+1)
-
-        img = rescale(img.numpy(), 0, 1)
-
-        if DOPLOT:
-            plt.subplot(221)
-            if np.ndim(img)>=3:
-                plt.imshow(img[:,:,0], cmap='gray')
-            else:
-                plt.imshow(img)#, cmap='gray')
-            if NCLASSES==1:
-                plt.imshow(lbl, alpha=0.1, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES)
-            else:
-                plt.imshow(lbl, alpha=0.1, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES-1)
-
-            plt.axis('off')
-
-            plt.subplot(222)
-            if np.ndim(img)>=3:
-                plt.imshow(img[:,:,0], cmap='gray')
-            else:
-                plt.imshow(img)#, cmap='gray')
-            if NCLASSES==1:
-                plt.imshow(est_label, alpha=0.1, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES)
-            else:
-                plt.imshow(est_label, alpha=0.1, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES-1)
-
-            plt.axis('off')
-            plt.title('iou = '+str(iouscore)[:5], fontsize=6)
-            IOUc.append(iouscore)
-
-            plt.savefig(test_samples_fig.replace('_val.png', '_train_'+str(counter)+'.png'),
-                    dpi=200, bbox_inches='tight')
-            plt.close('all')
-        counter += 1
-
+IOUc = plotcomp_n_getiou(train_ds,model,NCLASSES,DOPLOT,test_samples_fig,'train')
 print('Mean IoU (train subset)={mean_iou:0.3f}'.format(mean_iou=np.mean(IOUc)))
+
+
+# if DO_TRAIN:
+#     # if N_DATA_BANDS<=3:
+#     for imgs,lbls in train_ds.take(10):
+#         print(imgs.shape)
+#         print(lbls.shape)
+
+# plt.figure(figsize=(16,16))
+# for imgs,lbls in train_ds.take(100):
+#   #print(lbls)
+#   for count,(im,lab) in enumerate(zip(imgs, lbls)):
+#      plt.subplot(int(BATCH_SIZE+1/2),2,count+1)
+#      plt.imshow(im)
+#      if NCLASSES==1:
+#          plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
+#      else:
+#          lab = np.argmax(lab,-1)
+#          plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES)
+#
+#      plt.axis('off')
+#      print(np.unique(lab))
+#      plt.axis('off')
+#      plt.close('all')

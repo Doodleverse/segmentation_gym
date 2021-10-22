@@ -79,6 +79,51 @@ import json
 from skimage.io import imsave
 from numpy.lib.stride_tricks import as_strided as ast
 #
+# # #-----------------------------------
+# def seg_file2tensor_3band(f, resize):
+#     """
+#     "seg_file2tensor(f)"
+#     This function reads a jpeg image from file into a cropped and resized tensor,
+#     for use in prediction with a trained segmentation model
+#     INPUTS:
+#         * f [string] file name of jpeg
+#     OPTIONAL INPUTS: None
+#     OUTPUTS:
+#         * image [tensor array]: unstandardized image
+#     GLOBAL INPUTS: TARGET_SIZE
+#     """
+#     bits = tf.io.read_file(f)
+#     if 'jpg' in f:
+#         bigimage = tf.image.decode_jpeg(bits)
+#     elif 'png' in f:
+#         bigimage = tf.image.decode_png(bits)
+#
+#     w = tf.shape(bigimage)[0]
+#     h = tf.shape(bigimage)[1]
+#
+#     if resize:
+#
+#         tw = TARGET_SIZE[0]
+#         th = TARGET_SIZE[1]
+#         resize_crit = (w * th) / (h * tw)
+#         image = tf.cond(resize_crit < 1,
+#                       lambda: tf.image.resize(bigimage, [w*tw/w, h*tw/w]), # if true
+#                       lambda: tf.image.resize(bigimage, [w*th/h, h*th/h])  # if false
+#                      )
+#
+#         nw = tf.shape(image)[0]
+#         nh = tf.shape(image)[1]
+#         image = tf.image.crop_to_bounding_box(image, (nw - tw) // 2, (nh - th) // 2, tw, th)
+#         # image = tf.cast(image, tf.uint8) #/ 255.0
+#
+#
+#
+#         return image, w, h, bigimage
+#
+#     else:
+#         return None, w, h, bigimage
+#
+
 # #-----------------------------------
 def seg_file2tensor_3band(f, resize):
     """
@@ -92,37 +137,17 @@ def seg_file2tensor_3band(f, resize):
         * image [tensor array]: unstandardized image
     GLOBAL INPUTS: TARGET_SIZE
     """
-    bits = tf.io.read_file(f)
-    if 'jpg' in f:
-        bigimage = tf.image.decode_jpeg(bits)
-    elif 'png' in f:
-        bigimage = tf.image.decode_png(bits)
+
+    bigimage = Image.open(f)
+    smallimage=bigimage.resize((TARGET_SIZE[1], TARGET_SIZE[0]))
+    smallimage = np.array(smallimage)
+
+    smallimage = tf.cast(smallimage, tf.uint8)
 
     w = tf.shape(bigimage)[0]
     h = tf.shape(bigimage)[1]
 
-    if resize:
-
-        tw = TARGET_SIZE[0]
-        th = TARGET_SIZE[1]
-        resize_crit = (w * th) / (h * tw)
-        image = tf.cond(resize_crit < 1,
-                      lambda: tf.image.resize(bigimage, [w*tw/w, h*tw/w]), # if true
-                      lambda: tf.image.resize(bigimage, [w*th/h, h*th/h])  # if false
-                     )
-
-        nw = tf.shape(image)[0]
-        nh = tf.shape(image)[1]
-        image = tf.image.crop_to_bounding_box(image, (nw - tw) // 2, (nh - th) // 2, tw, th)
-        # image = tf.cast(image, tf.uint8) #/ 255.0
-
-
-
-        return image, w, h, bigimage
-
-    else:
-        return None, w, h, bigimage
-
+    return smallimage, w, h, bigimage
 
 #-----------------------------------
 def seg_file2tensor_4band(f, fir, resize):
@@ -402,6 +427,8 @@ def do_seg(f):
             est_label = np.squeeze(est_label[:w,:h])
 
             class_label_colormap = ['#3366CC','#DC3912','#FF9900','#109618','#990099','#0099C6','#DD4477','#66AA00','#B82E2E', '#316395'][:NCLASSES]
+            #add classes for more than 10 classes
+
             class_label_colormap = class_label_colormap[:NCLASSES]
             try:
                 color_label = label_to_colors(est_label, bigimage.numpy()[:,:,0]==0, alpha=128, colormap=class_label_colormap, color_class_offset=0, do_alpha=False)

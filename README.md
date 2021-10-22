@@ -2,11 +2,9 @@
 
 *Warning* this is alpha software, i.e. not finished with several known bugs. Please be patient, thanks. We welcome pull requests and posting issues - please don't be shy!
 
-> Daniel Buscombe, Marda Science. Developed for the USGS Coastal Marine Geology program, as part of the Florence Supplemental project
-
 ![Zoo](https://raw.githubusercontent.com/dbuscombe-usgs/segmentation_zoo/main/zoo-logo.png)
 
-We are building a toolbox to segment imagery with a variety of models. Current work is focused on building a family of residual UNet models. This repository allows you to do three things:
+We are building a toolbox to segment imagery with a variety of models. Current work is focused on building a family of UNet models. This repository allows you to do three things:
 
 * Use an existing (i.e. pre-trained) model to segment new imagery (by using provided code and model weights)
 * Use images & masks to develp a 'model-ready' dataset
@@ -274,7 +272,6 @@ The IOU and Dice coefficients are accuracy metrics. The model then prints severa
 * first named version before watermasking dev branch
 * for 1-class problems, creates 4-band image (band 4 is the probability of clas)
 
-
 ##version 0.0.2, 09/03/21
 * fixed some bugs in make_datasets.py
 * no median filter on 2d label image, now a morphology holes/islands on the one-hot stack (much better)
@@ -287,3 +284,31 @@ The IOU and Dice coefficients are accuracy metrics. The model then prints severa
 * seg-images-in-folder working ok for multiclass Imagery
 * code and directory structure greatly simplified
 * standarized imagery is now [-1, 1], rather than [0,1] - old models will break with the new implementation - you should retrain your old model
+
+
+##version 0.0.5, 10/21/21
+* implements 3 unets, in a consistent way, and with much bigger options
+* fixes bug in prior resunet implementation that used BATCH size for the number of filters
+* vanilla unet , residual unet, and 'satellite unet'
+* satellite unet is a reworking of  https://deepsense.ai/deep-learning-for-satellite-imagery-via-image-segmentation/
+* nicer color overlay outputs in training script
+* imports and model_imports are separated, the former for non-tf/keras, and the latter for tf/keras
+* cleaned up import functions and and called dependencies
+
+
+## tested combos
+
+### UNet
+"FILTERS":16,  
+Total params: 877,572
+
+"FILTERS":13,  
+580,272
+
+"FILTERS":12,  
+494,788
+
+##Res-Unet
+
+"FILTERS":10,  
+Total params: 603,064
