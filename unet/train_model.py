@@ -45,21 +45,17 @@ from random import shuffle
 ## VARIABLES
 ###############################################################
 
-# root = Tk()
-# root.filename =  filedialog.askopenfilename(initialdir = "/data",title = "Select config file",filetypes = (("config files","*.json"),("all files","*.*")))
-# configfile = root.filename
-# print(configfile)
-# root.withdraw()
-#
-# root = Tk()
-# root.filename =  filedialog.askdirectory(initialdir = "/samples",title = "Select directory of data files")
-# data_path = root.filename
-# print(data_path)
-# root.withdraw()
+root = Tk()
+root.filename =  filedialog.askopenfilename(initialdir = "/data",title = "Select config file",filetypes = (("config files","*.json"),("all files","*.*")))
+configfile = root.filename
+print(configfile)
+root.withdraw()
 
-configfile='/media/marda/TWOTB1/USGS/SOFTWARE/Projects/UNets/pcmsc_watermasking/config/watermask_resunet.json'
-# configfile='/media/marda/TWOTB1/USGS/SOFTWARE/Projects/UNets/pcmsc_watermasking/config/watermask_unet.json'
-data_path='/media/marda/TWOTB1/USGS/SOFTWARE/Projects/UNets/pcmsc_watermasking/npz_formodel'
+root = Tk()
+root.filename =  filedialog.askdirectory(initialdir = "/samples",title = "Select directory of data files")
+data_path = root.filename
+print(data_path)
+root.withdraw()
 
 
 weights = configfile.replace('.json','.h5').replace('config', 'weights')

@@ -25,8 +25,7 @@
 
 import os, time
 
-USE_GPU = True #False #True
-# DO_CRF_REFINE = True
+USE_GPU = True #False
 
 if USE_GPU == True:
    ##use the first available GPU
@@ -34,7 +33,6 @@ if USE_GPU == True:
 else:
    ## to use the CPU (not recommended):
    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-
 
 #suppress tensorflow warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -287,11 +285,17 @@ def do_seg(f):
 
 
             E = []; W = []
-            E.append(model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze())
+            est_label = model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
+            est_label = np.argmax(est_label, -1)
+            E.append(est_label)
             W.append(1)
-            E.append(np.fliplr(model.predict(tf.expand_dims(np.fliplr(image), 0) , batch_size=1).squeeze()))
+            est_label = np.fliplr(model.predict(tf.expand_dims(np.fliplr(image), 0) , batch_size=1).squeeze())
+            est_label = np.argmax(est_label, -1)
+            E.append(est_label)
             W.append(.5)
-            E.append(np.flipud(model.predict(tf.expand_dims(np.flipud(image), 0) , batch_size=1).squeeze()))
+            est_label = np.flipud(model.predict(tf.expand_dims(np.flipud(image), 0) , batch_size=1).squeeze())
+            est_label = np.argmax(est_label, -1)
+            E.append(est_label)
             W.append(.5)
 
             # for k in np.linspace(100,int(TARGET_SIZE[0]),10):
@@ -410,8 +414,7 @@ def do_seg(f):
             est_label = model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
             K.clear_session()
 
-            # E = [maximum_filter(est_label[:,:,k], int(w/2/NCLASSES)) for k in range(NCLASSES)]
-            # est_label = np.dstack(E)
+            est_label = np.argmax(est_label, -1)
 
             est_label = resize(est_label,(w,h))
             conf = np.max(est_label, -1)
@@ -467,7 +470,52 @@ for k in config.keys():
 from imports import *
 
 #=======================================================
-model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), BATCH_SIZE, NCLASSES)
+# model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), BATCH_SIZE, NCLASSES)
+
+print('.....................................')
+print('Creating and compiling model ...')
+
+if MODEL =='resunet':
+    # num_filters = 8 # initial filters
+    # model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), num_filters, NCLASSES, (KERNEL_SIZE, KERNEL_SIZE))
+
+    model = custom_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                kernel = (2, 2),
+                num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                activation="relu",
+                use_batch_norm=True,
+                upsample_mode=UPSAMPLE_MODE,#"deconv",
+                dropout=DROPOUT,#0.1,
+                dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
+                dropout_type=DROPOUT_TYPE,#"standard",
+                use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
+                filters=FILTERS,#8,
+                num_layers=4,
+                strides=(1,1))
+#346,564
+elif MODEL=='unet':
+    model = custom_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                kernel = (2, 2),
+                num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                activation="relu",
+                use_batch_norm=True,
+                upsample_mode=UPSAMPLE_MODE,#"deconv",
+                dropout=DROPOUT,#0.1,
+                dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
+                dropout_type=DROPOUT_TYPE,#"standard",
+                use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
+                filters=FILTERS,#8,
+                num_layers=4,
+                strides=(1,1))
+#242,812
+
+elif MODEL=='satunet':
+    model = sat_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), num_classes=NCLASSES)
+
+else:
+    print("Model must be one of 'unet', 'resunet', or 'satunet'")
+    sys.exit(2)
+
 
 model.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics = [mean_iou, dice_coef])
 
