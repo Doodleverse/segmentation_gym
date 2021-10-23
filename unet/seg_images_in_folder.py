@@ -39,22 +39,25 @@ else:
 #suppress tensorflow warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
-#utils
-#keras functions for early stopping and model weights saving
-# from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 import numpy as np
-import tensorflow as tf #numerical operations on gpu
-from joblib import Parallel, delayed
+from skimage.filters.rank import median
+from skimage.morphology import disk
+from tkinter import filedialog
+from tkinter import *
+import json
+from skimage.io import imsave, imread
 from numpy.lib.stride_tricks import as_strided as ast
+
+from joblib import Parallel, delayed
 from skimage.morphology import remove_small_holes, remove_small_objects
-from skimage.restoration import inpaint
 from scipy.ndimage import maximum_filter
 from skimage.transform import resize
 from tqdm import tqdm
 from skimage.filters import threshold_otsu
-from skimage.morphology import rectangle, erosion  # noqa
-
 import matplotlib.pyplot as plt
+
+import tensorflow as tf #numerical operations on gpu
+import tensorflow.keras.backend as K
 
 SEED=42
 np.random.seed(SEED)
@@ -67,17 +70,9 @@ print("Eager mode: ", tf.executing_eagerly())
 print('GPU name: ', tf.config.experimental.list_physical_devices('GPU'))
 print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
 
-import tensorflow.keras.backend as K
-import pydensecrf.densecrf as dcrf
-from pydensecrf.utils import create_pairwise_bilateral, unary_from_labels
-from skimage.filters.rank import median
-from skimage.morphology import disk
+# import pydensecrf.densecrf as dcrf
+# from pydensecrf.utils import create_pairwise_bilateral, unary_from_labels
 
-from tkinter import filedialog
-from tkinter import *
-import json
-from skimage.io import imsave
-from numpy.lib.stride_tricks import as_strided as ast
 #
 # # #-----------------------------------
 # def seg_file2tensor_3band(f, resize):
@@ -138,10 +133,10 @@ def seg_file2tensor_3band(f, resize):
     GLOBAL INPUTS: TARGET_SIZE
     """
 
-    bigimage = Image.open(f)
-    smallimage=bigimage.resize((TARGET_SIZE[1], TARGET_SIZE[0]))
+    bigimage = imread(f)#Image.open(f)
+    smallimage = resize(bigimage,(TARGET_SIZE[1], TARGET_SIZE[0]), preserve_range=True, clip=True)
+    #smallimage=bigimage.resize((TARGET_SIZE[1], TARGET_SIZE[0]))
     smallimage = np.array(smallimage)
-
     smallimage = tf.cast(smallimage, tf.uint8)
 
     w = tf.shape(bigimage)[0]
@@ -426,10 +421,14 @@ def do_seg(f):
 
             est_label = np.squeeze(est_label[:w,:h])
 
-            class_label_colormap = ['#3366CC','#DC3912','#FF9900','#109618','#990099','#0099C6','#DD4477','#66AA00','#B82E2E', '#316395'][:NCLASSES]
+            class_label_colormap = ['#3366CC','#DC3912','#FF9900','#109618','#990099','#0099C6','#DD4477','#66AA00','#B82E2E', '#316395']
             #add classes for more than 10 classes
 
-            class_label_colormap = class_label_colormap[:NCLASSES]
+            if NCLASSES>1:
+                class_label_colormap = class_label_colormap[:NCLASSES]
+            else:
+                class_label_colormap = class_label_colormap[:NCLASSES+1]
+
             try:
                 color_label = label_to_colors(est_label, bigimage.numpy()[:,:,0]==0, alpha=128, colormap=class_label_colormap, color_class_offset=0, do_alpha=False)
             except:

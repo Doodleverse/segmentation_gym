@@ -45,18 +45,21 @@ from random import shuffle
 ## VARIABLES
 ###############################################################
 
-root = Tk()
-root.filename =  filedialog.askopenfilename(initialdir = "/data",title = "Select config file",filetypes = (("config files","*.json"),("all files","*.*")))
-configfile = root.filename
-print(configfile)
-root.withdraw()
+# root = Tk()
+# root.filename =  filedialog.askopenfilename(initialdir = "/data",title = "Select config file",filetypes = (("config files","*.json"),("all files","*.*")))
+# configfile = root.filename
+# print(configfile)
+# root.withdraw()
+#
+# root = Tk()
+# root.filename =  filedialog.askdirectory(initialdir = "/samples",title = "Select directory of data files")
+# data_path = root.filename
+# print(data_path)
+# root.withdraw()
 
-root = Tk()
-root.filename =  filedialog.askdirectory(initialdir = "/samples",title = "Select directory of data files")
-data_path = root.filename
-print(data_path)
-root.withdraw()
-
+configfile='/media/marda/TWOTB1/USGS/SOFTWARE/Projects/UNets/pcmsc_watermasking/config/watermask_resunet.json'
+# configfile='/media/marda/TWOTB1/USGS/SOFTWARE/Projects/UNets/pcmsc_watermasking/config/watermask_unet.json'
+data_path='/media/marda/TWOTB1/USGS/SOFTWARE/Projects/UNets/pcmsc_watermasking/npz_formodel'
 
 
 weights = configfile.replace('.json','.h5').replace('config', 'weights')
@@ -185,7 +188,10 @@ def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_ba
     class_label_colormap = ['#3366CC','#DC3912','#FF9900','#109618','#990099','#0099C6','#DD4477','#66AA00','#B82E2E', '#316395']
     #add classes for more than 10 classes
 
-    class_label_colormap = class_label_colormap[:NCLASSES]
+    if NCLASSES>1:
+        class_label_colormap = class_label_colormap[:NCLASSES]
+    else:
+        class_label_colormap = class_label_colormap[:NCLASSES+1]
 
     IOUc = []
 
@@ -199,6 +205,7 @@ def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_ba
             est_label = model.predict(tf.expand_dims(img, 0) , batch_size=1).squeeze()
 
             if NCLASSES==1:
+                est_label = np.argmax(est_label, -1)
                 est_label[est_label<.5] = 0
                 est_label[est_label>.5] = 1
             else:
@@ -206,6 +213,7 @@ def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_ba
 
             if NCLASSES==1:
                 lbl = lbl.numpy().squeeze()
+                lbl = np.argmax(lbl, -1)
             else:
                 lbl = np.argmax(lbl.numpy(), -1)
 
@@ -291,6 +299,39 @@ val_ds = val_ds.repeat()
 val_ds = val_ds.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be needed on TPU
 val_ds = val_ds.prefetch(AUTO) #
 
+# class_label_colormap = ['#3366CC','#DC3912','#FF9900','#109618','#990099','#0099C6','#DD4477','#66AA00','#B82E2E', '#316395']
+# #add classes for more than 10 classes
+#
+# if NCLASSES>1:
+#     class_label_colormap = class_label_colormap[:NCLASSES]
+# else:
+#     class_label_colormap = class_label_colormap[:NCLASSES+1]
+#
+# for imgs,lbls in train_ds.take(1):
+#   for count,(im,lab) in enumerate(zip(imgs, lbls)):
+#      plt.imshow(im)
+#
+#      print(lab.shape)
+#      lab = np.argmax(lab.numpy().squeeze(),-1)
+#
+#      print(np.unique(lab))
+#      # if len(np.unique(lab))==1:
+#      #     plt.imshow(im); plt.imshow(lab, alpha=0.5); plt.show()
+#
+#      color_label = label_to_colors(np.squeeze(lab), tf.cast(im[:,:,0]==0,tf.uint8),
+#                                     alpha=128, colormap=class_label_colormap,
+#                                      color_class_offset=0, do_alpha=False)
+#
+#      if NCLASSES==1:
+#          plt.imshow(color_label, alpha=0.5)#, vmin=0, vmax=NCLASSES)
+#      else:
+#          #lab = np.argmax(lab,-1)
+#          plt.imshow(color_label,  alpha=0.5)#, vmin=0, vmax=NCLASSES)
+#      #print(np.unique(lab))
+#
+#      plt.axis('off')
+#      plt.show()
+
 
 print('.....................................')
 print('Creating and compiling model ...')
@@ -301,7 +342,7 @@ if MODEL =='resunet':
 
     model = custom_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                 kernel = (2, 2),
-                num_classes=NCLASSES,
+                num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
                 activation="relu",
                 use_batch_norm=True,
                 upsample_mode=UPSAMPLE_MODE,#"deconv",
@@ -316,7 +357,7 @@ if MODEL =='resunet':
 elif MODEL=='unet':
     model = custom_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                 kernel = (2, 2),
-                num_classes=NCLASSES,
+                num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
                 activation="relu",
                 use_batch_norm=True,
                 upsample_mode=UPSAMPLE_MODE,#"deconv",

@@ -570,16 +570,32 @@ def dice_coef_loss(y_true, y_pred):
 def iou(obs, est,nclasses):
     IOU=0
     smooth = 1.
-    for n in range(nclasses):
-        component1 = obs==n
-        component2 = est==n
-        overlap = component1*component2 # Logical AND
-        union = component1 + component2 # Logical OR
-        calc = overlap.sum()/(float(union.sum())+smooth)
-        if not np.isnan(calc):
-            IOU += calc
+    if nclasses>1:
+        for n in range(nclasses):
+            component1 = obs==n
+            component2 = est==n
+            overlap = component1*component2 # Logical AND
+            union = component1 + component2 # Logical OR
+            calc = overlap.sum()/(float(union.sum())+smooth)
+            if not np.isnan(calc):
+                IOU += calc
+    else:
+        if len(np.unique(obs))>1:
+            for n in range(nclasses):
+                component1 = obs==n
+                component2 = est==n
+                overlap = component1*component2 # Logical AND
+                union = component1 + component2 # Logical OR
+                calc = overlap.sum()/(float(union.sum())+smooth)
+                if not np.isnan(calc):
+                    IOU += calc
+        else:
+            u=np.unique(obs)[0]
+            IOU = np.sum(est==u)/np.sum(obs==u)
+
     if IOU>1:
         IOU=IOU/n
+
     return IOU
 
 

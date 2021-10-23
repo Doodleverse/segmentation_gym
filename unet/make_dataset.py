@@ -253,27 +253,42 @@ if N_DATA_BANDS==1:
             imdir,
             target_size=(NX, NY),
             batch_size=int(n_im/AUG_LOOPS),
-            class_mode=None, seed=SEED, shuffle=True, color_mode="grayscale")
+            class_mode=None, seed=SEED, shuffle=False, color_mode="grayscale")
 else:
     img_generator = image_datagen.flow_from_directory(
             imdir,
             target_size=(NX, NY),
             batch_size=int(n_im/AUG_LOOPS),
-            class_mode=None, seed=SEED, shuffle=True)
+            class_mode=None, seed=SEED, shuffle=False)
 
 #the seed must be the same as for the training set to get the same images
 mask_generator = mask_datagen.flow_from_directory(
         lab_path,
         target_size=(NX, NY),
         batch_size=int(n_im/AUG_LOOPS),
-        class_mode=None, seed=SEED, shuffle=True, color_mode="grayscale", interpolation="nearest")
+        class_mode=None, seed=SEED, shuffle=False, color_mode="grayscale", interpolation="nearest")
 
 if N_DATA_BANDS==4:
     img_generator2 = image_datagen2.flow_from_directory(
             nimdir,
             target_size=(NX, NY),
             batch_size=int(n_im/AUG_LOOPS),
-            class_mode=None, seed=SEED, shuffle=True)
+            class_mode=None, seed=SEED, shuffle=False)
+
+F1=[]; F2=[]
+for file in img_generator.filepaths:
+    F1.append(file)
+for file2 in mask_generator.filepaths:
+    F2.append(file2)
+
+
+# for imfile,labfile in zip(F1,F2):
+#     im=imread(imfile)
+#     lab=imread(labfile)
+#     plt.imshow(im)
+#     plt.imshow(lab, alpha=0.5)
+#     plt.show()
+
 
 i = 0
 for copy in tqdm(range(AUG_COPIES)):
@@ -287,13 +302,32 @@ for copy in tqdm(range(AUG_COPIES)):
 
             # wrute them to file and increment the counter
             for im,lab in zip(x,y):
-                l = np.round(lab[:,:,0]).astype(np.uint8)
 
-                if 'REMAP_CLASSES' not in locals():
-                    if np.min(l)==1:
-                        l -= 1
-                    if NCLASSES==1:
-                        l[l>0]=1
+                # plt.imshow(im/255.); plt.imshow(lab, alpha=0.5); plt.show()
+
+                if NCLASSES==1:
+                    lab=lab.squeeze()
+                    lab[lab>0]=1
+
+                # print(np.unique(lab))
+                # if len(np.unique(lab))==1:
+                #     break
+
+                 # print(np.unique(lab))
+                 # if len(np.unique(lab))==1:
+                 #     plt.imshow(im); plt.imshow(lab, alpha=0.5); plt.show()
+
+
+                if NCLASSES==1:
+                    l = lab.astype(np.uint8)
+                else:
+                    l = np.round(lab[:,:,0]).astype(np.uint8)
+
+                # if 'REMAP_CLASSES' not in locals():
+                #     if np.min(l)==1:
+                #         l -= 1
+                #     if NCLASSES==1:
+                #         l[l>0]=1
 
                 if 'REMAP_CLASSES' in locals():
                     for k in REMAP_CLASSES.items():
@@ -303,13 +337,20 @@ for copy in tqdm(range(AUG_COPIES)):
 
                 if len(np.unique(l))==1:
                     nx,ny = l.shape
-                    lstack = np.zeros((nx,ny,NCLASSES))
+                    if NCLASSES==1:
+                        lstack = np.zeros((nx,ny,NCLASSES+1))
+                    else:
+                        lstack = np.zeros((nx,ny,NCLASSES))
+
                     lstack[:,:,np.unique(l)[0]]=np.ones((nx,ny))
                 else:
                     nx,ny = l.shape
-                    lstack = np.zeros((nx,ny,NCLASSES))
-
-                    lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+l[...,None]-1).astype(int) #one-hot encode
+                    if NCLASSES==1:
+                        lstack = np.zeros((nx,ny,NCLASSES+1))
+                        lstack[:,:,:NCLASSES+1] = (np.arange(NCLASSES+1) == 1+l[...,None]-1).astype(int) #one-hot encode
+                    else:
+                        lstack = np.zeros((nx,ny,NCLASSES))
+                        lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+l[...,None]-1).astype(int) #one-hot encode
                 # else:
                 #     lstack = (np.arange(l.max()) == l[...,None]-1).astype(int) #one-hot encode
 
@@ -322,35 +363,22 @@ for copy in tqdm(range(AUG_COPIES)):
                         lstack[:,:,kk] = np.round(l).astype(np.uint8)
                         del l
 
+                if NCLASSES>1:
 
-                # plt.subplot(221);plt.imshow(lstack[:,:,0])
-                #
-                # plt.subplot(222); plt.imshow(lstack[:,:,1])
-                #
-                # plt.subplot(223); plt.imshow(lstack[:,:,2])
-                #
-                # plt.subplot(224); plt.imshow(lstack[:,:,3])
-                # plt.show()
-
-
-                try:
-
-                    if NCLASSES>1:
-
-                        #for kk in range(lstack.shape[-1]):
-                        if USEMASK:
-                            np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), lstack.astype(np.uint8))
-                        else:
-                            np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), lstack.astype(np.uint8))
+                    #for kk in range(lstack.shape[-1]):
+                    if USEMASK:
+                        np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), lstack.astype(np.uint8))
                     else:
-                        if USEMASK:
-                            np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(lstack).astype(np.uint8))
-                        else:
-                            np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(lstack).astype(np.uint8))
+                        np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), lstack.astype(np.uint8))
+                else:
+                    if USEMASK:
+                        np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(lstack).astype(np.uint8))
+                    else:
+                        np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(lstack).astype(np.uint8))
 
-                except:
-                    print('Error ')
-                    pass
+                # except:
+                #     print('Error ')
+                #     pass
 
                 i += 1
 
@@ -361,32 +389,53 @@ for copy in tqdm(range(AUG_COPIES)):
 
             # wrute them to file and increment the counter
             for im,nir,lab in zip(x,ii,y):
-                l = np.round(lab[:,:,0]).astype(np.uint8)
-                # if FILTER_VALUE>1:
-                #     l = np.round(median(l, disk(FILTER_VALUE))).astype(np.uint8)
 
-                if 'REMAP_CLASSES' not in locals():
-                    if np.min(l)==1:
-                        l -= 1
-                    if NCLASSES==1:
-                        l[l>0]=1 #null is water
+                if NCLASSES==1:
+                    lab=lab.squeeze()
+                    lab[lab>0]=1
+
+                # print(np.unique(lab))
+                # if len(np.unique(lab))==1:
+                #     break
+
+                 # print(np.unique(lab))
+                 # if len(np.unique(lab))==1:
+                 #     plt.imshow(im); plt.imshow(lab, alpha=0.5); plt.show()
+
+
+                if NCLASSES==1:
+                    l = lab.astype(np.uint8)
+                else:
+                    l = np.round(lab[:,:,0]).astype(np.uint8)
+
+                # if 'REMAP_CLASSES' not in locals():
+                #     if np.min(l)==1:
+                #         l -= 1
+                #     if NCLASSES==1:
+                #         l[l>0]=1
 
                 if 'REMAP_CLASSES' in locals():
                     for k in REMAP_CLASSES.items():
                         l[l==int(k[0])] = int(k[1])
 
-
                 l[l>NCLASSES]=NCLASSES
 
                 if len(np.unique(l))==1:
                     nx,ny = l.shape
-                    lstack = np.zeros((nx,ny,NCLASSES))
+                    if NCLASSES==1:
+                        lstack = np.zeros((nx,ny,NCLASSES+1))
+                    else:
+                        lstack = np.zeros((nx,ny,NCLASSES))
+
                     lstack[:,:,np.unique(l)[0]]=np.ones((nx,ny))
                 else:
                     nx,ny = l.shape
-                    lstack = np.zeros((nx,ny,NCLASSES))
-
-                    lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+l[...,None]-1).astype(int) #one-hot encode
+                    if NCLASSES==1:
+                        lstack = np.zeros((nx,ny,NCLASSES+1))
+                        lstack[:,:,:NCLASSES+1] = (np.arange(NCLASSES+1) == 1+l[...,None]-1).astype(int) #one-hot encode
+                    else:
+                        lstack = np.zeros((nx,ny,NCLASSES))
+                        lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+l[...,None]-1).astype(int) #one-hot encode
                 # else:
                 #     lstack = (np.arange(l.max()) == l[...,None]-1).astype(int) #one-hot encode
 
@@ -398,7 +447,6 @@ for copy in tqdm(range(AUG_COPIES)):
                         l = remove_small_holes(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
                         lstack[:,:,kk] = np.round(l).astype(np.uint8)
                         del l
-
                 try:
 
                     if NCLASSES>1:
@@ -431,6 +479,8 @@ filenames = tf.io.gfile.glob(dataset_dir+os.sep+ROOT_STRING+'*.npz')
 shuffle(filenames)
 dataset = tf.data.Dataset.list_files(filenames, shuffle=False)
 
+print('{} files made'.format(len(filenames)))
+
 # Set `num_parallel_calls` so multiple images are loaded/processed in parallel.
 dataset = dataset.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
 dataset = dataset.repeat()
@@ -442,29 +492,50 @@ try:
 except:
     pass
 
+
+class_label_colormap = ['#3366CC','#DC3912','#FF9900','#109618','#990099','#0099C6','#DD4477','#66AA00','#B82E2E', '#316395']
+#add classes for more than 10 classes
+
+if NCLASSES>1:
+    class_label_colormap = class_label_colormap[:NCLASSES]
+else:
+    class_label_colormap = class_label_colormap[:NCLASSES+1]
+
+
 print('.....................................')
 print('Printing examples to file ...')
 if N_DATA_BANDS<=3:
-    plt.figure(figsize=(16,16))
-    for imgs,lbls in dataset.take(1):
+    # plt.figure(figsize=(16,16))
+    counter=0
+    for imgs,lbls in dataset.take(10):
       #print(lbls)
       for count,(im,lab) in enumerate(zip(imgs, lbls)):
-         plt.subplot(int(BATCH_SIZE/2),2,count+1)
          plt.imshow(im)
-         print(lab.shape)
-         if NCLASSES==1:
-             plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
-         else:
-             lab = np.argmax(lab,-1)
-             plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES)
 
-         plt.axis('off')
+         print(lab.shape)
+         lab = np.argmax(lab.numpy().squeeze(),-1)
+
+         print(np.unique(lab))
+         # if len(np.unique(lab))==1:
+         #     plt.imshow(im); plt.imshow(lab, alpha=0.5); plt.show()
+
+         color_label = label_to_colors(np.squeeze(lab), tf.cast(im[:,:,0]==0,tf.uint8),
+                                        alpha=128, colormap=class_label_colormap,
+                                         color_class_offset=0, do_alpha=False)
+
+         if NCLASSES==1:
+             plt.imshow(color_label, alpha=0.5)#, vmin=0, vmax=NCLASSES)
+         else:
+             #lab = np.argmax(lab,-1)
+             plt.imshow(color_label,  alpha=0.5)#, vmin=0, vmax=NCLASSES)
          #print(np.unique(lab))
 
          plt.axis('off')
-         plt.savefig(dataset_dir+os.sep+'sample'+os.sep+ ROOT_STRING + 'ex'+str(count)+'.png', dpi=200, bbox_inches='tight')
+         plt.savefig(dataset_dir+os.sep+'sample'+os.sep+ ROOT_STRING + 'ex'+str(counter)+'.png', dpi=200, bbox_inches='tight')
          #counter +=1
          plt.close('all')
+         counter += 1
+
 elif N_DATA_BANDS==4:
     plt.figure(figsize=(16,16))
     for imgs,lbls in dataset.take(1):
@@ -472,14 +543,61 @@ elif N_DATA_BANDS==4:
       for count,(im,lab) in enumerate(zip(imgs, lbls)):
          plt.subplot(int(BATCH_SIZE/2),2,count+1)
          plt.imshow(im)
+
+         color_label = label_to_colors(np.squeeze(lab), tf.cast(im[:,:,0]==0,tf.uint8),
+                                        alpha=128, colormap=class_label_colormap,
+                                         color_class_offset=0, do_alpha=False)
+
          if NCLASSES==1:
-             plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
+             #plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
+             plt.imshow(color_label, alpha=0.5)#, vmin=0, vmax=NCLASSES)
+
          else:
-             lab = np.argmax(lab,-1)
-             plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES)
+             # lab = np.argmax(lab,-1)
+             # plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES)
+             plt.imshow(color_label, alpha=0.5)#, vmin=0, vmax=NCLASSES)
 
          plt.axis('off')
          #print(np.unique(lab))
          plt.axis('off')
          plt.savefig(dataset_dir+os.sep+'sample'+os.sep+ROOT_STRING+'ex'+str(count)+'.png', dpi=200, bbox_inches='tight')
          plt.close('all')
+
+
+                # l = np.round(lab[:,:,0]).astype(np.uint8)
+                # # if FILTER_VALUE>1:
+                # #     l = np.round(median(l, disk(FILTER_VALUE))).astype(np.uint8)
+                #
+                # if 'REMAP_CLASSES' not in locals():
+                #     if np.min(l)==1:
+                #         l -= 1
+                #     if NCLASSES==1:
+                #         l[l>0]=1 #null is water
+                #
+                # if 'REMAP_CLASSES' in locals():
+                #     for k in REMAP_CLASSES.items():
+                #         l[l==int(k[0])] = int(k[1])
+                #
+                #
+                # l[l>NCLASSES]=NCLASSES
+                #
+                # if len(np.unique(l))==1:
+                #     nx,ny = l.shape
+                #     lstack = np.zeros((nx,ny,NCLASSES))
+                #     lstack[:,:,np.unique(l)[0]]=np.ones((nx,ny))
+                # else:
+                #     nx,ny = l.shape
+                #     lstack = np.zeros((nx,ny,NCLASSES))
+                #
+                #     lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+l[...,None]-1).astype(int) #one-hot encode
+                # # else:
+                # #     lstack = (np.arange(l.max()) == l[...,None]-1).astype(int) #one-hot encode
+                #
+                # if FILTER_VALUE>1:
+                #
+                #     for kk in range(lstack.shape[-1]):
+                #         #l = median(lstack[:,:,kk], disk(FILTER_VALUE))
+                #         l = remove_small_objects(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
+                #         l = remove_small_holes(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
+                #         lstack[:,:,kk] = np.round(l).astype(np.uint8)
+                #         del l
