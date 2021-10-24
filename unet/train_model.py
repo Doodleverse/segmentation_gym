@@ -57,7 +57,6 @@ data_path = root.filename
 print(data_path)
 root.withdraw()
 
-
 weights = configfile.replace('.json','.h5').replace('config', 'weights')
 
 try:
@@ -295,6 +294,8 @@ val_ds = val_ds.repeat()
 val_ds = val_ds.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be needed on TPU
 val_ds = val_ds.prefetch(AUTO) #
 
+
+### uncommant to view examples
 # class_label_colormap = ['#3366CC','#DC3912','#FF9900','#109618','#990099','#0099C6','#DD4477','#66AA00','#B82E2E', '#316395']
 # #add classes for more than 10 classes
 #
@@ -367,7 +368,21 @@ elif MODEL=='unet':
 #242,812
 
 elif MODEL=='satunet':
-    model = sat_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), num_classes=NCLASSES)
+    #model = sat_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), num_classes=NCLASSES)
+
+    model = custom_satunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                kernel = (2, 2),
+                num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                activation="relu",
+                use_batch_norm=True,
+                upsample_mode=UPSAMPLE_MODE,#"deconv",
+                dropout=DROPOUT,#0.1,
+                dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
+                dropout_type=DROPOUT_TYPE,#"standard",
+                use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
+                filters=FILTERS,#8,
+                num_layers=4,
+                strides=(1,1))
 
 else:
     print("Model must be one of 'unet', 'resunet', or 'satunet'")

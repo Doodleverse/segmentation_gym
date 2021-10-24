@@ -250,6 +250,114 @@ def custom_unet(input_shape,
 
 ##========================================================================
 
+
+#-----------------------------------
+def custom_satunet(input_shape,
+    kernel = (2,2),
+    num_classes=1,
+    activation="relu",
+    use_batch_norm=True,
+    upsample_mode="deconv",
+    dropout=0.1,
+    dropout_change_per_layer=0.0,
+    dropout_type="standard",
+    use_dropout_on_upsampling=False,
+    filters=8,
+    num_layers=4,
+    strides=(1,1)):
+
+    """
+    Customisable UNet architecture (Ronneberger et al. 2015 https://arxiv.org/abs/1505.04597)
+
+    input_shape: shape (x, y, num_channels)
+
+    num_classes (int): 1 for binary segmentation
+
+    activation (str): A keras.activations.Activation to use. ReLu by default.
+
+    use_batch_norm (bool): Whether to use Batch Normalisation across the channel axis between convolutions
+
+    upsample_mode ( "deconv" or "simple"): transposed convolutions or simple upsampling in the decoder
+
+    dropout (float , 0. and 1.): dropout after the first convolutional block. 0. = no dropout
+
+    dropout_change_per_layer (float , 0. and 1.): Factor to add to the Dropout after each convolutional block
+
+    dropout_type (one of "spatial" or "standard"): Spatial is recommended  by  https://arxiv.org/pdf/1411.4280.pdf
+
+    use_dropout_on_upsampling (bool): Whether to use dropout in the decoder part of the network
+
+    filters (int): Convolutional filters in the initial convolutional block. Will be doubled every block
+
+    num_layers (int): Number of total layers in the encoder not including the bottleneck layer
+
+    """
+
+    upconv_filters = int(1.5*filters)
+
+    if upsample_mode == "deconv":
+        upsample = upsample_conv
+    else:
+        upsample = upsample_simple
+
+    # Build U-Net model
+    inputs = tf.keras.layers.Input(input_shape)
+    x = inputs
+
+    down_layers = []
+    for l in range(num_layers):
+        x = conv2d_block(
+            inputs=x,
+            filters=filters,
+            use_batch_norm=use_batch_norm,
+            dropout=dropout,
+            dropout_type=dropout_type,
+            activation=activation,
+            strides=strides,#(1,1),
+        )
+        down_layers.append(x)
+        x =  tf.keras.layers.MaxPooling2D(kernel)(x)
+        dropout += dropout_change_per_layer
+        #filters = filters * 2  # double the number of filters with each layer
+
+    x = conv2d_block(
+        inputs=x,
+        filters=filters,
+        use_batch_norm=use_batch_norm,
+        dropout=dropout,
+        dropout_type=dropout_type,
+        activation=activation,
+        strides=strides,#(1,1),
+    )
+
+    if not use_dropout_on_upsampling:
+        dropout = 0.0
+        dropout_change_per_layer = 0.0
+
+    for conv in reversed(down_layers):
+        filters //= 2  # decreasing number of filters with each layer
+        dropout -= dropout_change_per_layer
+        x = upsample(filters, kernel, strides=(2,2), padding="same")(x)#(2, 2)
+        x = tf.keras.layers.concatenate([x, conv])
+        x = conv2d_block(inputs=x, filters=upconv_filters,
+            use_batch_norm=use_batch_norm, dropout=dropout,
+            dropout_type=dropout_type, activation=activation)
+
+    #outputs = tf.keras.layers.Conv2D(num_classes, (1, 1), activation=output_activation)(x)
+
+    # ## classify
+    if num_classes==1:
+        outputs = tf.keras.layers.Conv2D(num_classes, (1, 1), padding="same", activation="sigmoid")(x)
+    else:
+        outputs = tf.keras.layers.Conv2D(num_classes, (1, 1), padding="same", activation="softmax")(x)
+
+
+    model = tf.keras.models.Model(inputs=[inputs], outputs=[outputs])
+    return model
+
+##========================================================================
+
+
 #-----------------------------------
 def sat_unet(input_shape, num_classes=1, num_layers=4):
 
