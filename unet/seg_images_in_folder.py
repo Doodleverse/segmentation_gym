@@ -118,7 +118,7 @@ print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('
 #
 
 # #-----------------------------------
-def seg_file2tensor_3band(f, resize):
+def seg_file2tensor_3band(f):#, resize):
     """
     "seg_file2tensor(f)"
     This function reads a jpeg image from file into a cropped and resized tensor,
@@ -132,7 +132,7 @@ def seg_file2tensor_3band(f, resize):
     """
 
     bigimage = imread(f)#Image.open(f)
-    smallimage = resize(bigimage,(TARGET_SIZE[1], TARGET_SIZE[0]), preserve_range=True, clip=True)
+    smallimage = resize(bigimage,(TARGET_SIZE[0], TARGET_SIZE[1]), preserve_range=True, clip=True)
     #smallimage=bigimage.resize((TARGET_SIZE[1], TARGET_SIZE[0]))
     smallimage = np.array(smallimage)
     smallimage = tf.cast(smallimage, tf.uint8)
@@ -242,207 +242,212 @@ def label_to_colors(
 
 
 # =========================================================
-def do_seg(f):
+def do_seg(f, model):
 
-    model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), BATCH_SIZE, NCLASSES)
+	# model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), BATCH_SIZE, NCLASSES)
 
-    model.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics = [mean_iou, dice_coef])
+	# model.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics = [mean_iou, dice_coef])
 
-    model.load_weights(weights)
+	# model.load_weights(weights)
 
-    if NCLASSES==1:
-        if 'jpg' in f:
-            segfile = f.replace('.jpg', '_seg.tif')
-        elif 'png' in f:
-            segfile = f.replace('.png', '_seg.tif')
+	if NCLASSES==1:
+		if 'jpg' in f:
+			segfile = f.replace('.jpg', '_seg.tif')
+		elif 'png' in f:
+			segfile = f.replace('.png', '_seg.tif')
 
-        segfile = os.path.normpath(segfile)
-        # segfile = segfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masks'))
+		segfile = os.path.normpath(segfile)
+		# segfile = segfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masks'))
 
-        if os.path.exists(segfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'certainty'))):
-            print('%s exists ... skipping' % (segfile))
-            pass
-        else:
-            print('%s does not exist ... creating' % (segfile))
+		if os.path.exists(segfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'certainty'))):
+			print('%s exists ... skipping' % (segfile))
+			pass
+		else:
+			print('%s does not exist ... creating' % (segfile))
 
-            start = time.time()
+		start = time.time()
 
-            if N_DATA_BANDS<=3:
-                image, w, h, bigimage = seg_file2tensor_3band(f, resize=True)
-                if image is None:
-                    image = bigimage#/255
-                    #bigimage = bigimage#/255
-                w = w.numpy(); h = h.numpy()
-            else:
-                image, w, h, bigimage = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir'), resize=True )
-                if image is None:
-                    image = bigimage#/255
-                w = w.numpy(); h = h.numpy()
+		if N_DATA_BANDS<=3:
+			image, w, h, bigimage = seg_file2tensor_3band(f)#, resize=True)
+			if image is None:
+				image = bigimage#/255
+				#bigimage = bigimage#/255
+				w = w.numpy(); h = h.numpy()
+		else:
+			image, w, h, bigimage = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir'), resize=True )
+			if image is None:
+				image = bigimage#/255
+				w = w.numpy(); h = h.numpy()
 
-            print("Working on %i x %i image" % (w,h))
+		print("Working on %i x %i image" % (w,h))
 
-            image = standardize(image.numpy()).squeeze()
+		image = standardize(image.numpy()).squeeze()
 
+		E = []; W = []
+		est_label = model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
+		est_label = np.argmax(est_label, -1)
+		E.append(est_label)
+		W.append(1)
+		est_label = np.fliplr(model.predict(tf.expand_dims(np.fliplr(image), 0) , batch_size=1).squeeze())
+		est_label = np.argmax(est_label, -1)
+		E.append(est_label)
+		W.append(.5)
+		est_label = np.flipud(model.predict(tf.expand_dims(np.flipud(image), 0) , batch_size=1).squeeze())
+		est_label = np.argmax(est_label, -1)
+		E.append(est_label)
+		W.append(.5)
 
-            E = []; W = []
-            est_label = model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
-            est_label = np.argmax(est_label, -1)
-            E.append(est_label)
-            W.append(1)
-            est_label = np.fliplr(model.predict(tf.expand_dims(np.fliplr(image), 0) , batch_size=1).squeeze())
-            est_label = np.argmax(est_label, -1)
-            E.append(est_label)
-            W.append(.5)
-            est_label = np.flipud(model.predict(tf.expand_dims(np.flipud(image), 0) , batch_size=1).squeeze())
-            est_label = np.argmax(est_label, -1)
-            E.append(est_label)
-            W.append(.5)
+		# for k in np.linspace(100,int(TARGET_SIZE[0]),10):
+		#     #E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, int(k)), 0) , batch_size=1).squeeze(), -int(k)))
+		#     E.append(model.predict(tf.expand_dims(np.roll(image, int(k)), 0) , batch_size=1).squeeze())
+		#     W.append(2*(1/np.sqrt(k)))
+		#
+		# for k in np.linspace(100,int(TARGET_SIZE[0]),10):
+		#     #E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, -int(k)), 0) , batch_size=1).squeeze(), int(k)))
+		#     E.append(model.predict(tf.expand_dims(np.roll(image, -int(k)), 0) , batch_size=1).squeeze())
+		#     W.append(2*(1/np.sqrt(k)))
 
-            # for k in np.linspace(100,int(TARGET_SIZE[0]),10):
-            #     #E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, int(k)), 0) , batch_size=1).squeeze(), -int(k)))
-            #     E.append(model.predict(tf.expand_dims(np.roll(image, int(k)), 0) , batch_size=1).squeeze())
-            #     W.append(2*(1/np.sqrt(k)))
-            #
-            # for k in np.linspace(100,int(TARGET_SIZE[0]),10):
-            #     #E.append(np.roll(model.predict(tf.expand_dims(np.roll(image, -int(k)), 0) , batch_size=1).squeeze(), int(k)))
-            #     E.append(model.predict(tf.expand_dims(np.roll(image, -int(k)), 0) , batch_size=1).squeeze())
-            #     W.append(2*(1/np.sqrt(k)))
+		K.clear_session()
 
-            K.clear_session()
+		#E = [maximum_filter(resize(e,(w,h)), int(w/200)) for e in E]
+		E = [resize(e,(w,h), preserve_range=True, clip=True) for e in E]
 
-            #E = [maximum_filter(resize(e,(w,h)), int(w/200)) for e in E]
-            E = [resize(e,(w,h), preserve_range=True, clip=True) for e in E]
+		#est_label = np.median(np.dstack(E), axis=-1)
+		est_label = np.average(np.dstack(E), axis=-1, weights=np.array(W))
 
-            #est_label = np.median(np.dstack(E), axis=-1)
-            est_label = np.average(np.dstack(E), axis=-1, weights=np.array(W))
+		est_label /= est_label.max()
 
-            est_label /= est_label.max()
+		var = np.std(np.dstack(E), axis=-1)
 
-            var = np.std(np.dstack(E), axis=-1)
+		if np.max(est_label)-np.min(est_label) > .5:
+			thres = threshold_otsu(est_label)
+			print("Probability of land threshold: %f" % (thres))
+		else:
+			thres = .9
+			print("Default threshold: %f" % (thres))
 
-            if np.max(est_label)-np.min(est_label) > .5:
-                thres = threshold_otsu(est_label)
-                print("Probability of land threshold: %f" % (thres))
-            else:
-                thres = .9
-                print("Default threshold: %f" % (thres))
+		conf = 1-est_label
+		conf[est_label<thres] = est_label[est_label<thres]
+		conf = 1-conf
 
-            conf = 1-est_label
-            conf[est_label<thres] = est_label[est_label<thres]
-            conf = 1-conf
+		conf[np.isnan(conf)] = 0
+		conf[np.isinf(conf)] = 0
 
-            conf[np.isnan(conf)] = 0
-            conf[np.isinf(conf)] = 0
+		model_conf = np.sum(conf)/np.prod(conf.shape)
+		print('Overall model confidence = %f'%(model_conf))
 
-            model_conf = np.sum(conf)/np.prod(conf.shape)
-            print('Overall model confidence = %f'%(model_conf))
+		out_stack = np.dstack((est_label,conf,var))
+		outfile = segfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'prob_stack'))
 
-            out_stack = np.dstack((est_label,conf,var))
-            outfile = segfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'prob_stack'))
+		try:
+			os.mkdir(os.path.normpath(sample_direc+os.sep+'prob_stack'))
+		except:
+			pass
 
-            imsave(outfile.replace('.tif','.png'),(100*out_stack).astype('uint8'),compression=9)
+		imsave(outfile.replace('.tif','.png'),(100*out_stack).astype('uint8'),compression=9)
 
-            #yellow = high prob land , high confidence, low variability
-            #green = low prob of land, high confidence, low variability
-            #purple = high prob land, low confidence, high variability
-            #blue = low prob land, low confidence, high variability
-            #red = high probability of land, low confidence, low variability
+		#yellow = high prob land , high confidence, low variability
+		#green = low prob of land, high confidence, low variability
+		#purple = high prob land, low confidence, high variability
+		#blue = low prob land, low confidence, high variability
+		#red = high probability of land, low confidence, low variability
 
-            thres_conf = threshold_otsu(conf)
-            thres_var = threshold_otsu(var)
-            print("Confidence threshold: %f" % (thres_conf))
-            print("Variance threshold: %f" % (thres_var))
+		thres_conf = threshold_otsu(conf)
+		thres_var = threshold_otsu(var)
+		print("Confidence threshold: %f" % (thres_conf))
+		print("Variance threshold: %f" % (thres_var))
 
-            land = (est_label>thres) & (conf>thres_conf) & (var<thres_conf)
-            water = (est_label<thres)
-            certainty = np.average(np.dstack((np.abs(est_label-thres) , conf , (1-var))), axis=2, weights=[2,1,1])
-            outfile = segfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'certainty'))
+		land = (est_label>thres) & (conf>thres_conf) & (var<thres_conf)
+		water = (est_label<thres)
+		certainty = np.average(np.dstack((np.abs(est_label-thres) , conf , (1-var))), axis=2, weights=[2,1,1])
+		outfile = segfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'certainty'))
+		try:
+			os.mkdir(os.path.normpath(sample_direc+os.sep+'certainty'))
+		except:
+			pass
 
-            imsave(outfile,(100*certainty).astype('uint8'),photometric='minisblack',compress=0)
+		imsave(outfile,(100*certainty).astype('uint8'),photometric='minisblack',compress=0)
 
-            land = remove_small_holes(land.astype('uint8'), 5*w)
-            land = remove_small_objects(land.astype('uint8'), 5*w)
-            outfile = segfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masks'))
+		#land = remove_small_holes(land.astype('uint8'), 5*w)
+		#land = remove_small_objects(land.astype('uint8'), 5*w)
+		outfile = segfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'masks'))
 
-            imsave(outfile.replace('.tif','.jpg'),255*land.astype('uint8'),quality=100)
+		try:
+			os.mkdir(os.path.normpath(sample_direc+os.sep+'masks'))
+		except:
+			pass
 
-            elapsed = (time.time() - start)/60
-            print("Image masking took "+ str(elapsed) + " minutes")
+		imsave(outfile.replace('.tif','.jpg'),255*land.astype('uint8'),quality=100)
 
-            print("%s done" % (f))
+		elapsed = (time.time() - start)/60
+		print("Image masking took "+ str(elapsed) + " minutes")
 
+	else: ###NCLASSES>1
 
-    else: ###NCLASSES>1
+		if 'jpg' in f:
+			segfile = f.replace('.jpg', '_predseg.png')
+		elif 'png' in f:
+			segfile = f.replace('.png', '_predseg.png')
 
-        if 'jpg' in f:
-            segfile = f.replace('.jpg', '_predseg.png')
-        elif 'png' in f:
-            segfile = f.replace('.png', '_predseg.png')
+		segfile = os.path.normpath(segfile)
+		segfile = segfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'out'))
 
-        segfile = os.path.normpath(segfile)
-        segfile = segfile.replace(os.path.normpath(sample_direc), os.path.normpath(sample_direc+os.sep+'out'))
+		try:
+			os.mkdir(os.path.normpath(sample_direc+os.sep+'out'))
+		except:
+			pass
 
-        try:
-            os.mkdir(os.path.normpath(sample_direc+os.sep+'out'))
-        except:
-            pass
+		if os.path.exists(segfile):
+			print('%s exists ... skipping' % (segfile))
+			pass
+		else:
+			print('%s does not exist ... creating' % (segfile))
 
-        if os.path.exists(segfile):
-            print('%s exists ... skipping' % (segfile))
-            pass
-        else:
-            print('%s does not exist ... creating' % (segfile))
+		# start = time.time()
 
-            # start = time.time()
+		if N_DATA_BANDS<=3:
+			image, w, h, bigimage = seg_file2tensor_3band(f)#, resize=True)
+			image = image#/255
+			bigimage = bigimage#/255
+			w = w.numpy(); h = h.numpy()
+		else:
+			image, w, h, bigimage = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir'), resize=True )
+			image = image#/255
+			bigimage = bigimage#/255
+			w = w.numpy(); h = h.numpy()
 
-            if N_DATA_BANDS<=3:
-                image, w, h, bigimage = seg_file2tensor_3band(f, resize=True)
-                image = image#/255
-                bigimage = bigimage#/255
-                w = w.numpy(); h = h.numpy()
-            else:
-                image, w, h, bigimage = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir'), resize=True )
-                image = image#/255
-                bigimage = bigimage#/255
-                w = w.numpy(); h = h.numpy()
+		print("Working on %i x %i image" % (w,h))
 
-            print("Working on %i x %i image" % (w,h))
+		#image = tf.image.per_image_standardization(image)
+		image = standardize(image.numpy())
 
-            #image = tf.image.per_image_standardization(image)
-            image = standardize(image.numpy())
+		est_label = model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
+		K.clear_session()
 
-            est_label = model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
-            K.clear_session()
+		est_label = np.argmax(est_label, -1)
 
-            est_label = np.argmax(est_label, -1)
+		est_label = resize(est_label,(w,h))
+		conf = np.max(est_label, -1)
+		conf[np.isnan(conf)] = 0
+		conf[np.isinf(conf)] = 0
+		est_label = np.argmax(est_label,-1)
 
-            est_label = resize(est_label,(w,h))
-            conf = np.max(est_label, -1)
-            conf[np.isnan(conf)] = 0
-            conf[np.isinf(conf)] = 0
-            est_label = np.argmax(est_label,-1)
+		est_label = np.squeeze(est_label[:w,:h])
 
-            est_label = np.squeeze(est_label[:w,:h])
+		class_label_colormap = ['#3366CC','#DC3912','#FF9900','#109618','#990099','#0099C6','#DD4477','#66AA00','#B82E2E', '#316395']
+		#add classes for more than 10 classes
 
-            class_label_colormap = ['#3366CC','#DC3912','#FF9900','#109618','#990099','#0099C6','#DD4477','#66AA00','#B82E2E', '#316395']
-            #add classes for more than 10 classes
+		class_label_colormap = class_label_colormap[:NCLASSES]
 
-            if NCLASSES>1:
-                class_label_colormap = class_label_colormap[:NCLASSES]
-            else:
-                class_label_colormap = class_label_colormap[:NCLASSES+1]
+		try:
+			color_label = label_to_colors(est_label, bigimage.numpy()[:,:,0]==0, alpha=128, colormap=class_label_colormap, color_class_offset=0, do_alpha=False)
+		except:
+			color_label = label_to_colors(est_label, bigimage[:,:,0]==0, alpha=128, colormap=class_label_colormap, color_class_offset=0, do_alpha=False)
 
-            try:
-                color_label = label_to_colors(est_label, bigimage.numpy()[:,:,0]==0, alpha=128, colormap=class_label_colormap, color_class_offset=0, do_alpha=False)
-            except:
-                color_label = label_to_colors(est_label, bigimage[:,:,0]==0, alpha=128, colormap=class_label_colormap, color_class_offset=0, do_alpha=False)
-
-            if 'jpg' in f:
-                imsave(segfile, (color_label).astype(np.uint8), check_contrast=False)
-            elif 'png' in f:
-                imsave(segfile, (color_label).astype(np.uint8), check_contrast=False)
-
-            print("%s done" % (f))
+		if 'jpg' in f:
+			imsave(segfile, (color_label).astype(np.uint8), check_contrast=False)
+		elif 'png' in f:
+			imsave(segfile, (color_label).astype(np.uint8), check_contrast=False)
 
 #====================================================
 
@@ -459,6 +464,7 @@ print(sample_direc)
 root.withdraw()
 
 configfile = weights.replace('.h5','.json').replace('weights', 'config')
+
 
 with open(configfile) as f:
     config = json.load(f)
@@ -534,7 +540,7 @@ if len(sample_filenames)==0:
 print('Number of samples: %i' % (len(sample_filenames)))
 
 for counter,f in enumerate(sample_filenames):
-    do_seg(f)
+    do_seg(f, model)
     print('%i out of %i done'%(counter,len(sample_filenames)))
 
 
