@@ -24,7 +24,7 @@
 # SOFTWARE.
 
 import os
-USE_GPU = False #True
+USE_GPU = True
 
 if USE_GPU == True:
    ##use the first available GPU
@@ -510,6 +510,8 @@ if N_DATA_BANDS<=3:
     for imgs,lbls in dataset.take(10):
       #print(lbls)
       for count,(im,lab) in enumerate(zip(imgs, lbls)):
+         
+         im = rescale(im.numpy(), 0, 1)
          plt.imshow(im)
 
          print(lab.shape)
