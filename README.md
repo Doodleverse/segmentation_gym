@@ -53,7 +53,7 @@ There are currently 3 models included in this toolbox: a classic [UNet](unet), a
 
 ### <a name="unet"></a>UNet model
 
-The UNet model is a fully convolutional neural network that is used for binary segmentation i.e foreground and background pixel-wise classification. It is easily adapted to multiclass segmentation workflows by representing each class as a binary mask, creating a stack of binary masks for each potential class (so-called one-hot encoded label data). A UNet is symmetrical (hence the U in the name) and uses concatenation instead of addition to merge feature maps.
+The [UNet model](https://lmb.informatik.uni-freiburg.de/people/ronneber/u-net/) is a fully convolutional neural network that is used for binary segmentation i.e foreground and background pixel-wise classification. It is easily adapted to multiclass segmentation workflows by representing each class as a binary mask, creating a stack of binary masks for each potential class (so-called one-hot encoded label data). A UNet is symmetrical (hence the U in the name) and uses concatenation instead of addition to merge feature maps.
 
 The fully convolutional model framework consists of two parts, the encoder and the decoder. The encoder receives the N x N x M (M=1, 3 or 4 in this implementation) input image and applies a series of convolutional layers and pooling layers to reduce the spatial size and condense features. Six banks of convolutional filters, each using filters that double in size to the previous, thereby progressively downsampling the inputs as features are extracted through pooling. The last set of features (or so-called bottleneck) is a very low-dimensional feature representation of the input imagery. The decoder upsamples the bottleneck into a N x N x 1 label image progressively using six banks of convolutional filters, each using filters half in size to the previous, thereby progressively upsampling the inputs as features are extracted through transpose convolutions and concatenation. A transposed convolution convolves a dilated version of the input tensor, consisting of interleaving zeroed rows and columns between each pair of adjacent rows and columns in the input tensor, in order to upscale the output. The sets of features from each of the six levels in the encoder-decoder structure are concatenated, which allows learning different features at different levels and leads to spatially well-resolved outputs. The final classification layer maps the output of the previous layer to a single 2D output based on a sigmoid activation function.
 
@@ -66,6 +66,7 @@ UNet with residual (or lateral/skip connections).
 
 ### <a name="satunet"></a>Satellite UNet model
 
+[Satellite Unet](https://deepsense.ai/deep-learning-for-satellite-imagery-via-image-segmentation/)
 *Coming Soon*
 
 
@@ -139,6 +140,7 @@ An example config file:
     "MODEL": "resunet",
     "NCLASSES": 4,
     "BATCH_SIZE": 7,
+    "FILTERS":8,
     "N_DATA_BANDS": 3,
     "DO_TRAIN": true,
     "PATIENCE": 10,
@@ -177,6 +179,7 @@ Notice the last entry does *NOT* have a comma. It does not matter what order the
 * `MODEL` : (string) specify which model you want to use, options are "unet","resunet", and "satunet".
 * `NCLASSES`: (integer) number of classes (1 = binary e.g water/no water). For multiclass segmentations, enumerate the number of classes not including a null class. For example, for 4 classes, use `NCLASSES`=4
 * `BATCH_SIZE`: (integer) number of images to use in a batch. Typically better to use larger batch sizes but also uses more memory
+* `FILTERS`: (integer) *Coming Soon*
 * `N_DATA_BANDS`: (integer) number of input image bands. Typically 3 (for an RGB image, for example) or 4 (e.g. near-IR or DEM, or other relevant raster info you have at coincident resolution and coverage). Currently cannot be more than 4.
 * `DO_TRAIN`: (bool) `true` to retrain model from scratch. Otherwise, program will use existing model weights and evaluate the model based on the validation set
 
