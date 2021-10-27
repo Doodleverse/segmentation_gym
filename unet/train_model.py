@@ -46,13 +46,13 @@ from random import shuffle
 ###############################################################
 
 root = Tk()
-root.filename =  filedialog.askopenfilename(initialdir = "/data",title = "Select config file",filetypes = (("config files","*.json"),("all files","*.*")))
+root.filename =  filedialog.askopenfilename(initialdir = "/segmentation_zoo",title = "Select config file",filetypes = (("config files","*.json"),("all files","*.*")))
 configfile = root.filename
 print(configfile)
 root.withdraw()
 
 root = Tk()
-root.filename =  filedialog.askdirectory(initialdir = "/samples",title = "Select directory of data files")
+root.filename =  filedialog.askdirectory(initialdir = "/segmentation_zoo",title = "Select directory of data files")
 data_path = root.filename
 print(data_path)
 root.withdraw()
