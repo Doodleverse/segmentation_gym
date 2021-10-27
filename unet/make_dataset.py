@@ -24,7 +24,7 @@
 # SOFTWARE.
 
 import os
-USE_GPU = False #True
+USE_GPU = True
 
 if USE_GPU == True:
    ##use the first available GPU
@@ -45,7 +45,7 @@ from tqdm import tqdm
 ###############################################################
 
 root = Tk()
-root.filename =  filedialog.askopenfilename(initialdir = "/weights",title = "Select config file",filetypes = (("config files","*.json"),("all files","*.*")))
+root.filename =  filedialog.askopenfilename(initialdir = "/segmentation_zoo",title = "Select config file",filetypes = (("config files","*.json"),("all files","*.*")))
 configfile = root.filename
 print(configfile)
 root.withdraw()
@@ -59,32 +59,32 @@ for k in config.keys():
 
 if N_DATA_BANDS<=3:
     root = Tk()
-    root.filename =  filedialog.askdirectory(initialdir = "/data",title = "Select directory of image files")
+    root.filename =  filedialog.askdirectory(initialdir = "/segmentation_zoo",title = "Select directory of image files")
     imdir = root.filename
     print(imdir)
     root.withdraw()
 elif N_DATA_BANDS==4:
     root = Tk()
-    root.filename =  filedialog.askdirectory(initialdir = "/data",title = "Select directory of RGB image files")
+    root.filename =  filedialog.askdirectory(initialdir = "/segmentation_zoo",title = "Select directory of RGB image files")
     imdir = root.filename
     print(imdir)
     root.withdraw()
 
     root = Tk()
-    root.filename =  filedialog.askdirectory(initialdir = "/data",title = "Select directory of additional (4th band) image files")
+    root.filename =  filedialog.askdirectory(initialdir = "/segmentation_zoo",title = "Select directory of additional (4th band) image files")
     nimdir = root.filename
     print(nimdir)
     root.withdraw()
 
 
 root = Tk()
-root.filename =  filedialog.askdirectory(initialdir = "/data",title = "Select directory of label files")
+root.filename =  filedialog.askdirectory(initialdir = "/segmentation_zoo",title = "Select directory of label files")
 lab_path = root.filename
 print(lab_path)
 root.withdraw()
 
 root = Tk()
-root.filename =  filedialog.askdirectory(initialdir = "/data",title = "Select directory to write dataset files")
+root.filename =  filedialog.askdirectory(initialdir = "/segmentation_zoo",title = "Select directory to write dataset files")
 dataset_dir = root.filename
 print(dataset_dir)
 root.withdraw()
@@ -510,6 +510,8 @@ if N_DATA_BANDS<=3:
     for imgs,lbls in dataset.take(10):
       #print(lbls)
       for count,(im,lab) in enumerate(zip(imgs, lbls)):
+         
+         im = rescale(im.numpy(), 0, 1)
          plt.imshow(im)
 
          print(lab.shape)
