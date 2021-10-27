@@ -60,7 +60,7 @@ The fully convolutional model framework consists of two parts, the encoder and t
 ### <a name="resunet"></a>Residual UNet model
 UNet with residual (or lateral/skip connections). 
 
-![Res-UNet](./res-unet-diagram.png)
+![Res-UNet](./unet/res-unet-diagram.png)
 
  The difference between our Res Unet and the original UNet is in the use of three residual-convolutional encoding and decoding layers instead of regular six convolutional encoding and decoding layers. Residual or 'skip' connections have been shown in numerous contexts to facilitate information flow, which is why we have halved the number of convolutional layers but can still achieve good accuracy on the segmentation tasks. The skip connections essentially add the outputs of the regular convolutional block (sequence of convolutions and ReLu activations) with the inputs, so the model learns to map feature representations in context to the inputs that created those representations.
 
