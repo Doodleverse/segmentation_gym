@@ -78,10 +78,10 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 from imports import *
 #---------------------------------------------------
 
-trainsamples_fig = weights.replace('.h5','_train_sample_batch.png').replace('weights', 'data')
-valsamples_fig = weights.replace('.h5','_val_sample_batch.png').replace('weights', 'data')
+trainsamples_fig = weights.replace('.h5','_train_sample_batch.png').replace('weights', 'modelOut')
+valsamples_fig = weights.replace('.h5','_val_sample_batch.png').replace('weights', 'modelOut')
 
-hist_fig = weights.replace('.h5','_trainhist_'+str(BATCH_SIZE)+'.png').replace('weights', 'data')
+hist_fig = weights.replace('.h5','_trainhist_'+str(BATCH_SIZE)+'.png').replace('weights', 'modelOut')
 
 try:
     direc = os.path.dirname(hist_fig)
@@ -90,7 +90,7 @@ try:
 except:
     pass
 
-test_samples_fig =  weights.replace('.h5','_val.png').replace('weights', 'data')
+test_samples_fig =  weights.replace('.h5','_val.png').replace('weights', 'modelOut')
 
 
 ###############################################################

@@ -120,6 +120,7 @@ After Zoo downloads, we recommend you make a directory structure that mirrors be
                     │   |   |     └──labels
                     |   |   ├──npzForModel
                     │   |   └──toPredict
+                    │   ├── modelOut
                     │   └── weights
                     │       └── *.h5
 
