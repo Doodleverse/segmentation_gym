@@ -60,6 +60,7 @@ for k in config.keys():
     exec(k+'=config["'+k+'"]')
 
 USE_GPU = True
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 
 if USE_GPU == True:
     if 'SET_GPU' in locals():
