@@ -24,18 +24,6 @@
 # SOFTWARE.
 
 import os
-USE_GPU = True
-
-if USE_GPU == True:
-   ##use the first available GPU
-   os.environ['CUDA_VISIBLE_DEVICES'] = '0' #'1'
-else:
-   ## to use the CPU (not recommended):
-   os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-
-#suppress tensorflow warnings
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-
 import json
 from tkinter import filedialog
 from tkinter import *
@@ -71,13 +59,29 @@ with open(configfile) as f:
 for k in config.keys():
     exec(k+'=config["'+k+'"]')
 
+USE_GPU = True
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+
+if USE_GPU == True:
+    if 'SET_GPU' in locals():
+        os.environ['CUDA_VISIBLE_DEVICES'] = str(SET_GPU)
+    else:
+        #use the first available GPU
+        os.environ['CUDA_VISIBLE_DEVICES'] = '0' #'1'
+else:
+   ## to use the CPU (not recommended):
+   os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+
+#suppress tensorflow warnings
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
 from imports import *
 #---------------------------------------------------
 
-trainsamples_fig = weights.replace('.h5','_train_sample_batch.png').replace('weights', 'data')
-valsamples_fig = weights.replace('.h5','_val_sample_batch.png').replace('weights', 'data')
+trainsamples_fig = weights.replace('.h5','_train_sample_batch.png').replace('weights', 'modelOut')
+valsamples_fig = weights.replace('.h5','_val_sample_batch.png').replace('weights', 'modelOut')
 
-hist_fig = weights.replace('.h5','_trainhist_'+str(BATCH_SIZE)+'.png').replace('weights', 'data')
+hist_fig = weights.replace('.h5','_trainhist_'+str(BATCH_SIZE)+'.png').replace('weights', 'modelOut')
 
 try:
     direc = os.path.dirname(hist_fig)
@@ -86,7 +90,7 @@ try:
 except:
     pass
 
-test_samples_fig =  weights.replace('.h5','_val.png').replace('weights', 'data')
+test_samples_fig =  weights.replace('.h5','_val.png').replace('weights', 'modelOut')
 
 
 ###############################################################
