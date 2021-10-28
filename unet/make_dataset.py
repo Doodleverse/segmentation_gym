@@ -24,15 +24,6 @@
 # SOFTWARE.
 
 import os
-USE_GPU = True
-
-if USE_GPU == True:
-   ##use the first available GPU
-   os.environ['CUDA_VISIBLE_DEVICES'] = '0' #'1'
-else:
-   ## to use the CPU (not recommended):
-   os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-
 import os, json, shutil
 from tkinter import filedialog
 from tkinter import *
@@ -56,6 +47,18 @@ with open(configfile) as f:
 
 for k in config.keys():
     exec(k+'=config["'+k+'"]')
+
+USE_GPU = True
+
+if USE_GPU == True:
+    if 'SET_GPU' in locals():
+        os.environ['CUDA_VISIBLE_DEVICES'] = str(SET_GPU)
+    else:
+        #use the first available GPU
+        os.environ['CUDA_VISIBLE_DEVICES'] = '0' #'1'
+else:
+   ## to use the CPU (not recommended):
+   os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 if N_DATA_BANDS<=3:
     root = Tk()

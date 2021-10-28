@@ -151,7 +151,8 @@ An example config file:
     "DROPOUT_CHANGE_PER_LAYER":0.0,
     "DROPOUT_TYPE":"standard",
     "USE_DROPOUT_ON_UPSAMPLING":false,
-    "ROOT_STRING": "hatteras_l8_aug_768","FILTER_VALUE": 3,
+    "ROOT_STRING": "hatteras_l8_aug_768",
+    "FILTER_VALUE": 3,
     "DOPLOT": true,
     "USEMASK": false,
     "RAMPUP_EPOCHS": 10,
@@ -197,10 +198,11 @@ Notice the last entry does *NOT* have a comma. It does not matter what order the
 * `USE_DROPOUT_ON_UPSAMPLING` : (bool) *Coming Soon*
 
 ### General configs
-* `ROOT_STRING`: (string): the prefix used when writing data for use with the model e.g., "coastal_5class_",
+* `ROOT_STRING`: (string) the prefix used when writing data for use with the model e.g., "coastal_5class_",
 * `FILTER_VALUE`: (integer) radius of disk used to apply median filter, if > 1
 * `DOPLOT`: (bool) `true` to make plots
 * `USEMASK`: (bool) `true` if the files use 'mask' instead of 'label' in the folder/filename. if `false`, 'label' is assumed
+* `SET_GPU`: (int; optional) for machines with mutiple GPUs, this sets the GPU to use (note that GPU count begins with 0).
 
 ### Learning rate scheduler configs:
 The model training script uses a learning rate scheduler to cycle through a range of learning rates at every training epoch using a prescribed function. Model training can sometimes be sensitive to the specification of these parameters, especially the `MAX_LR`, so be prepared to try a few values if the model is not performing optimally

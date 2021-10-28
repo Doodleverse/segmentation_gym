@@ -1,5 +1,3 @@
-/res_unet/data/
-/res_unet/weights/
-/res_unet/config/
-/res_unet/src/*.png
-/res_unet/src/__pycache*
+unet/*test.png
+unet/*report.txt
+unet/__pycache__/*
