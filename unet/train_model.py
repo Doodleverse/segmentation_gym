@@ -346,8 +346,7 @@ if MODEL =='resunet':
                     dropout=DROPOUT,#0.1,
                     dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
                     dropout_type=DROPOUT_TYPE,#"standard",
-                    use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
-                    upsample_mode=UPSAMPLE_MODE
+                    use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING
                     )
 elif MODEL=='unet':
     model =  custom_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
@@ -370,7 +369,6 @@ elif MODEL =='simple_resunet':
                 num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
                 activation="relu",
                 use_batch_norm=True,
-                upsample_mode=UPSAMPLE_MODE,#"deconv",
                 dropout=DROPOUT,#0.1,
                 dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
                 dropout_type=DROPOUT_TYPE,#"standard",
@@ -385,7 +383,6 @@ elif MODEL=='simple_unet':
                 num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
                 activation="relu",
                 use_batch_norm=True,
-                upsample_mode=UPSAMPLE_MODE,#"deconv",
                 dropout=DROPOUT,#0.1,
                 dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
                 dropout_type=DROPOUT_TYPE,#"standard",
@@ -403,7 +400,6 @@ elif MODEL=='satunet':
                 num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
                 activation="relu",
                 use_batch_norm=True,
-                upsample_mode=UPSAMPLE_MODE,#"deconv",
                 dropout=DROPOUT,#0.1,
                 dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
                 dropout_type=DROPOUT_TYPE,#"standard",
