@@ -28,8 +28,6 @@ from imports import *
 TARGET_SIZE = [768,1024]
 N_DATA_BANDS=3
 NCLASSES=1
-UPSAMPLE_MODE='simple'
-# UPSAMPLE_MODE = 'deconv'
 DROPOUT=0.0
 DROPOUT_TYPE='standard'
 TARGET_SIZE = [768,768]
@@ -51,12 +49,16 @@ model =  custom_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                 dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
                 dropout_type=DROPOUT_TYPE,#"standard",
                 use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
-                upsample_mode=UPSAMPLE_MODE
                 )
 model.compile(optimizer = 'adam', loss =dice_coef_loss, metrics = [mean_iou, dice_coef])
+model.summary()
 
 
-UPSAMPLE_MODE = 'deconv'
+
+FILTERS=4
+KERNEL=11
+STRIDE=2
+
 model =  custom_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                 FILTERS,
                 nclasses=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
@@ -66,12 +68,9 @@ model =  custom_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                 dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
                 dropout_type=DROPOUT_TYPE,#"standard",
                 use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
-                upsample_mode=UPSAMPLE_MODE
                 )
 model.compile(optimizer = 'adam', loss =dice_coef_loss, metrics = [mean_iou, dice_coef])
-
-
-
+model.summary()
 
 
 
@@ -90,14 +89,11 @@ model =  custom_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                 use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
                 )
 model.compile(optimizer = 'adam', loss =dice_coef_loss, metrics = [mean_iou, dice_coef])
+model.summary()
 
 
 
 
-
-
-UPSAMPLE_MODE='simple'
-# UPSAMPLE_MODE = 'deconv'
 FILTERS=8
 KERNEL=4#4#2
 STRIDE=1
@@ -107,7 +103,6 @@ model = simple_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
             num_classes=NCLASSES,#[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
             activation="relu",
             use_batch_norm=True,
-            upsample_mode=UPSAMPLE_MODE,#"deconv",
             dropout=DROPOUT,#0.1,
             dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
             dropout_type=DROPOUT_TYPE,#"standard",
@@ -116,8 +111,7 @@ model = simple_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
             num_layers=4,
             strides=(STRIDE,STRIDE))
 model.compile(optimizer = 'adam', loss =dice_coef_loss, metrics = [mean_iou, dice_coef])
-
-
+model.summary()
 
 FILTERS=8
 KERNEL=4#4#2
@@ -127,7 +121,6 @@ model = simple_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
             num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
             activation="relu",
             use_batch_norm=True,
-            upsample_mode=UPSAMPLE_MODE,#"deconv",
             dropout=DROPOUT,#0.1,
             dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
             dropout_type=DROPOUT_TYPE,#"standard",
@@ -136,3 +129,4 @@ model = simple_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
             num_layers=4,
             strides=(STRIDE,STRIDE))
 model.compile(optimizer = 'adam', loss =dice_coef_loss, metrics = [mean_iou, dice_coef])
+model.summary()

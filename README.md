@@ -147,7 +147,6 @@ An example config file:
     "PATIENCE": 10,
     "MAX_EPOCHS": 100,
     "VALIDATION_SPLIT": 0.2,
-    "UPSAMPLE_MODE":"simple",
     "DROPOUT":0.1,
     "DROPOUT_CHANGE_PER_LAYER":0.0,
     "DROPOUT_TYPE":"standard",
@@ -181,7 +180,7 @@ Notice the last entry does *NOT* have a comma. It does not matter what order the
 * `MODEL` : (string) specify which model you want to use, options are "unet","resunet", and "satunet".
 * `NCLASSES`: (integer) number of classes (1 = binary e.g water/no water). For multiclass segmentations, enumerate the number of classes not including a null class. For example, for 4 classes, use `NCLASSES`=4
 * `BATCH_SIZE`: (integer) number of images to use in a batch. Typically better to use larger batch sizes but also uses more memory
-* `FILTERS`: (integer) *Coming Soon*
+* `FILTERS`: (integer) number of initial filters per convolutional block, doubled every layer
 * `N_DATA_BANDS`: (integer) number of input image bands. Typically 3 (for an RGB image, for example) or 4 (e.g. near-IR or DEM, or other relevant raster info you have at coincident resolution and coverage). Currently cannot be more than 4.
 * `DO_TRAIN`: (bool) `true` to retrain model from scratch. Otherwise, program will use existing model weights and evaluate the model based on the validation set
 
@@ -192,11 +191,10 @@ Notice the last entry does *NOT* have a comma. It does not matter what order the
 * `VALIDATION_SPLIT`: (float) the proportion of the dataset to use for validation. The rest will be used for model training. Typically in the range 0.5 -- 0.9 for model training on large datasets
 
 ### Model Architecture configs:
-* `UPSAMPLE_MODE` : (string) *Coming Soon*
 * `DROPOUT` : (integer) 0.1,
-* `DROPOUT_CHANGE_PER_LAYER` : (integer) *Coming Soon*
-* `DROPOUT_TYPE` : (string) *Coming Soon*
-* `USE_DROPOUT_ON_UPSAMPLING` : (bool) *Coming Soon*
+* `DROPOUT_CHANGE_PER_LAYER` : (integer) changes dropout by addition/ subtraction on encoder/decoder layers
+* `DROPOUT_TYPE` : (string) "standard" or "spatial"
+* `USE_DROPOUT_ON_UPSAMPLING` : (bool) if True, dropout is used on upsampling, otherwise it is not
 
 ### General configs
 * `ROOT_STRING`: (string) the prefix used when writing data for use with the model e.g., "coastal_5class_",

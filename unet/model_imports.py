@@ -50,7 +50,6 @@ def simple_resunet(input_shape,
     num_classes=1,
     activation="relu",
     use_batch_norm=True,
-    upsample_mode="deconv",
     dropout=0.1,
     dropout_change_per_layer=0.0,
     dropout_type="standard",
@@ -70,8 +69,6 @@ def simple_resunet(input_shape,
 
     use_batch_norm (bool): Whether to use Batch Normalisation across the channel axis between convolutions
 
-    upsample_mode ( "deconv" or "simple"): transposed convolutions or simple upsampling in the decoder
-
     dropout (float , 0. and 1.): dropout after the first convolutional block. 0. = no dropout
 
     dropout_change_per_layer (float , 0. and 1.): Factor to add to the Dropout after each convolutional block
@@ -85,12 +82,6 @@ def simple_resunet(input_shape,
     num_layers (int): Number of total layers in the encoder not including the bottleneck layer
 
     """
-
-    # if upsample_mode == "deconv":
-    #     upsample = upsample_conv
-    # else:
-    #     upsample = upsample_simple
-
     # Build U-Net model
     inputs = tf.keras.layers.Input(input_shape)
     x = inputs
@@ -131,10 +122,7 @@ def simple_resunet(input_shape,
         filters //= 2  # decreasing number of filters with each layer
         dropout -= dropout_change_per_layer
         #x = upsample(filters, kernel, strides=(2,2), padding="same")(x)#(2, 2)
-        if upsample_mode == "deconv":
-            x = tf.keras.layers.Conv2DTranspose(filters, kernel, strides=strides, padding="same")(x)
-        else:
-            x = tf.keras.layers.UpSampling2D(kernel)(x)
+        x = tf.keras.layers.UpSampling2D(kernel)(x)
         x = tf.keras.layers.concatenate([x, conv])
         x = res_conv2d_block(inputs=x, filters=filters,
             use_batch_norm=use_batch_norm, dropout=dropout,
@@ -158,7 +146,6 @@ def simple_unet(input_shape,
     num_classes=1,
     activation="relu",
     use_batch_norm=True,
-    upsample_mode="deconv",
     dropout=0.1,
     dropout_change_per_layer=0.0,
     dropout_type="standard",
@@ -178,8 +165,6 @@ def simple_unet(input_shape,
 
     use_batch_norm (bool): Whether to use Batch Normalisation across the channel axis between convolutions
 
-    upsample_mode ( "deconv" or "simple"): transposed convolutions or simple upsampling in the decoder
-
     dropout (float , 0. and 1.): dropout after the first convolutional block. 0. = no dropout
 
     dropout_change_per_layer (float , 0. and 1.): Factor to add to the Dropout after each convolutional block
@@ -193,11 +178,6 @@ def simple_unet(input_shape,
     num_layers (int): Number of total layers in the encoder not including the bottleneck layer
 
     """
-
-    # if upsample_mode == "deconv":
-    #     upsample = upsample_conv
-    # else:
-    #     upsample = upsample_simple
 
     # Build U-Net model
     inputs = tf.keras.layers.Input(input_shape)
@@ -238,10 +218,7 @@ def simple_unet(input_shape,
         filters //= 2  # decreasing number of filters with each layer
         dropout -= dropout_change_per_layer
         # x = upsample(filters, kernel, strides=(2,2), padding="same")(x)#(2, 2)
-        if upsample_mode == "deconv":
-            x = tf.keras.layers.Conv2DTranspose(filters, kernel, strides=strides, padding="same")(x)
-        else:
-            x = tf.keras.layers.UpSampling2D(kernel)(x)
+        x = tf.keras.layers.UpSampling2D(kernel)(x)
         x = tf.keras.layers.concatenate([x, conv])
         x = conv2d_block(inputs=x, filters=filters,
             use_batch_norm=use_batch_norm, dropout=dropout,
@@ -267,7 +244,6 @@ def simple_satunet(input_shape,
     num_classes=1,
     activation="relu",
     use_batch_norm=True,
-    upsample_mode="deconv",
     dropout=0.1,
     dropout_change_per_layer=0.0,
     dropout_type="standard",
@@ -287,8 +263,6 @@ def simple_satunet(input_shape,
 
     use_batch_norm (bool): Whether to use Batch Normalisation across the channel axis between convolutions
 
-    upsample_mode ( "deconv" or "simple"): transposed convolutions or simple upsampling in the decoder
-
     dropout (float , 0. and 1.): dropout after the first convolutional block. 0. = no dropout
 
     dropout_change_per_layer (float , 0. and 1.): Factor to add to the Dropout after each convolutional block
@@ -304,11 +278,6 @@ def simple_satunet(input_shape,
     """
 
     upconv_filters = int(1.5*filters)
-
-    # if upsample_mode == "deconv":
-    #     upsample = upsample_conv
-    # else:
-    #     upsample = upsample_simple
 
     # Build U-Net model
     inputs = tf.keras.layers.Input(input_shape)
@@ -348,10 +317,7 @@ def simple_satunet(input_shape,
         filters //= 2  # decreasing number of filters with each layer
         dropout -= dropout_change_per_layer
         # x = upsample(filters, kernel, strides=(2,2), padding="same")(x)#(2, 2)
-        if upsample_mode == "deconv":
-            x = tf.keras.layers.Conv2DTranspose(filters, kernel, strides=strides, padding="same")(x)
-        else:
-            x = tf.keras.layers.UpSampling2D(kernel)(x)
+        x = tf.keras.layers.UpSampling2D(kernel)(x)
         x = tf.keras.layers.concatenate([x, conv])
         x = conv2d_block(inputs=x, filters=upconv_filters,
             use_batch_norm=use_batch_norm, dropout=dropout,
@@ -382,7 +348,6 @@ def custom_resunet(sz,
     dropout_change_per_layer=0.0,
     dropout_type="standard",
     use_dropout_on_upsampling=False,
-    upsample_mode="simple",
     ):
     """
     res_unet(sz, f, nclasses=1)
@@ -392,6 +357,15 @@ def custom_resunet(sz,
         * `f`: [int] number of filters in the convolutional block
         * flag: [string] if 'binary', the model will expect 2D masks and uses sigmoid. If 'multiclass', the model will expect 3D masks and uses softmax
         * nclasses [int]: number of classes
+        dropout (float , 0. and 1.): dropout after the first convolutional block. 0. = no dropout
+
+        dropout_change_per_layer (float , 0. and 1.): Factor to add to the Dropout after each convolutional block
+
+        dropout_type (one of "spatial" or "standard"): Spatial is recommended  by  https://arxiv.org/pdf/1411.4280.pdf
+
+        use_dropout_on_upsampling (bool): Whether to use dropout in the decoder part of the network
+
+        filters (int): Convolutional filters in the initial convolutional block. Will be doubled every block   
     OPTIONAL INPUTS:
         * `kernel_size`=(7, 7): tuple of kernel size (x, y) - this is the size in pixels of the kernel to be convolved with the image
         * `padding`="same":  see tf.keras.layers.Conv2D
@@ -425,22 +399,22 @@ def custom_resunet(sz,
         dropout_change_per_layer = 0.0
 
     ## upsample
-    _ = upsamp_concat_block(_, e4,upsample_mode="simple")
+    _ = upsamp_concat_block(_, e4)
     _ = res_block(_, f, kernel_size = kernel_size, dropout=dropout,dropout_type=dropout_type)
     f = int(f/2)
     dropout -= dropout_change_per_layer
 
-    _ = upsamp_concat_block(_, e3,upsample_mode="simple")
+    _ = upsamp_concat_block(_, e3)
     _ = res_block(_, f, kernel_size = kernel_size, dropout=dropout,dropout_type=dropout_type)
     f = int(f/2)
     dropout -= dropout_change_per_layer
 
-    _ = upsamp_concat_block(_, e2,upsample_mode="simple")
+    _ = upsamp_concat_block(_, e2)
     _ = res_block(_, f, kernel_size = kernel_size, dropout=dropout,dropout_type=dropout_type)
     f = int(f/2)
     dropout -= dropout_change_per_layer
 
-    _ = upsamp_concat_block(_, e1,upsample_mode="simple")
+    _ = upsamp_concat_block(_, e1)
     _ = res_block(_, f, kernel_size = kernel_size, dropout=dropout,dropout_type=dropout_type)
 
     # ## classify
@@ -463,7 +437,6 @@ def custom_unet(sz,
     dropout_change_per_layer=0.0,
     dropout_type="standard",
     use_dropout_on_upsampling=False,
-    upsample_mode="simple",
     ):
     """
     unet(sz, f, nclasses=1)
@@ -473,6 +446,15 @@ def custom_unet(sz,
         * `f`: [int] number of filters in the convolutional block
         * flag: [string] if 'binary', the model will expect 2D masks and uses sigmoid. If 'multiclass', the model will expect 3D masks and uses softmax
         * nclasses [int]: number of classes
+        dropout (float , 0. and 1.): dropout after the first convolutional block. 0. = no dropout
+
+        dropout_change_per_layer (float , 0. and 1.): Factor to add to the Dropout after each convolutional block
+
+        dropout_type (one of "spatial" or "standard"): Spatial is recommended  by  https://arxiv.org/pdf/1411.4280.pdf
+
+        use_dropout_on_upsampling (bool): Whether to use dropout in the decoder part of the network
+
+        filters (int): Convolutional filters in the initial convolutional block. Will be doubled every block
     OPTIONAL INPUTS:
         * `kernel_size`=(7, 7): tuple of kernel size (x, y) - this is the size in pixels of the kernel to be convolved with the image
         * `padding`="same":  see tf.keras.layers.Conv2D
@@ -506,22 +488,22 @@ def custom_unet(sz,
         dropout_change_per_layer = 0.0
 
     ## upsample
-    _ = upsamp_concat_block(_, e4, upsample_mode="simple")
+    _ = upsamp_concat_block(_, e4)
     _ = conv_block(_, f, kernel_size = kernel_size, dropout=dropout,dropout_type=dropout_type)
     f = int(f/2)
     dropout -= dropout_change_per_layer
 
-    _ = upsamp_concat_block(_, e3, upsample_mode="simple")
+    _ = upsamp_concat_block(_, e3)
     _ = conv_block(_, f, kernel_size = kernel_size, dropout=dropout,dropout_type=dropout_type)
     f = int(f/2)
     dropout -= dropout_change_per_layer
 
-    _ = upsamp_concat_block(_, e2, upsample_mode="simple")
+    _ = upsamp_concat_block(_, e2)
     _ = conv_block(_, f, kernel_size = kernel_size, dropout=dropout,dropout_type=dropout_type)
     f = int(f/2)
     dropout -= dropout_change_per_layer
 
-    _ = upsamp_concat_block(_, e1, upsample_mode="simple")
+    _ = upsamp_concat_block(_, e1)
     _ = conv_block(_, f, kernel_size = kernel_size, dropout=dropout,dropout_type=dropout_type)
 
     # ## classify
@@ -541,7 +523,7 @@ def custom_unet(sz,
 ###############################################################
 
 #-----------------------------------
-def upsamp_concat_block(x, xskip,upsample_mode="simple"):
+def upsamp_concat_block(x, xskip):
     """
     upsamp_concat_block(x, xskip)
     This function takes an input layer and creates a concatenation of an upsampled version and a residual or 'skip' connection
@@ -553,10 +535,7 @@ def upsamp_concat_block(x, xskip,upsample_mode="simple"):
     OUTPUTS:
         * keras layer, output of the addition between residual convolutional and bottleneck layers
     """
-    if upsample_mode=="simple":
-        u = tf.keras.layers.UpSampling2D((2, 2))(x)
-    else:
-        x = tf.keras.layers.Conv2DTranspose(filters, (2, 2), strides=(1,1), padding="same")(x)
+    u = tf.keras.layers.UpSampling2D((2, 2))(x)
 
     return tf.keras.layers.Concatenate()([u, xskip])
 
