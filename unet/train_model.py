@@ -338,10 +338,34 @@ print('.....................................')
 print('Creating and compiling model ...')
 
 if MODEL =='resunet':
+    model =  custom_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                    FILTERS,
+                    nclasses=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                    kernel_size=(KERNEL,KERNEL),
+                    strides=STRIDE,
+                    dropout=DROPOUT,#0.1,
+                    dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
+                    dropout_type=DROPOUT_TYPE,#"standard",
+                    use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
+                    upsample_mode=UPSAMPLE_MODE
+                    )
+elif MODEL=='unet':
+    model =  custom_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                    FILTERS,
+                    nclasses=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                    kernel_size=(KERNEL,KERNEL),
+                    strides=STRIDE,
+                    dropout=DROPOUT,#0.1,
+                    dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
+                    dropout_type=DROPOUT_TYPE,#"standard",
+                    use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
+                    )
+
+elif MODEL =='simple_resunet':
     # num_filters = 8 # initial filters
     # model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), num_filters, NCLASSES, (KERNEL_SIZE, KERNEL_SIZE))
 
-    model = custom_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+    model = simple_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                 kernel = (2, 2),
                 num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
                 activation="relu",
@@ -355,8 +379,8 @@ if MODEL =='resunet':
                 num_layers=4,
                 strides=(1,1))
 #346,564
-elif MODEL=='unet':
-    model = custom_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+elif MODEL=='simple_unet':
+    model = simple_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                 kernel = (2, 2),
                 num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
                 activation="relu",

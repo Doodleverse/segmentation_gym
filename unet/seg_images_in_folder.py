@@ -45,6 +45,7 @@ from tkinter import *
 import json
 from skimage.io import imsave, imread
 from numpy.lib.stride_tricks import as_strided as ast
+from glob import glob
 
 from joblib import Parallel, delayed
 from skimage.morphology import remove_small_holes, remove_small_objects
@@ -71,51 +72,6 @@ print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('
 # import pydensecrf.densecrf as dcrf
 # from pydensecrf.utils import create_pairwise_bilateral, unary_from_labels
 
-#
-# # #-----------------------------------
-# def seg_file2tensor_3band(f, resize):
-#     """
-#     "seg_file2tensor(f)"
-#     This function reads a jpeg image from file into a cropped and resized tensor,
-#     for use in prediction with a trained segmentation model
-#     INPUTS:
-#         * f [string] file name of jpeg
-#     OPTIONAL INPUTS: None
-#     OUTPUTS:
-#         * image [tensor array]: unstandardized image
-#     GLOBAL INPUTS: TARGET_SIZE
-#     """
-#     bits = tf.io.read_file(f)
-#     if 'jpg' in f:
-#         bigimage = tf.image.decode_jpeg(bits)
-#     elif 'png' in f:
-#         bigimage = tf.image.decode_png(bits)
-#
-#     w = tf.shape(bigimage)[0]
-#     h = tf.shape(bigimage)[1]
-#
-#     if resize:
-#
-#         tw = TARGET_SIZE[0]
-#         th = TARGET_SIZE[1]
-#         resize_crit = (w * th) / (h * tw)
-#         image = tf.cond(resize_crit < 1,
-#                       lambda: tf.image.resize(bigimage, [w*tw/w, h*tw/w]), # if true
-#                       lambda: tf.image.resize(bigimage, [w*th/h, h*th/h])  # if false
-#                      )
-#
-#         nw = tf.shape(image)[0]
-#         nh = tf.shape(image)[1]
-#         image = tf.image.crop_to_bounding_box(image, (nw - tw) // 2, (nh - th) // 2, tw, th)
-#         # image = tf.cast(image, tf.uint8) #/ 255.0
-#
-#
-#
-#         return image, w, h, bigimage
-#
-#     else:
-#         return None, w, h, bigimage
-#
 
 # #-----------------------------------
 def seg_file2tensor_3band(f):#, resize):
@@ -421,18 +377,21 @@ def do_seg(f, model):
 		#image = tf.image.per_image_standardization(image)
 		image = standardize(image.numpy())
 
+		# est_label = model.predict(tf.expand_dims(image, 0 , batch_size=1).squeeze()
 		est_label = model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
 		K.clear_session()
 
+		est_label = resize(est_label,(w,h))
+
 		est_label = np.argmax(est_label, -1)
 
-		est_label = resize(est_label,(w,h))
-		conf = np.max(est_label, -1)
-		conf[np.isnan(conf)] = 0
-		conf[np.isinf(conf)] = 0
-		est_label = np.argmax(est_label,-1)
+		# conf = np.max(est_label, -1)
+		# conf[np.isnan(conf)] = 0
+		# conf[np.isinf(conf)] = 0
+		#est_label = np.argmax(est_label,-1)
+        #print(est_label.shape)
 
-		est_label = np.squeeze(est_label[:w,:h])
+		#est_label = np.squeeze(est_label[:w,:h])
 
 		class_label_colormap = ['#3366CC','#DC3912','#FF9900','#109618','#990099','#0099C6','#DD4477','#66AA00','#B82E2E', '#316395']
 		#add classes for more than 10 classes
@@ -482,10 +441,34 @@ print('.....................................')
 print('Creating and compiling model ...')
 
 if MODEL =='resunet':
+    model =  custom_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                    FILTERS,
+                    nclasses=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                    kernel_size=(KERNEL,KERNEL),
+                    strides=STRIDE,
+                    dropout=DROPOUT,#0.1,
+                    dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
+                    dropout_type=DROPOUT_TYPE,#"standard",
+                    use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
+                    upsample_mode=UPSAMPLE_MODE
+                    )
+elif MODEL=='unet':
+    model =  custom_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                    FILTERS,
+                    nclasses=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                    kernel_size=(KERNEL,KERNEL),
+                    strides=STRIDE,
+                    dropout=DROPOUT,#0.1,
+                    dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
+                    dropout_type=DROPOUT_TYPE,#"standard",
+                    use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
+                    )
+
+elif MODEL =='simple_resunet':
     # num_filters = 8 # initial filters
     # model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), num_filters, NCLASSES, (KERNEL_SIZE, KERNEL_SIZE))
 
-    model = custom_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+    model = simple_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                 kernel = (2, 2),
                 num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
                 activation="relu",
@@ -499,8 +482,8 @@ if MODEL =='resunet':
                 num_layers=4,
                 strides=(1,1))
 #346,564
-elif MODEL=='unet':
-    model = custom_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+elif MODEL=='simple_unet':
+    model = simple_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                 kernel = (2, 2),
                 num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
                 activation="relu",
@@ -516,7 +499,21 @@ elif MODEL=='unet':
 #242,812
 
 elif MODEL=='satunet':
-    model = sat_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), num_classes=NCLASSES)
+    #model = sat_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), num_classes=NCLASSES)
+
+    model = custom_satunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                kernel = (2, 2),
+                num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                activation="relu",
+                use_batch_norm=True,
+                upsample_mode=UPSAMPLE_MODE,#"deconv",
+                dropout=DROPOUT,#0.1,
+                dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
+                dropout_type=DROPOUT_TYPE,#"standard",
+                use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
+                filters=FILTERS,#8,
+                num_layers=4,
+                strides=(1,1))
 
 else:
     print("Model must be one of 'unet', 'resunet', or 'satunet'")
@@ -533,9 +530,11 @@ model.load_weights(weights)
 print('.....................................')
 print('Using model for prediction on images ...')
 
-sample_filenames = sorted(tf.io.gfile.glob(sample_direc+os.sep+'*.jpg'))
+# sample_filenames = sorted(tf.io.gfile.glob(sample_direc+os.sep+'*.jpg'))
+sample_filenames = sorted(glob(sample_direc+os.sep+'*.jpg'))
 if len(sample_filenames)==0:
-    sample_filenames = sorted(tf.io.gfile.glob(sample_direc+os.sep+'*.png'))
+    # sample_filenames = sorted(tf.io.gfile.glob(sample_direc+os.sep+'*.png'))
+    sample_filenames = sorted(glob(sample_direc+os.sep+'*.png'))
 
 print('Number of samples: %i' % (len(sample_filenames)))
 
@@ -545,3 +544,51 @@ for counter,f in enumerate(sample_filenames):
 
 
 # w = Parallel(n_jobs=2, verbose=0, max_nbytes=None)(delayed(do_seg)(f) for f in tqdm(sample_filenames))
+
+
+
+#
+# # #-----------------------------------
+# def seg_file2tensor_3band(f, resize):
+#     """
+#     "seg_file2tensor(f)"
+#     This function reads a jpeg image from file into a cropped and resized tensor,
+#     for use in prediction with a trained segmentation model
+#     INPUTS:
+#         * f [string] file name of jpeg
+#     OPTIONAL INPUTS: None
+#     OUTPUTS:
+#         * image [tensor array]: unstandardized image
+#     GLOBAL INPUTS: TARGET_SIZE
+#     """
+#     bits = tf.io.read_file(f)
+#     if 'jpg' in f:
+#         bigimage = tf.image.decode_jpeg(bits)
+#     elif 'png' in f:
+#         bigimage = tf.image.decode_png(bits)
+#
+#     w = tf.shape(bigimage)[0]
+#     h = tf.shape(bigimage)[1]
+#
+#     if resize:
+#
+#         tw = TARGET_SIZE[0]
+#         th = TARGET_SIZE[1]
+#         resize_crit = (w * th) / (h * tw)
+#         image = tf.cond(resize_crit < 1,
+#                       lambda: tf.image.resize(bigimage, [w*tw/w, h*tw/w]), # if true
+#                       lambda: tf.image.resize(bigimage, [w*th/h, h*th/h])  # if false
+#                      )
+#
+#         nw = tf.shape(image)[0]
+#         nh = tf.shape(image)[1]
+#         image = tf.image.crop_to_bounding_box(image, (nw - tw) // 2, (nh - th) // 2, tw, th)
+#         # image = tf.cast(image, tf.uint8) #/ 255.0
+#
+#
+#
+#         return image, w, h, bigimage
+#
+#     else:
+#         return None, w, h, bigimage
+#

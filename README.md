@@ -31,7 +31,7 @@ This toolbox is designed to work seamlessly with [Doodler](https://github.com/db
 * [Changelog](#changelog)
 
 ## <a name="workflow"></a>Generic workflow
-This toolbox is designed for 1,3, or 4-band imagery, and supports both `binary` (one class of interest and a null class) and `multiclass` (several classes of interest). 
+This toolbox is designed for 1,3, or 4-band imagery, and supports both `binary` (one class of interest and a null class) and `multiclass` (several classes of interest).
 
 We recommend a 6 part workflow:
 
@@ -47,9 +47,9 @@ We recommend a 6 part workflow:
 
 ## <a name="model"></a>Models
 
-There are currently 3 models included in this toolbox: a classic [UNet](unet), a [Residual UNet](resunet), and the [Satellite UNet](satunet). 
+There are currently 3 models included in this toolbox: a classic [UNet](unet), a [Residual UNet](resunet), and the [Satellite UNet](satunet).
 
-*Note that the Residual UNet is a new model, and will be described more fully in a forthcoming paper.* 
+*Note that the Residual UNet is a new model, and will be described more fully in a forthcoming paper.*
 
 ### <a name="unet"></a>UNet model
 
@@ -58,7 +58,7 @@ The [UNet model](https://lmb.informatik.uni-freiburg.de/people/ronneber/u-net/) 
 The fully convolutional model framework consists of two parts, the encoder and the decoder. The encoder receives the N x N x M (M=1, 3 or 4 in this implementation) input image and applies a series of convolutional layers and pooling layers to reduce the spatial size and condense features. Six banks of convolutional filters, each using filters that double in size to the previous, thereby progressively downsampling the inputs as features are extracted through pooling. The last set of features (or so-called bottleneck) is a very low-dimensional feature representation of the input imagery. The decoder upsamples the bottleneck into a N x N x 1 label image progressively using six banks of convolutional filters, each using filters half in size to the previous, thereby progressively upsampling the inputs as features are extracted through transpose convolutions and concatenation. A transposed convolution convolves a dilated version of the input tensor, consisting of interleaving zeroed rows and columns between each pair of adjacent rows and columns in the input tensor, in order to upscale the output. The sets of features from each of the six levels in the encoder-decoder structure are concatenated, which allows learning different features at different levels and leads to spatially well-resolved outputs. The final classification layer maps the output of the previous layer to a single 2D output based on a sigmoid activation function.
 
 ### <a name="resunet"></a>Residual UNet model
-UNet with residual (or lateral/skip connections). 
+UNet with residual (or lateral/skip connections).
 
 ![Res-UNet](./unet/res-unet-diagram.png)
 
@@ -176,7 +176,7 @@ An example config file:
 Notice the last entry does *NOT* have a comma. It does not matter what order the variables are specified as, but you must use the names of the variables exactly as is described here. A description of the variables is provided below
 
 
-### Model Description configs: 
+### Model Description configs:
 * `TARGET_SIZE`: list of integer image dimensions to write to dataset and use to build and use models. This doesn't have to be the sample image dimension (it would typically be significantly smaller due to memory constraints) but it should ideally have the same aspect ratio. The target size must be compatible with the cardinality of the model. Use a `TARGET_SIZE` that makes sense for your problem, that conforms roughly with the dimensions of the imagery and labels you have for model training, and that fits in available GPU memory. You might be very surprised at the accuracy and utility of models trained with significantly downsized imagery.
 * `MODEL` : (string) specify which model you want to use, options are "unet","resunet", and "satunet".
 * `NCLASSES`: (integer) number of classes (1 = binary e.g water/no water). For multiclass segmentations, enumerate the number of classes not including a null class. For example, for 4 classes, use `NCLASSES`=4
@@ -185,7 +185,7 @@ Notice the last entry does *NOT* have a comma. It does not matter what order the
 * `N_DATA_BANDS`: (integer) number of input image bands. Typically 3 (for an RGB image, for example) or 4 (e.g. near-IR or DEM, or other relevant raster info you have at coincident resolution and coverage). Currently cannot be more than 4.
 * `DO_TRAIN`: (bool) `true` to retrain model from scratch. Otherwise, program will use existing model weights and evaluate the model based on the validation set
 
-### Model Training configs: 
+### Model Training configs:
 
 * `PATIENCE`: (integer) the number of epochs with no improvement in validation loss to wait before exiting model training
 * `MAX_EPOCHS`: (integer) the maximum number of epochs to train the model over. Early stopping should ensure this maximum is never reached
@@ -231,16 +231,16 @@ This program is structured to carry out augmentation of labeled training/validat
 
 ## <a name="retrain"></a>Train an image segmentation model using provided datasets
 
-This section is to retrain a model using the provided datasets. 
+This section is to retrain a model using the provided datasets.
 
 *Note*: you require an NVIDIA GPU with >6GB memory to train models from scratch using datasets
 
 1. Make sure you have the dataset and the config file, which should be in  `/Users/Someone/my_segmentation_zoo_datasets` in the appropraite directories.
 
-2. Now navigate to the directory with the code ( ` cd /segmentation_zoo/unet` and train the model with: 
+2. Now navigate to the directory with the code ( ` cd /segmentation_zoo/unet` and train the model with:
 
 ```
-python train_resunet.py
+python train_model.py
 ```
 
 You will be prompted via a GUI to provide the `config` file, images, and labels. Then the program will print some example training and validation samples in a `sample/` folder in the directory with the data.
@@ -283,8 +283,6 @@ Evaluating model ...
 loss=0.1229, Mean IOU=0.7988, Mean Dice=0.8771
 ```
 
-The IOU and Dice coefficients are accuracy metrics. The model then prints several model output examples from the validation set to files located in the `examples` folder (for this example, `res_unet/model_training/examples/oblique_coast_watermask`)
-
 ## <a name="newdata"></a>Train a model for image segmentation using your own data.
 
 *Coming Soon*
@@ -321,20 +319,10 @@ The IOU and Dice coefficients are accuracy metrics. The model then prints severa
 * imports and model_imports are separated, the former for non-tf/keras, and the latter for tf/keras
 * cleaned up import functions and and called dependencies
 
-
-## tested combos
-
-### UNet
-"FILTERS":16,  
-Total params: 877,572
-
-"FILTERS":13,  
-580,272
-
-"FILTERS":12,  
-494,788
-
-##Res-Unet
-
-"FILTERS":10,  
-Total params: 603,064
+##version 0.0.6, 10/21/28
+* re-implements res-unet and vanilla unet, in a consistent way, and with much bigger options, but with the original keras codes for model arechitecture, facilitating:
+  * any kernel size up to 7x7 or perhaps more?
+  * any stride size
+  * with dropout
+  * upsampling deconv and simple
+* previous unets from 0.0.5 are kept, called 'satunet,' 'simple_unet,' and 'simple_resunet'
