@@ -45,6 +45,7 @@ data_path = root.filename
 print(data_path)
 root.withdraw()
 
+
 weights = configfile.replace('.json','.h5').replace('config', 'weights')
 
 try:
@@ -299,7 +300,7 @@ val_ds = val_ds.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be 
 val_ds = val_ds.prefetch(AUTO) #
 
 
-### uncommant to view examples
+# ## uncommant to view examples
 # class_label_colormap = ['#3366CC','#DC3912','#FF9900','#109618','#990099','#0099C6','#DD4477','#66AA00','#B82E2E', '#316395']
 # #add classes for more than 10 classes
 #
@@ -417,7 +418,12 @@ with open(MODEL+'_report.txt','w') as fh:
     # Pass the file handle in as a lambda function to make it callable
     model.summary(print_fn=lambda x: fh.write(x + '\n'))
 
-model.compile(optimizer = 'adam', loss =dice_coef_loss, metrics = [mean_iou, dice_coef])
+if LOSS=='hinge':
+    model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalHinge(), metrics = [mean_iou, dice_coef])
+elif LOSS=='dice':
+    model.compile(optimizer = 'adam', loss =dice_coef_loss, metrics = [mean_iou, dice_coef])
+elif LOSS.startswith('cat'):
+    model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalCrossentropy(), metrics = [mean_iou, dice_coef])
 
 
 if MODEL =='resunet':
