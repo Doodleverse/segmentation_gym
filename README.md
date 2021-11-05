@@ -47,7 +47,7 @@ We recommend a 6 part workflow:
 
 ## <a name="model"></a>Models
 
-There are currently 3 models included in this toolbox: a classic [UNet](unet), a [Residual UNet](resunet), and the [Satellite UNet](satunet).
+There are currently 5 models included in this toolbox: a 2 [UNets](unet), 2 [Residual UNets](resunet), and a [Satellite UNet](satunet).
 
 *Note that the Residual UNet is a new model, and will be described more fully in a forthcoming paper.*
 
@@ -57,12 +57,16 @@ The [UNet model](https://lmb.informatik.uni-freiburg.de/people/ronneber/u-net/) 
 
 The fully convolutional model framework consists of two parts, the encoder and the decoder. The encoder receives the N x N x M (M=1, 3 or 4 in this implementation) input image and applies a series of convolutional layers and pooling layers to reduce the spatial size and condense features. Six banks of convolutional filters, each using filters that double in size to the previous, thereby progressively downsampling the inputs as features are extracted through pooling. The last set of features (or so-called bottleneck) is a very low-dimensional feature representation of the input imagery. The decoder upsamples the bottleneck into a N x N x 1 label image progressively using six banks of convolutional filters, each using filters half in size to the previous, thereby progressively upsampling the inputs as features are extracted through transpose convolutions and concatenation. A transposed convolution convolves a dilated version of the input tensor, consisting of interleaving zeroed rows and columns between each pair of adjacent rows and columns in the input tensor, in order to upscale the output. The sets of features from each of the six levels in the encoder-decoder structure are concatenated, which allows learning different features at different levels and leads to spatially well-resolved outputs. The final classification layer maps the output of the previous layer to a single 2D output based on a sigmoid activation function.
 
+There are two options with the Unet architecture in this repository: a simple version and a highly configurable version... *more detail coming soon*
+
 ### <a name="resunet"></a>Residual UNet model
 UNet with residual (or lateral/skip connections).
 
 ![Res-UNet](./unet/res-unet-diagram.png)
 
  The difference between our Res Unet and the original UNet is in the use of three residual-convolutional encoding and decoding layers instead of regular six convolutional encoding and decoding layers. Residual or 'skip' connections have been shown in numerous contexts to facilitate information flow, which is why we have halved the number of convolutional layers but can still achieve good accuracy on the segmentation tasks. The skip connections essentially add the outputs of the regular convolutional block (sequence of convolutions and ReLu activations) with the inputs, so the model learns to map feature representations in context to the inputs that created those representations.
+
+There are two options with the Res-Unet architecture in this repository: a simple version and a highly configurable version... *more detail coming soon*
 
 ### <a name="satunet"></a>Satellite UNet model
 
@@ -141,12 +145,14 @@ An example config file:
     "MODEL": "resunet",
     "NCLASSES": 4,
     "BATCH_SIZE": 7,
-    "FILTERS":8,
     "N_DATA_BANDS": 3,
     "DO_TRAIN": true,
     "PATIENCE": 10,
     "MAX_EPOCHS": 100,
     "VALIDATION_SPLIT": 0.2,
+    "FILTERS":8,
+    "KERNEL":7,
+    "STRIDE":1,
     "DROPOUT":0.1,
     "DROPOUT_CHANGE_PER_LAYER":0.0,
     "DROPOUT_TYPE":"standard",
@@ -177,10 +183,9 @@ Notice the last entry does *NOT* have a comma. It does not matter what order the
 
 ### Model Description configs:
 * `TARGET_SIZE`: list of integer image dimensions to write to dataset and use to build and use models. This doesn't have to be the sample image dimension (it would typically be significantly smaller due to memory constraints) but it should ideally have the same aspect ratio. The target size must be compatible with the cardinality of the model. Use a `TARGET_SIZE` that makes sense for your problem, that conforms roughly with the dimensions of the imagery and labels you have for model training, and that fits in available GPU memory. You might be very surprised at the accuracy and utility of models trained with significantly downsized imagery.
-* `MODEL` : (string) specify which model you want to use, options are "unet","resunet", and "satunet".
+* `MODEL` : (string) specify which model you want to use, options are "unet","resunet", "simple_unet", "simple_resunet", and "satunet".
 * `NCLASSES`: (integer) number of classes (1 = binary e.g water/no water). For multiclass segmentations, enumerate the number of classes not including a null class. For example, for 4 classes, use `NCLASSES`=4
 * `BATCH_SIZE`: (integer) number of images to use in a batch. Typically better to use larger batch sizes but also uses more memory
-* `FILTERS`: (integer) number of initial filters per convolutional block, doubled every layer
 * `N_DATA_BANDS`: (integer) number of input image bands. Typically 3 (for an RGB image, for example) or 4 (e.g. near-IR or DEM, or other relevant raster info you have at coincident resolution and coverage). Currently cannot be more than 4.
 * `DO_TRAIN`: (bool) `true` to retrain model from scratch. Otherwise, program will use existing model weights and evaluate the model based on the validation set
 
@@ -191,7 +196,10 @@ Notice the last entry does *NOT* have a comma. It does not matter what order the
 * `VALIDATION_SPLIT`: (float) the proportion of the dataset to use for validation. The rest will be used for model training. Typically in the range 0.5 -- 0.9 for model training on large datasets
 
 ### Model Architecture configs:
-* `DROPOUT` : (integer) 0.1,
+* `FILTERS` : (integer) number of initial filters per convolutional block, doubled every layer
+* `KERNEL` : (integer) the size of the Conv kernel
+* `STRIDE` : (integer) the Conv stride
+* `DROPOUT` : (integer) the fraction of dropout.
 * `DROPOUT_CHANGE_PER_LAYER` : (integer) changes dropout by addition/ subtraction on encoder/decoder layers
 * `DROPOUT_TYPE` : (string) "standard" or "spatial"
 * `USE_DROPOUT_ON_UPSAMPLING` : (bool) if True, dropout is used on upsampling, otherwise it is not
