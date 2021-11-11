@@ -1,3 +1,4 @@
 unet/*test.png
 unet/*report.txt
 unet/__pycache__/*
+unet/future_functions/*

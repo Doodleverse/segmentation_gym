@@ -23,8 +23,11 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import os
-import os, json, shutil
+
+import sys,os, time
+sys.path.insert(1, 'src')
+
+import json, shutil
 from tkinter import filedialog
 from tkinter import *
 from random import shuffle
@@ -108,13 +111,15 @@ def load_npz(example):
             image = standardize(image)
             nir = data['arr_1'].astype('uint8')
             label = data['arr_2'].astype('uint8')
-        return image, nir,label
+            #file = str(data['arr_2'])
+        return image, nir,label#, file
     else:
         with np.load(example.numpy()) as data:
             image = data['arr_0'].astype('uint8')
             image = standardize(image)
             label = data['arr_1'].astype('uint8')
-        return image, label
+            #file = str(data['arr_2'])
+        return image, label#, file
 
 @tf.autograph.experimental.do_not_convert
 #-----------------------------------
@@ -131,9 +136,11 @@ def read_seg_dataset_multiclass(example):
         * class_label [tensor array]
     """
     if N_DATA_BANDS==4:
+        # image, nir, label, file = tf.py_function(func=load_npz, inp=[example], Tout=[tf.uint8, tf.uint8, tf.uint8, tf.str])
         image, nir, label = tf.py_function(func=load_npz, inp=[example], Tout=[tf.uint8, tf.uint8, tf.uint8])
         nir = tf.cast(nir, tf.float32)#/ 255.0
     else:
+        #image, label, file = tf.py_function(func=load_npz, inp=[example], Tout=[tf.float32, tf.uint8, tf.str])
         image, label = tf.py_function(func=load_npz, inp=[example], Tout=[tf.float32, tf.uint8])
 
     if NCLASSES==1:
@@ -304,7 +311,14 @@ for copy in tqdm(range(AUG_COPIES)):
             #grab a batch of images and label images
             x, y = next(train_generator)
 
+            # filenames=[]
+            # for i in train_generator:
+            #     idx = (train_generator.batch_index - 1) * train_generator.batch_size
+            #     filename = train_generator.filenames[idx : idx + train_generator.batch_size]
+            #     filenames.append(filename)
+
             # wrute them to file and increment the counter
+            # for im,lab,file in zip(x,y,filenames):
             for im,lab in zip(x,y):
 
                 # plt.imshow(im/255.); plt.imshow(lab, alpha=0.5); plt.show()
@@ -371,14 +385,19 @@ for copy in tqdm(range(AUG_COPIES)):
 
                     #for kk in range(lstack.shape[-1]):
                     if USEMASK:
+                        # np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), lstack.astype(np.uint8), file)
                         np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), lstack.astype(np.uint8))
                     else:
+                        # np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), lstack.astype(np.uint8), file)
                         np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), lstack.astype(np.uint8))
                 else:
                     if USEMASK:
+                        # np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(lstack).astype(np.uint8), file)
                         np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(lstack).astype(np.uint8))
                     else:
+                        # np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(lstack).astype(np.uint8), file)
                         np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(lstack).astype(np.uint8))
+
 
                 # except:
                 #     print('Error ')
@@ -514,7 +533,7 @@ if N_DATA_BANDS<=3:
     for imgs,lbls in dataset.take(10):
       #print(lbls)
       for count,(im,lab) in enumerate(zip(imgs, lbls)):
-         
+
          im = rescale(im.numpy(), 0, 1)
          plt.imshow(im)
 

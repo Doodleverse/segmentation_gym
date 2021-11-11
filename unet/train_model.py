@@ -23,7 +23,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import os
+
+import sys,os, time
+sys.path.insert(1, 'src')
+
 import json
 from tkinter import filedialog
 from tkinter import *

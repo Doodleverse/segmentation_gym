@@ -3,7 +3,7 @@
   "MODEL": "unet",
   "NCLASSES": 1,
   "KERNEL":3,
-  "STRIDE":1,
+  "STRIDE":2,
   "BATCH_SIZE": 5,
   "FILTERS":8,
   "N_DATA_BANDS": 3,
