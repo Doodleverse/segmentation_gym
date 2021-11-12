@@ -191,7 +191,7 @@ def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_ba
     else:
         class_label_colormap = class_label_colormap[:NCLASSES+1]
 
-    IOUc = []; Dc=[]
+    IOUc = []; Dc=[]; Kc = []
 
     counter = 0
     for i,l in ds.take(num_batches):
@@ -207,6 +207,11 @@ def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_ba
 
             dicescore = mean_dice_np(tf.expand_dims(lbl, 0), est_label)
             # print(dicescore)
+
+            kl = tf.keras.losses.KLDivergence()
+            kld = kl(tf.expand_dims(lbl, 0), est_label).numpy()
+            #print(kld)
+
 
             if NCLASSES==1:
                 est_label = np.argmax(est_label.squeeze(), -1)
@@ -256,11 +261,12 @@ def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_ba
                     plt.imshow(color_estlabel, alpha=0.5)#, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES-1)
 
                 plt.axis('off')
-                plt.title('dice = '+str(dicescore)[:5], fontsize=6)
+                plt.title('dice = '+str(dicescore)[:5]+', kl = '+str(kld)[:5], fontsize=6)
                 IOUc.append(iouscore)
                 Dc.append(dicescore)
+                Kc.append(kld)
 
-                del iouscore, dicescore
+                del iouscore, dicescore, kld
 
                 if subset=='val':
                     plt.savefig(test_samples_fig.replace('_val.png', '_val_'+str(counter)+'.png'),
@@ -273,7 +279,7 @@ def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_ba
             counter += 1
             K.clear_session()
 
-    return IOUc, Dc
+    return IOUc, Dc, Kc
 
 
 ###==========================================================
@@ -430,6 +436,8 @@ elif LOSS=='dice':
     model.compile(optimizer = 'adam', loss =dice_coef_loss, metrics = [mean_iou, dice_coef])
 elif LOSS.startswith('cat'):
     model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalCrossentropy(), metrics = [mean_iou, dice_coef])
+elif LOSS.startswith('k'):
+    model.compile(optimizer = 'adam', loss =tf.keras.losses.KLDivergence(), metrics = [mean_iou, dice_coef])
 
 
 if MODEL =='resunet':
@@ -484,10 +492,18 @@ print('loss={loss:0.4f}, Mean IOU={mean_iou:0.4f}, Mean Dice={mean_dice:0.4f}'.f
 # # # ##########################################################
 
 
-IOUc, Dc = plotcomp_n_getiou(val_ds,model,NCLASSES,DOPLOT,test_samples_fig,'val')
+IOUc, Dc, Kc = plotcomp_n_getiou(val_ds,model,NCLASSES,DOPLOT,test_samples_fig,'val')
 print('Mean of mean IoUs (validation subset)={mean_iou:0.3f}'.format(mean_iou=np.mean(IOUc)))
 print('Mean of mean Dice scores (validation subset)={mean_dice:0.3f}'.format(mean_dice=np.mean(Dc)))
+print('Mean of mean KLD scores (train subset)={mean_kld:0.3f}'.format(mean_kld=np.mean(Kc)))
 
-IOUc, Dc = plotcomp_n_getiou(train_ds,model,NCLASSES,DOPLOT,test_samples_fig,'train')
+
+IOUc, Dc, Kc = plotcomp_n_getiou(train_ds,model,NCLASSES,DOPLOT,test_samples_fig,'train')
 print('Mean of mean IoUs (train subset)={mean_iou:0.3f}'.format(mean_iou=np.mean(IOUc)))
 print('Mean of mean Dice scores (train subset)={mean_dice:0.3f}'.format(mean_dice=np.mean(Dc)))
+print('Mean of mean KLD scores (train subset)={mean_kld:0.3f}'.format(mean_kld=np.mean(Kc)))
+
+
+plt.plot(Dc, Kc, 'ko')
+plt.savefig('D_vs_KL.png', dpi=200)
+plt.close()

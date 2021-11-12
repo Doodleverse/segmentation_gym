@@ -35,7 +35,7 @@ from glob import glob
 # import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('Agg')
-from matplotlib import pyplot
+import matplotlib.pyplot as plt
 
 import numpy as np
 
