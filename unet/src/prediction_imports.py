@@ -229,16 +229,16 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,tem
         #image = tf.image.per_image_standardization(image)
         image = standardize(image.numpy())
 
-        est_label = np.zeros((w,h, NCLASSES))
+        est_label = np.zeros((TARGET_SIZE[0],TARGET_SIZE[1], NCLASSES))
         for counter,model in enumerate(M):
 
             # est_label = model.predict(tf.expand_dims(image, 0 , batch_size=1).squeeze()
-            est_label += model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
+            est_label = model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
+            est_label += resize(est_label,(TARGET_SIZE[0],TARGET_SIZE[1]))
             K.clear_session()
 
-        est_label = resize(est_label,(w,h))
-
         est_label /= counter+1
+        est_label = resize(est_label,(w,h))
 
         datadict['av_prob_stack'] = est_label
 
