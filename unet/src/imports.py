@@ -32,7 +32,11 @@ from model_imports import *
 # from scipy.ndimage import rotate
 
 from glob import glob
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')
+from matplotlib import pyplot
+
 import numpy as np
 
 

@@ -135,18 +135,16 @@ def load_npz(example):
             image = data['arr_0'].astype('uint8')
             image = standardize(image)
             nir = data['arr_1'].astype('uint8')
-            nir = standardize(nir)
             label = data['arr_2'].astype('uint8')
-            image = tf.stack([image, nir], axis=-1)
-
-        return image, nir,label
+            #file = str(data['arr_2'])
+        return image, nir,label#, file
     else:
         with np.load(example.numpy()) as data:
             image = data['arr_0'].astype('uint8')
             image = standardize(image)
             label = data['arr_1'].astype('uint8')
-
-        return image, label
+            #file = str(data['arr_2'])
+        return image, label#, file
 
 
 @tf.autograph.experimental.do_not_convert
@@ -164,39 +162,36 @@ def read_seg_dataset_multiclass(example):
         * class_label [tensor array]
     """
     if N_DATA_BANDS==4:
+        # image, nir, label, file = tf.py_function(func=load_npz, inp=[example], Tout=[tf.uint8, tf.uint8, tf.uint8, tf.string])
         image, nir, label = tf.py_function(func=load_npz, inp=[example], Tout=[tf.uint8, tf.uint8, tf.uint8])
         nir = tf.cast(nir, tf.float32)#/ 255.0
     else:
+        #image, label, file = tf.py_function(func=load_npz, inp=[example], Tout=[tf.float32, tf.uint8, tf.string])
         image, label = tf.py_function(func=load_npz, inp=[example], Tout=[tf.float32, tf.uint8])
-
-
-    if N_DATA_BANDS==4:
-        image = tf.concat([image, tf.expand_dims(nir,-1)],-1)
 
     if NCLASSES==1:
         label = tf.expand_dims(label,-1)
 
-    if NCLASSES>1:
-        if N_DATA_BANDS>1:
-            return tf.squeeze(image), tf.squeeze(label)
-        else:
-            return image, label
+    if N_DATA_BANDS==4:
+        image = tf.concat([image, tf.expand_dims(nir,-1)],-1)
+        return image, label#, file
     else:
-        return image, label
+        return image, label#, file
 
 
-
+#-----------------------------------
 def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_batches=10):
 
-    class_label_colormap = ['#3366CC','#DC3912','#FF9900','#109618','#990099','#0099C6','#DD4477','#66AA00','#B82E2E', '#316395']
-    #add classes for more than 10 classes
+    class_label_colormap = ['#3366CC','#DC3912','#FF9900','#109618','#990099','#0099C6','#DD4477',
+                            '#66AA00','#B82E2E', '#316395','#0d0887', '#46039f', '#7201a8',
+                            '#9c179e', '#bd3786', '#d8576b', '#ed7953', '#fb9f3a', '#fdca26', '#f0f921']
 
     if NCLASSES>1:
         class_label_colormap = class_label_colormap[:NCLASSES]
     else:
         class_label_colormap = class_label_colormap[:NCLASSES+1]
 
-    IOUc = []
+    IOUc = []; Dc=[]
 
     counter = 0
     for i,l in ds.take(num_batches):
@@ -205,14 +200,20 @@ def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_ba
 
             img = standardize(img)
 
-            est_label = model.predict(tf.expand_dims(img, 0) , batch_size=1).squeeze()
+            est_label = model.predict(tf.expand_dims(img, 0) , batch_size=1)
+
+            iouscore = mean_iou_np(tf.expand_dims(lbl, 0), est_label)
+            # print(iouscore)
+
+            dicescore = mean_dice_np(tf.expand_dims(lbl, 0), est_label)
+            # print(dicescore)
 
             if NCLASSES==1:
-                est_label = np.argmax(est_label, -1)
+                est_label = np.argmax(est_label.squeeze(), -1)
                 est_label[est_label<.5] = 0
                 est_label[est_label>.5] = 1
             else:
-                est_label = np.argmax(est_label, -1)
+                est_label = np.argmax(est_label.squeeze(), -1)
 
             if NCLASSES==1:
                 lbl = lbl.numpy().squeeze()
@@ -220,7 +221,6 @@ def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_ba
             else:
                 lbl = np.argmax(lbl.numpy(), -1)
 
-            iouscore = iou(lbl, est_label, NCLASSES)
 
             img = rescale(img.numpy(), 0, 1)
 
@@ -256,8 +256,11 @@ def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_ba
                     plt.imshow(color_estlabel, alpha=0.5)#, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES-1)
 
                 plt.axis('off')
-                plt.title('iou = '+str(iouscore)[:5], fontsize=6)
+                plt.title('dice = '+str(dicescore)[:5], fontsize=6)
                 IOUc.append(iouscore)
+                Dc.append(dicescore)
+
+                del iouscore, dicescore
 
                 if subset=='val':
                     plt.savefig(test_samples_fig.replace('_val.png', '_val_'+str(counter)+'.png'),
@@ -268,8 +271,9 @@ def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_ba
 
                 plt.close('all')
             counter += 1
+            K.clear_session()
 
-    return IOUc
+    return IOUc, Dc
 
 
 ###==========================================================
@@ -302,10 +306,11 @@ val_ds = val_ds.repeat()
 val_ds = val_ds.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be needed on TPU
 val_ds = val_ds.prefetch(AUTO) #
 
-
+#
 # ## uncommant to view examples
-# class_label_colormap = ['#3366CC','#DC3912','#FF9900','#109618','#990099','#0099C6','#DD4477','#66AA00','#B82E2E', '#316395']
-# #add classes for more than 10 classes
+# class_label_colormap = ['#3366CC','#DC3912','#FF9900','#109618','#990099','#0099C6','#DD4477',
+#                         '#66AA00','#B82E2E', '#316395','#0d0887', '#46039f', '#7201a8',
+#                         '#9c179e', '#bd3786', '#d8576b', '#ed7953', '#fb9f3a', '#fdca26', '#f0f921']
 #
 # if NCLASSES>1:
 #     class_label_colormap = class_label_colormap[:NCLASSES]
@@ -365,8 +370,6 @@ elif MODEL=='unet':
                     )
 
 elif MODEL =='simple_resunet':
-    # num_filters = 8 # initial filters
-    # model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), num_filters, NCLASSES, (KERNEL_SIZE, KERNEL_SIZE))
 
     model = simple_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                 kernel = (2, 2),
@@ -480,32 +483,11 @@ print('loss={loss:0.4f}, Mean IOU={mean_iou:0.4f}, Mean Dice={mean_dice:0.4f}'.f
 
 # # # ##########################################################
 
-IOUc = plotcomp_n_getiou(val_ds,model,NCLASSES,DOPLOT,test_samples_fig,'val')
-print('Mean IoU (validation subset)={mean_iou:0.3f}'.format(mean_iou=np.mean(IOUc)))
 
-IOUc = plotcomp_n_getiou(train_ds,model,NCLASSES,DOPLOT,test_samples_fig,'train')
-print('Mean IoU (train subset)={mean_iou:0.3f}'.format(mean_iou=np.mean(IOUc)))
+IOUc, Dc = plotcomp_n_getiou(val_ds,model,NCLASSES,DOPLOT,test_samples_fig,'val')
+print('Mean of mean IoUs (validation subset)={mean_iou:0.3f}'.format(mean_iou=np.mean(IOUc)))
+print('Mean of mean Dice scores (validation subset)={mean_dice:0.3f}'.format(mean_dice=np.mean(Dc)))
 
-
-# if DO_TRAIN:
-#     # if N_DATA_BANDS<=3:
-#     for imgs,lbls in train_ds.take(10):
-#         print(imgs.shape)
-#         print(lbls.shape)
-
-# plt.figure(figsize=(16,16))
-# for imgs,lbls in train_ds.take(100):
-#   #print(lbls)
-#   for count,(im,lab) in enumerate(zip(imgs, lbls)):
-#      plt.subplot(int(BATCH_SIZE+1/2),2,count+1)
-#      plt.imshow(im)
-#      if NCLASSES==1:
-#          plt.imshow(lab, cmap='gray', alpha=0.5, vmin=0, vmax=NCLASSES)
-#      else:
-#          lab = np.argmax(lab,-1)
-#          plt.imshow(lab, cmap='bwr', alpha=0.5, vmin=0, vmax=NCLASSES)
-#
-#      plt.axis('off')
-#      print(np.unique(lab))
-#      plt.axis('off')
-#      plt.close('all')
+IOUc, Dc = plotcomp_n_getiou(train_ds,model,NCLASSES,DOPLOT,test_samples_fig,'train')
+print('Mean of mean IoUs (train subset)={mean_iou:0.3f}'.format(mean_iou=np.mean(IOUc)))
+print('Mean of mean Dice scores (train subset)={mean_dice:0.3f}'.format(mean_dice=np.mean(Dc)))

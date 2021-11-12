@@ -365,7 +365,7 @@ def custom_resunet(sz,
 
         use_dropout_on_upsampling (bool): Whether to use dropout in the decoder part of the network
 
-        filters (int): Convolutional filters in the initial convolutional block. Will be doubled every block   
+        filters (int): Convolutional filters in the initial convolutional block. Will be doubled every block
     OPTIONAL INPUTS:
         * `kernel_size`=(7, 7): tuple of kernel size (x, y) - this is the size in pixels of the kernel to be convolved with the image
         * `padding`="same":  see tf.keras.layers.Conv2D
@@ -832,6 +832,72 @@ def iou(obs, est,nclasses):
 
     return IOU
 
+# #-----------------------------------
+
+def mean_iou_np(y_true, y_pred):
+    """
+    mean_iou(y_true, y_pred)
+    This function computes the mean IoU between `y_true` and `y_pred`: this version is  numpy
+
+    INPUTS:
+        * y_true: true masks, one-hot encoded.
+            * Inputs are B*W*H*N tensors, with
+                B = batch size,
+                W = width,
+                H = height,
+                N = number of classes
+        * y_pred: predicted masks, either softmax outputs, or one-hot encoded.
+            * Inputs are B*W*H*N tensors, with
+                B = batch size,
+                W = width,
+                H = height,
+                N = number of classes
+    OPTIONAL INPUTS: None
+    GLOBAL INPUTS: None
+    OUTPUTS:
+        * IoU score [tensor]
+    """
+    # yt0 = tf.expand_dims(lbl, 0)
+    # yp0 = (est_label > 0.5).astype('float32')
+    yt0 = y_true[:,:,:,0]
+    yp0 = (y_pred[:,:,:,0] > 0.5).astype('float32')
+    inter = np.count_nonzero(np.logical_and(np.equal(yt0, 1), np.equal(yp0, 1)))
+    union = np.count_nonzero(tf.add(yt0, yp0))
+    iou = np.where(np.equal(union, 0), 1., (inter/union))
+
+    return iou
+
+
+#-----------------------------------
+def mean_dice_np(y_true, y_pred):
+    """
+    dice_coef(y_true, y_pred)
+
+    This function computes the mean Dice coefficient between `y_true` and `y_pred`: this version is tensorflow (not numpy) and is used by tensorflow training and evaluation functions
+
+    INPUTS:
+        * y_true: true masks, one-hot encoded.
+            * Inputs are B*W*H*N tensors, with
+                B = batch size,
+                W = width,
+                H = height,
+                N = number of classes
+        * y_pred: predicted masks, either softmax outputs, or one-hot encoded.
+            * Inputs are B*W*H*N tensors, with
+                B = batch size,
+                W = width,
+                H = height,
+                N = number of classes
+    OPTIONAL INPUTS: None
+    GLOBAL INPUTS: None
+    OUTPUTS:
+        * Dice score [tensor]
+    """
+    smooth = 1.
+    y_true_f = np.reshape(tf.dtypes.cast(y_true, tf.float32), [-1])
+    y_pred_f = np.reshape(tf.dtypes.cast(y_pred, tf.float32), [-1])
+    intersection = np.sum(y_true_f * y_pred_f)
+    return (2. * intersection + smooth) / (np.sum(y_true_f) + np.sum(y_pred_f) + smooth)
 
 
 # #-----------------------------------
