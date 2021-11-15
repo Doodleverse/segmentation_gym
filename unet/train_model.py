@@ -476,6 +476,8 @@ if DO_TRAIN:
     plt.close('all')
     K.clear_session()
 
+    np.savez_compressed(weights.replace('.h5','_model_history.npz'),**history.history)
+
 else:
     model.load_weights(weights)
 
@@ -504,6 +506,6 @@ print('Mean of mean Dice scores (train subset)={mean_dice:0.3f}'.format(mean_dic
 print('Mean of mean KLD scores (train subset)={mean_kld:0.3f}'.format(mean_kld=np.mean(Kc)))
 
 
-plt.plot(Dc, Kc, 'ko')
-plt.savefig('D_vs_KL.png', dpi=200)
-plt.close()
+# plt.plot(Dc, Kc, 'ko')
+# plt.savefig('D_vs_KL.png', dpi=200)
+# plt.close()

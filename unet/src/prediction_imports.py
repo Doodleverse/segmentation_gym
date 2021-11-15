@@ -184,6 +184,7 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,tem
         E0 = []; E1 = [];
 
         for counter,model in enumerate(M):
+            heatmap = make_gradcam_heatmap(tf.expand_dims(image, 0) , model)
 
             est_label = model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
             print('Model {} applied'.format(counter))
@@ -191,6 +192,7 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,tem
             E1.append(resize(est_label[:,:,1],(w,h), preserve_range=True, clip=True))
             del est_label
 
+        heatmap = resize(heatmap,(w,h), preserve_range=True, clip=True)
         K.clear_session()
 
         e0 = np.average(np.dstack(E0), axis=-1)#, weights=np.array(MW))
@@ -229,8 +231,10 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,tem
         #image = tf.image.per_image_standardization(image)
         image = standardize(image.numpy())
 
+
         est_label = np.zeros((TARGET_SIZE[0],TARGET_SIZE[1], NCLASSES))
         for counter,model in enumerate(M):
+            heatmap = make_gradcam_heatmap(tf.expand_dims(image, 0) , model)
 
             # est_label = model.predict(tf.expand_dims(image, 0 , batch_size=1).squeeze()
             est_label = model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
@@ -245,6 +249,7 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,tem
         est_label = np.argmax(est_label, -1)
         metadatadict['otsu_threshold'] = np.nan
 
+    heatmap = resize(heatmap,(w,h), preserve_range=True, clip=True)
 
     class_label_colormap = ['#3366CC','#DC3912','#FF9900','#109618','#990099','#0099C6','#DD4477','#66AA00','#B82E2E', '#316395']
     #add classes for more than 10 classes
@@ -288,3 +293,52 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,tem
     # plt.show()
     plt.savefig(segfile, dpi=200, bbox_inches='tight')
     plt.close('all')
+
+    segfile = segfile.replace('_overlay.png','_gradcam.png')
+
+    plt.imshow(bigimage); plt.imshow(heatmap, cmap='bwr', alpha=0.5);
+    plt.axis('off')
+    # plt.show()
+    plt.savefig(segfile, dpi=200, bbox_inches='tight')
+    plt.close('all')
+
+
+
+def make_gradcam_heatmap(image, model):
+
+    # Remove last layer's softmax
+    model.layers[-2].activation = None
+
+    last_conv_layer_name = model.layers[-39].name
+    print(last_conv_layer_name)
+
+   # First, we create a model that maps the input image to the activations
+    # of the last conv layer as well as the output predictions
+    grad_model = tf.keras.models.Model(
+        [model.inputs], [model.get_layer(last_conv_layer_name).output, model.output], trainable=False
+    )
+
+    #then gradient of the output with respect to the output feature map of the last conv layer
+    with tf.GradientTape() as tape:
+        last_conv_layer_output, preds = grad_model(image)
+
+        grads = tape.gradient(preds, last_conv_layer_output)
+    #mean intensity of the gradient
+    # importance of each channel
+    pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
+
+    # We multiply each channel in the feature map array
+    # by "how important this channel is" with regard to the top predicted class
+    # then sum all the channels to obtain the heatmap class activation
+    last_conv_layer_output = last_conv_layer_output[0]
+    heatmap = last_conv_layer_output @ pooled_grads[..., tf.newaxis]
+    heatmap = tf.squeeze(heatmap)
+
+    #normalize the heatmap between 0 & 1
+    heatmap = tf.maximum(heatmap, 0) / tf.math.reduce_max(heatmap)
+
+    heatmap = heatmap.numpy().squeeze()
+
+    #plt.imshow(image.numpy().squeeze()); plt.imshow(heatmap, cmap='bwr',alpha=0.5); plt.savefig('tmp.png')
+
+    return heatmap

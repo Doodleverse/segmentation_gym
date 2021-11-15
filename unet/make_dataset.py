@@ -236,6 +236,8 @@ if N_DATA_BANDS==4:
             shutil.move(file,nimdir+os.sep+'nir')
 
 
+if AUG_LOOPS<2:
+    AUG_LOOPS=2
 
 # if DO_AUG:
 # we create two instances with the same arguments
@@ -312,7 +314,6 @@ for copy in tqdm(range(AUG_COPIES)):
 
             idx = (img_generator.batch_index - 1) * img_generator.batch_size
             filenames = img_generator.filenames[idx : idx + img_generator.batch_size]
-
             #print(filenames)
 
             # wrute them to file and increment the counter
@@ -373,22 +374,24 @@ for copy in tqdm(range(AUG_COPIES)):
                         lstack[:,:,kk] = np.round(l).astype(np.uint8)
                         del l
 
-                if NCLASSES>1:
+                # if NCLASSES>1:
+                #
+                #     #for kk in range(lstack.shape[-1]):
+                #     if USEMASK:
+                #         np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), lstack.astype(np.uint8), file)
+                #         # np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), lstack.astype(np.uint8))
+                #     else:
+                #         np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), lstack.astype(np.uint8), file)
+                #         # np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), lstack.astype(np.uint8))
+                # else:
+                #     if USEMASK:
+                #         np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(lstack).astype(np.uint8), file)
+                #         # np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(lstack).astype(np.uint8))
+                #     else:
+                #         np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(lstack).astype(np.uint8), file)
+                #         # np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(lstack).astype(np.uint8))
 
-                    #for kk in range(lstack.shape[-1]):
-                    if USEMASK:
-                        np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), lstack.astype(np.uint8), file)
-                        # np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), lstack.astype(np.uint8))
-                    else:
-                        np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), lstack.astype(np.uint8), file)
-                        # np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), lstack.astype(np.uint8))
-                else:
-                    if USEMASK:
-                        np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(lstack).astype(np.uint8), file)
-                        # np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(lstack).astype(np.uint8))
-                    else:
-                        np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(lstack).astype(np.uint8), file)
-                        # np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(lstack).astype(np.uint8))
+                np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(lstack).astype(np.uint8), file)
 
                 i += 1
 
@@ -457,23 +460,23 @@ for copy in tqdm(range(AUG_COPIES)):
                         l = remove_small_holes(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
                         lstack[:,:,kk] = np.round(l).astype(np.uint8)
                         del l
-                try:
+                # try:
 
-                    if NCLASSES>1:
+                    # if NCLASSES>1:
+                    #
+                    #     if USEMASK:
+                    #         np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), lstack.astype(np.uint8))
+                    #     else:
+                    #         np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), lstack.astype(np.uint8))
+                    # else:
+                    #     if USEMASK:
+                    #         np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), lstack.astype(np.uint8))
+                    #     else:
+                np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), lstack.astype(np.uint8))
 
-                        if USEMASK:
-                            np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), lstack.astype(np.uint8))
-                        else:
-                            np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), lstack.astype(np.uint8))
-                    else:
-                        if USEMASK:
-                            np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), lstack.astype(np.uint8))
-                        else:
-                            np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), lstack.astype(np.uint8))
-
-                except:
-                    print('Error ')
-                    pass
+                # except:
+                #     print('Error ')
+                #     pass
 
                 i += 1
 
