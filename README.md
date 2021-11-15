@@ -40,10 +40,12 @@ We recommend a 6 part workflow:
 3. Write a `config` file for your data. You will need to make some decisions about the model and hyperparameters.
 4. Run `make_dataset.py` to augment and package your images into npz files for training the model.  
 5. Run `train_model.py` to train a segmentation model.
-6. Run `seg_images_in_folder.py` to segment images with your newly trained model.
+6. Run `seg_images_in_folder.py` to segment images with your newly trained model, or `ensemble_seg_images_in_folder.py` to point more than one trained model at the same imagery and ensemble the model outputs
 
 
 * Here at Zoo HQ we advocate training models on the augmented data encoded in the datasets, so the original data is a hold-out or test set. This is ideal because although the validation dataset (drawn from augmented data) doesn't get used to adjust model weights, it does influence model training by triggering early stopping if validation loss is not improving. Testing on an untransformed set is also a further check/reassurance of model performance and evaluation metric
+
+* Here ate Zoo HQ we advocate use of `ensemble` models where possible, which requires training multiple models each with a config file, and model weights file
 
 ## <a name="model"></a>Models
 
@@ -194,6 +196,7 @@ Notice the last entry does *NOT* have a comma. It does not matter what order the
 * `PATIENCE`: (integer) the number of epochs with no improvement in validation loss to wait before exiting model training
 * `MAX_EPOCHS`: (integer) the maximum number of epochs to train the model over. Early stopping should ensure this maximum is never reached
 * `VALIDATION_SPLIT`: (float) the proportion of the dataset to use for validation. The rest will be used for model training. Typically in the range 0.5 -- 0.9 for model training on large datasets
+* `LOSS`: one of `cat` (categorical cross-entropy), `dice` (Dice loss), `hinge` (hinge loss), or `kld` (Kullback-Leibler divergence)
 
 ### Model Architecture configs:
 * `FILTERS` : (integer) number of initial filters per convolutional block, doubled every layer
@@ -231,8 +234,8 @@ This program is structured to carry out augmentation of labeled training/validat
 * `AUG_HEIGHTSHIFT`: (float) the maximum amount of random horizontal shift, typically <.2
 * `AUG_HFLIP`: (bool) `true` to randomly horizontally flip the image
 * `AUG_VFLIP`: (bool) `true` to randomly vertically flip the image  
-* `AUG_LOOPS`: (integer) number of batches to use for augmented imagery generation (typically 1, >1 for RAM limited machines and large datasets)
-* `AUG_COPIES`: (integer) number of augmented datasets to create. Each dataset will contain the same number of samples as in the original image set, typically <5
+* `AUG_LOOPS`: (integer) number of batches to use for augmented imagery generation (>=2)
+* `AUG_COPIES`: (integer) number of augmented datasets to create. Each dataset will contain the same number of samples as in the original image set, typically 2--10
 * `REMAP_CLASSES`: (dict; optional) A dictionary of values in the data and what values you'd like to replace them with, for example `{"0": 0, "1": 0, "2": 0, "3":1, "4":1}` says "recode ones and twos as zeros and threes and fours as ones". Used to reclassify data on the fly without written new files to disk
 
 ## <a name="retrain"></a>Train an image segmentation model using provided datasets
