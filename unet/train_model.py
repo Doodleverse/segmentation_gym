@@ -285,7 +285,10 @@ def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_ba
 ###==========================================================
 #-------------------------------------------------
 
-filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'*.npz')
+#uncomment to use non-augmented files instead
+#filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'noaug*.npz')
+
+filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'aug*.npz')
 shuffle(filenames)
 
 list_ds = tf.data.Dataset.list_files(filenames, shuffle=False)
