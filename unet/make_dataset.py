@@ -251,12 +251,24 @@ data_gen_args = dict(featurewise_center=False,
                      horizontal_flip=AUG_HFLIP,
                      vertical_flip=AUG_VFLIP)
 
+null_data_gen_args = dict(featurewise_center=False,
+                     featurewise_std_normalization=False,
+                     rotation_range=0,
+                     width_shift_range=0,
+                     height_shift_range=0,
+                     fill_mode='reflect',
+                     zoom_range=0,
+                     horizontal_flip=False,
+                     vertical_flip=False)
+
 #get image dimensions
 NX = TARGET_SIZE[0]
 NY = TARGET_SIZE[1]
 
+null_image_datagen = tf.keras.preprocessing.image.ImageDataGenerator(**null_data_gen_args)
 image_datagen = tf.keras.preprocessing.image.ImageDataGenerator(**data_gen_args)
 mask_datagen = tf.keras.preprocessing.image.ImageDataGenerator(**data_gen_args)
+null_mask_datagen = tf.keras.preprocessing.image.ImageDataGenerator(**null_data_gen_args)
 
 if N_DATA_BANDS==4:
     image_datagen2 = tf.keras.preprocessing.image.ImageDataGenerator(**data_gen_args)
@@ -267,8 +279,20 @@ if N_DATA_BANDS==1:
             target_size=(NX, NY),
             batch_size=int(n_im/AUG_LOOPS),
             class_mode=None, seed=SEED, shuffle=False, color_mode="grayscale")
+
+    null_img_generator = null_image_datagen.flow_from_directory(
+            imdir,
+            target_size=(NX, NY),
+            batch_size=int(n_im/AUG_LOOPS),
+            class_mode=None, seed=SEED, shuffle=False, color_mode="grayscale")
 else:
     img_generator = image_datagen.flow_from_directory(
+            imdir,
+            target_size=(NX, NY),
+            batch_size=int(n_im/AUG_LOOPS),
+            class_mode=None, seed=SEED, shuffle=False)
+
+    null_img_generator = null_image_datagen.flow_from_directory(
             imdir,
             target_size=(NX, NY),
             batch_size=int(n_im/AUG_LOOPS),
@@ -287,6 +311,14 @@ if N_DATA_BANDS==4:
             target_size=(NX, NY),
             batch_size=int(n_im/AUG_LOOPS),
             class_mode=None, seed=SEED, shuffle=False)
+
+null_mask_generator = null_mask_datagen.flow_from_directory(
+        lab_path,
+        target_size=(NX, NY),
+        batch_size=int(n_im/AUG_LOOPS),
+        class_mode=None, seed=SEED, shuffle=False, color_mode="grayscale", interpolation="nearest")
+
+
 
 # F1=[]; F2=[]
 # for file in img_generator.filepaths:
@@ -312,28 +344,29 @@ for copy in tqdm(range(AUG_COPIES)):
             #grab a batch of images and label images
             x, y = next(train_generator)
 
+            null_train_generator = (pair for pair in zip(null_img_generator, null_mask_generator))
+            #grab a batch of images and label images
+            null_x, null_y = next(null_train_generator)
+
             idx = (img_generator.batch_index - 1) * img_generator.batch_size
             filenames = img_generator.filenames[idx : idx + img_generator.batch_size]
-            #print(filenames)
+
+            idx = (null_img_generator.batch_index - 1) * null_img_generator.batch_size
+            null_filenames = null_img_generator.filenames[idx : idx + null_img_generator.batch_size]
 
             # wrute them to file and increment the counter
-            for im,lab,file in zip(x,y,filenames):
+            for im,nim,lab,nlab,file,nfile in zip(x,null_x,y,null_y, filenames, null_filenames):
             # for im,lab in zip(x,y):
 
-                # plt.imshow(im/255.); plt.imshow(lab, alpha=0.5); plt.show()
+                # plt.imshow(im/255.); plt.imshow(lab, alpha=0.15); plt.savefig('tmp.png', dpi=200); plt.close()
+                #
+                # plt.imshow(im/255.); plt.imshow(null_lab, alpha=0.15); plt.savefig('tmp2.png', dpi=200); plt.close()
+                #
 
+                ##============================================ label
                 if NCLASSES==1:
                     lab=lab.squeeze()
                     lab[lab>0]=1
-
-                # print(np.unique(lab))
-                # if len(np.unique(lab))==1:
-                #     break
-
-                 # print(np.unique(lab))
-                 # if len(np.unique(lab))==1:
-                 #     plt.imshow(im); plt.imshow(lab, alpha=0.5); plt.show()
-
 
                 if NCLASSES==1:
                     l = lab.astype(np.uint8)
@@ -362,8 +395,6 @@ for copy in tqdm(range(AUG_COPIES)):
                     else:
                         lstack = np.zeros((nx,ny,NCLASSES))
                         lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+l[...,None]-1).astype(int) #one-hot encode
-                # else:
-                #     lstack = (np.arange(l.max()) == l[...,None]-1).astype(int) #one-hot encode
 
                 if FILTER_VALUE>1:
 
@@ -374,24 +405,54 @@ for copy in tqdm(range(AUG_COPIES)):
                         lstack[:,:,kk] = np.round(l).astype(np.uint8)
                         del l
 
-                # if NCLASSES>1:
-                #
-                #     #for kk in range(lstack.shape[-1]):
-                #     if USEMASK:
-                #         np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), lstack.astype(np.uint8), file)
-                #         # np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), lstack.astype(np.uint8))
-                #     else:
-                #         np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), lstack.astype(np.uint8), file)
-                #         # np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), lstack.astype(np.uint8))
-                # else:
-                #     if USEMASK:
-                #         np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(lstack).astype(np.uint8), file)
-                #         # np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(lstack).astype(np.uint8))
-                #     else:
-                #         np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(lstack).astype(np.uint8), file)
-                #         # np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(lstack).astype(np.uint8))
-
                 np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), np.squeeze(lstack).astype(np.uint8), file)
+
+                del lstack, l, im
+                ##============================================null label
+                if NCLASSES==1:
+                    nlab=nlab.squeeze()
+                    nlab[nlab>0]=1
+
+                if NCLASSES==1:
+                    nl = nlab.astype(np.uint8)
+                else:
+                    nl = np.round(nlab[:,:,0]).astype(np.uint8)
+
+                if 'REMAP_CLASSES' in locals():
+                    for k in REMAP_CLASSES.items():
+                        nl[nl==int(k[0])] = int(k[1])
+
+                nl[nl>NCLASSES]=NCLASSES
+
+                if len(np.unique(nl))==1:
+                    nx,ny = nl.shape
+                    if NCLASSES==1:
+                        nlstack = np.zeros((nx,ny,NCLASSES+1))
+                    else:
+                        nlstack = np.zeros((nx,ny,NCLASSES))
+
+                    nlstack[:,:,np.unique(nl)[0]]=np.ones((nx,ny))
+                else:
+                    nx,ny = nl.shape
+                    if NCLASSES==1:
+                        nlstack = np.zeros((nx,ny,NCLASSES+1))
+                        nlstack[:,:,:NCLASSES+1] = (np.arange(NCLASSES+1) == 1+nl[...,None]-1).astype(int) #one-hot encode
+                    else:
+                        nlstack = np.zeros((nx,ny,NCLASSES))
+                        nlstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+nl[...,None]-1).astype(int) #one-hot encode
+
+                if FILTER_VALUE>1:
+
+                    for kk in range(nlstack.shape[-1]):
+                        nl = remove_small_objects(nlstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
+                        nl = remove_small_holes(nlstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
+                        nlstack[:,:,kk] = np.round(nl).astype(np.uint8)
+                        del nl
+
+                np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'noaugimage_000000'+str(i),
+                                    nim.astype(np.uint8), np.squeeze(nlstack).astype(np.uint8), nfile)
+
+                del nlstack, nl, nim
 
                 i += 1
 
@@ -407,25 +468,10 @@ for copy in tqdm(range(AUG_COPIES)):
                     lab=lab.squeeze()
                     lab[lab>0]=1
 
-                # print(np.unique(lab))
-                # if len(np.unique(lab))==1:
-                #     break
-
-                 # print(np.unique(lab))
-                 # if len(np.unique(lab))==1:
-                 #     plt.imshow(im); plt.imshow(lab, alpha=0.5); plt.show()
-
-
                 if NCLASSES==1:
                     l = lab.astype(np.uint8)
                 else:
                     l = np.round(lab[:,:,0]).astype(np.uint8)
-
-                # if 'REMAP_CLASSES' not in locals():
-                #     if np.min(l)==1:
-                #         l -= 1
-                #     if NCLASSES==1:
-                #         l[l>0]=1
 
                 if 'REMAP_CLASSES' in locals():
                     for k in REMAP_CLASSES.items():
@@ -460,36 +506,18 @@ for copy in tqdm(range(AUG_COPIES)):
                         l = remove_small_holes(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
                         lstack[:,:,kk] = np.round(l).astype(np.uint8)
                         del l
-                # try:
 
-                    # if NCLASSES>1:
-                    #
-                    #     if USEMASK:
-                    #         np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), lstack.astype(np.uint8))
-                    #     else:
-                    #         np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), lstack.astype(np.uint8))
-                    # else:
-                    #     if USEMASK:
-                    #         np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), lstack.astype(np.uint8))
-                    #     else:
                 np.savez_compressed(dataset_dir+os.sep+ROOT_STRING+'augimage_000000'+str(i), im.astype(np.uint8), nir[:,:,0].astype(np.uint8), lstack.astype(np.uint8))
-
-                # except:
-                #     print('Error ')
-                #     pass
 
                 i += 1
 
-        #save memory
-        #del x, y, im, lab
-        #get a new batch
 
 ##========================================================
 ## NPZ CREATION
 ##========================================================
 
-filenames = tf.io.gfile.glob(dataset_dir+os.sep+ROOT_STRING+'*.npz')
-shuffle(filenames)
+filenames = tf.io.gfile.glob(dataset_dir+os.sep+ROOT_STRING+'aug*.npz')
+# shuffle(filenames)
 dataset = tf.data.Dataset.list_files(filenames, shuffle=False)
 
 print('{} files made'.format(len(filenames)))
@@ -550,10 +578,73 @@ if N_DATA_BANDS<=3:
 
          plt.axis('off')
          plt.title(file)
-         plt.savefig(dataset_dir+os.sep+'sample'+os.sep+ ROOT_STRING + 'ex'+str(counter)+'.png', dpi=200, bbox_inches='tight')
+         plt.savefig(dataset_dir+os.sep+'sample'+os.sep+ ROOT_STRING + 'aug_ex'+str(counter)+'.png', dpi=200, bbox_inches='tight')
          #counter +=1
          plt.close('all')
          counter += 1
+
+
+###================================
+
+filenames = tf.io.gfile.glob(dataset_dir+os.sep+ROOT_STRING+'noaug*.npz')
+# shuffle(filenames)
+dataset = tf.data.Dataset.list_files(filenames, shuffle=False)
+
+print('{} files made'.format(len(filenames)))
+
+# Set `num_parallel_calls` so multiple images are loaded/processed in parallel.
+dataset = dataset.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
+dataset = dataset.repeat()
+dataset = dataset.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be needed on TPU
+dataset = dataset.prefetch(AUTO)
+
+try:
+    os.mkdir(dataset_dir+os.sep+'noaug_sample')
+except:
+    pass
+
+
+print('.....................................')
+print('Printing examples to file ...')
+if N_DATA_BANDS<=3:
+    # plt.figure(figsize=(16,16))
+    counter=0
+    for imgs,lbls,files in dataset.take(10):
+      #print(files)
+      for count,(im,lab, file) in enumerate(zip(imgs, lbls, files)):
+
+         im = rescale(im.numpy(), 0, 1)
+         plt.imshow(im)
+
+         print(lab.shape)
+         lab = np.argmax(lab.numpy().squeeze(),-1)
+
+         #print(np.unique(lab))
+         # if len(np.unique(lab))==1:
+         #     plt.imshow(im); plt.imshow(lab, alpha=0.5); plt.show()
+
+         color_label = label_to_colors(np.squeeze(lab), tf.cast(im[:,:,0]==0,tf.uint8),
+                                        alpha=128, colormap=class_label_colormap,
+                                         color_class_offset=0, do_alpha=False)
+
+         if NCLASSES==1:
+             plt.imshow(color_label, alpha=0.5)#, vmin=0, vmax=NCLASSES)
+         else:
+             #lab = np.argmax(lab,-1)
+             plt.imshow(color_label,  alpha=0.5)#, vmin=0, vmax=NCLASSES)
+         #print(np.unique(lab))
+
+         file = file.numpy()
+
+         plt.axis('off')
+         plt.title(file)
+         plt.savefig(dataset_dir+os.sep+'noaug_sample'+os.sep+ ROOT_STRING + 'noaug_ex'+str(counter)+'.png', dpi=200, bbox_inches='tight')
+         #counter +=1
+         plt.close('all')
+         counter += 1
+
+
+
 
 # elif N_DATA_BANDS==4:
 #     plt.figure(figsize=(16,16))

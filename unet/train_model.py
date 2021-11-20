@@ -301,6 +301,17 @@ print(validation_steps)
 train_ds = list_ds.skip(val_size)
 val_ds = list_ds.take(val_size)
 
+train_files = []
+for i in train_ds:
+    train_files.append(i.numpy().decode().split(os.sep)[-1])
+
+val_files = []
+for i in val_ds:
+    val_files.append(i.numpy().decode().split(os.sep)[-1])
+
+np.savetxt(weights.replace('.h5','_train_files.txt'), train_files, fmt='%s')
+np.savetxt(weights.replace('.h5','_val_files.txt'), val_files, fmt='%s')
+
 # Set `num_parallel_calls` so multiple images are loaded/processed in parallel.
 train_ds = train_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
 train_ds = train_ds.repeat()
@@ -311,6 +322,7 @@ val_ds = val_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
 val_ds = val_ds.repeat()
 val_ds = val_ds.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be needed on TPU
 val_ds = val_ds.prefetch(AUTO) #
+
 
 #
 # ## uncommant to view examples
@@ -462,6 +474,7 @@ model_checkpoint = ModelCheckpoint(weights, monitor='val_loss',
 lr_callback = tf.keras.callbacks.LearningRateScheduler(lambda epoch: lrfn(epoch), verbose=True)
 
 callbacks = [model_checkpoint, earlystop, lr_callback]
+
 
 if DO_TRAIN:
     print('.....................................')
