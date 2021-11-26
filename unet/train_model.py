@@ -202,14 +202,14 @@ def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_ba
 
             est_label = model.predict(tf.expand_dims(img, 0) , batch_size=1)
 
-            iouscore = mean_iou_np(tf.expand_dims(lbl, 0), est_label)
+            iouscore = mean_iou_np(tf.expand_dims(tf.squeeze(lbl), 0), est_label)
             # print(iouscore)
 
-            dicescore = mean_dice_np(tf.expand_dims(lbl, 0), est_label)
+            dicescore = mean_dice_np(tf.expand_dims(tf.squeeze(lbl), 0), est_label)
             # print(dicescore)
 
             kl = tf.keras.losses.KLDivergence()
-            kld = kl(tf.expand_dims(lbl, 0), est_label).numpy()
+            kld = kl(tf.expand_dims(tf.squeeze(lbl), 0), est_label).numpy()
             #print(kld)
 
 
@@ -284,6 +284,8 @@ def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_ba
 
 ###==========================================================
 #-------------------------------------------------
+#uncomment to use all files instead
+# filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'*.npz')
 
 #uncomment to use non-augmented files instead
 #filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'noaug*.npz')
@@ -513,7 +515,7 @@ print('loss={loss:0.4f}, Mean IOU={mean_iou:0.4f}, Mean Dice={mean_dice:0.4f}'.f
 IOUc, Dc, Kc = plotcomp_n_getiou(val_ds,model,NCLASSES,DOPLOT,test_samples_fig,'val')
 print('Mean of mean IoUs (validation subset)={mean_iou:0.3f}'.format(mean_iou=np.mean(IOUc)))
 print('Mean of mean Dice scores (validation subset)={mean_dice:0.3f}'.format(mean_dice=np.mean(Dc)))
-print('Mean of mean KLD scores (train subset)={mean_kld:0.3f}'.format(mean_kld=np.mean(Kc)))
+print('Mean of mean KLD scores (validation subset)={mean_kld:0.3f}'.format(mean_kld=np.mean(Kc)))
 
 
 IOUc, Dc, Kc = plotcomp_n_getiou(train_ds,model,NCLASSES,DOPLOT,test_samples_fig,'train')

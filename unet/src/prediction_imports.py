@@ -87,58 +87,58 @@ def seg_file2tensor_3band(f, TARGET_SIZE):#, resize):
     h = tf.shape(bigimage)[1]
 
     return smallimage, w, h, bigimage
-
-#-----------------------------------
-def seg_file2tensor_4band(f, fir, TARGET_SIZE,resize):
-    """
-    "seg_file2tensor(f)"
-    This function reads a jpeg image from file into a cropped and resized tensor,
-    for use in prediction with a trained segmentation model
-    INPUTS:
-        * f [string] file name of jpeg
-    OPTIONAL INPUTS: None
-    OUTPUTS:
-        * image [tensor array]: unstandardized image
-    GLOBAL INPUTS: TARGET_SIZE
-    """
-    bits = tf.io.read_file(f)
-
-    if 'jpg' in f:
-        bigimage = tf.image.decode_jpeg(bits)
-    elif 'png' in f:
-        bigimage = tf.image.decode_png(bits)
-
-    bits = tf.io.read_file(fir)
-    if 'jpg' in fir:
-        nir = tf.image.decode_jpeg(bits)
-    elif 'png' in f:
-        nir = tf.image.decode_png(bits)
-
-    bigimage = tf.concat([bigimage, nir],-1)[:,:,:N_DATA_BANDS]
-
-    w = tf.shape(bigimage)[0]
-    h = tf.shape(bigimage)[1]
-
-    if resize:
-
-        tw = TARGET_SIZE[0]
-        th = TARGET_SIZE[1]
-        resize_crit = (w * th) / (h * tw)
-        image = tf.cond(resize_crit < 1,
-                      lambda: tf.image.resize(bigimage, [w*tw/w, h*tw/w]), # if true
-                      lambda: tf.image.resize(bigimage, [w*th/h, h*th/h])  # if false
-                     )
-
-        nw = tf.shape(image)[0]
-        nh = tf.shape(image)[1]
-        image = tf.image.crop_to_bounding_box(image, (nw - tw) // 2, (nh - th) // 2, tw, th)
-        # image = tf.cast(image, tf.uint8) #/ 255.0
-
-        return image, w, h, bigimage
-
-    else:
-        return None, w, h, bigimage
-
+#
+# #-----------------------------------
+# def seg_file2tensor_4band(f, fir, TARGET_SIZE,resize):
+#     """
+#     "seg_file2tensor(f)"
+#     This function reads a jpeg image from file into a cropped and resized tensor,
+#     for use in prediction with a trained segmentation model
+#     INPUTS:
+#         * f [string] file name of jpeg
+#     OPTIONAL INPUTS: None
+#     OUTPUTS:
+#         * image [tensor array]: unstandardized image
+#     GLOBAL INPUTS: TARGET_SIZE
+#     """
+#     bits = tf.io.read_file(f)
+#
+#     if 'jpg' in f:
+#         bigimage = tf.image.decode_jpeg(bits)
+#     elif 'png' in f:
+#         bigimage = tf.image.decode_png(bits)
+#
+#     bits = tf.io.read_file(fir)
+#     if 'jpg' in fir:
+#         nir = tf.image.decode_jpeg(bits)
+#     elif 'png' in f:
+#         nir = tf.image.decode_png(bits)
+#
+#     bigimage = tf.concat([bigimage, nir],-1)[:,:,:N_DATA_BANDS]
+#
+#     w = tf.shape(bigimage)[0]
+#     h = tf.shape(bigimage)[1]
+#
+#     if resize:
+#
+#         tw = TARGET_SIZE[0]
+#         th = TARGET_SIZE[1]
+#         resize_crit = (w * th) / (h * tw)
+#         image = tf.cond(resize_crit < 1,
+#                       lambda: tf.image.resize(bigimage, [w*tw/w, h*tw/w]), # if true
+#                       lambda: tf.image.resize(bigimage, [w*th/h, h*th/h])  # if false
+#                      )
+#
+#         nw = tf.shape(image)[0]
+#         nh = tf.shape(image)[1]
+#         image = tf.image.crop_to_bounding_box(image, (nw - tw) // 2, (nh - th) // 2, tw, th)
+#         # image = tf.cast(image, tf.uint8) #/ 255.0
+#
+#         return image, w, h, bigimage
+#
+#     else:
+#         return None, w, h, bigimage
+#
 
 # =========================================================
 def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,temp=0):
@@ -167,15 +167,15 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,tem
 
         if N_DATA_BANDS<=3:
             image, w, h, bigimage = seg_file2tensor_3band(f, TARGET_SIZE)#, resize=True)
-        if image is None:
-            image = bigimage#/255
-            #bigimage = bigimage#/255
-            w = w.numpy(); h = h.numpy()
-        else:
-            image, w, h, bigimage = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir'), TARGET_SIZE,resize=True )
-            if image is None:
-                image = bigimage#/255
-                w = w.numpy(); h = h.numpy()
+        # if image is None:
+        #     image = bigimage#/255
+        #     #bigimage = bigimage#/255
+        #     w = w.numpy(); h = h.numpy()
+        # else:
+        #     image, w, h, bigimage = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir'), TARGET_SIZE,resize=True )
+        #     if image is None:
+        #         image = bigimage#/255
+        #         w = w.numpy(); h = h.numpy()
 
         print("Working on %i x %i image" % (w,h))
 
@@ -184,7 +184,7 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,tem
         E0 = []; E1 = [];
 
         for counter,model in enumerate(M):
-            heatmap = make_gradcam_heatmap(tf.expand_dims(image, 0) , model)
+            #heatmap = make_gradcam_heatmap(tf.expand_dims(image, 0) , model)
 
             est_label = model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
             print('Model {} applied'.format(counter))
@@ -192,7 +192,7 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,tem
             E1.append(resize(est_label[:,:,1],(w,h), preserve_range=True, clip=True))
             del est_label
 
-        heatmap = resize(heatmap,(w,h), preserve_range=True, clip=True)
+        #heatmap = resize(heatmap,(w,h), preserve_range=True, clip=True)
         K.clear_session()
 
         e0 = np.average(np.dstack(E0), axis=-1)#, weights=np.array(MW))
@@ -220,11 +220,11 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,tem
         	image = image#/255
         	bigimage = bigimage#/255
         	w = w.numpy(); h = h.numpy()
-        else:
-        	image, w, h, bigimage = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir'), TARGET_SIZE, resize=True )
-        	image = image#/255
-        	bigimage = bigimage#/255
-        	w = w.numpy(); h = h.numpy()
+        # else:
+        # 	image, w, h, bigimage = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir'), TARGET_SIZE, resize=True )
+        # 	image = image#/255
+        # 	bigimage = bigimage#/255
+        # 	w = w.numpy(); h = h.numpy()
 
         print("Working on %i x %i image" % (w,h))
 
@@ -249,7 +249,7 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,tem
         est_label = np.argmax(est_label, -1)
         metadatadict['otsu_threshold'] = np.nan
 
-    heatmap = resize(heatmap,(w,h), preserve_range=True, clip=True)
+    #heatmap = resize(heatmap,(w,h), preserve_range=True, clip=True)
 
     class_label_colormap = ['#3366CC','#DC3912','#FF9900','#109618','#990099','#0099C6','#DD4477','#66AA00','#B82E2E', '#316395']
     #add classes for more than 10 classes
@@ -296,11 +296,11 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,tem
 
     segfile = segfile.replace('_overlay.png','_gradcam.png')
 
-    plt.imshow(bigimage); plt.imshow(heatmap, cmap='bwr', alpha=0.5);
-    plt.axis('off')
-    # plt.show()
-    plt.savefig(segfile, dpi=200, bbox_inches='tight')
-    plt.close('all')
+    # plt.imshow(bigimage); plt.imshow(heatmap, cmap='bwr', alpha=0.5);
+    # plt.axis('off')
+    # # plt.show()
+    # plt.savefig(segfile, dpi=200, bbox_inches='tight')
+    # plt.close('all')
 
 
 

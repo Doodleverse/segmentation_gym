@@ -27,7 +27,7 @@
 import sys,os, time
 sys.path.insert(1, 'src')
 
-USE_GPU = True #False
+USE_GPU = True
 
 if USE_GPU == True:
    ##use the first available GPU
