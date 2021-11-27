@@ -863,7 +863,10 @@ def mean_iou_np(y_true, y_pred):
     yp0 = (y_pred[:,:,:,0] > 0.5).astype('float32')
     inter = np.count_nonzero(np.logical_and(np.equal(yt0, 1), np.equal(yp0, 1)))
     union = np.count_nonzero(tf.add(yt0, yp0))
-    iou = np.where(np.equal(union, 0), 1., (inter/union))
+    try:
+        iou = np.where(np.equal(union, 0), 1., (inter/union))
+    except:
+        iou = 1.0
 
     return iou
 
