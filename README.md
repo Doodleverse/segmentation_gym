@@ -176,7 +176,8 @@ An example config file:
     "AUG_HFLIP": false,
     "AUG_VFLIP": false,
     "AUG_LOOPS": 1,
-    "AUG_COPIES": 3
+    "AUG_COPIES": 3,
+    "TESTTIMEAUG": false
   }
 ```
 
@@ -237,6 +238,10 @@ This program is structured to carry out augmentation of labeled training/validat
 * `AUG_LOOPS`: (integer) number of batches to use for augmented imagery generation (>=2)
 * `AUG_COPIES`: (integer) number of augmented datasets to create. Each dataset will contain the same number of samples as in the original image set, typically 2--10
 * `REMAP_CLASSES`: (dict; optional) A dictionary of values in the data and what values you'd like to replace them with, for example `{"0": 0, "1": 0, "2": 0, "3":1, "4":1}` says "recode ones and twos as zeros and threes and fours as ones". Used to reclassify data on the fly without written new files to disk
+
+## Prediction configs:
+* `TESTTIMEAUG`: (bool; optional) Implement Test-Time Augmentation, specifically vertical flip, horizontal flip, and vertical+horizontal flip. These three augmentations (plus the normal orientation prediction) all yield softmax scores for each pixel, which are summed before applying argmax to determine the class for each pixel (i.e., 'soft voting').
+
 
 ## <a name="retrain"></a>Train an image segmentation model using provided datasets
 
