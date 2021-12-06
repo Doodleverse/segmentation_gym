@@ -7,8 +7,8 @@ import os
 from glob import glob
 from skimage.transform import rescale
 
-# TARGET_SIZE = (1024,1024)
-TARGET_SIZE = (512,512)
+TARGET_SIZE = (1024,1024)
+# TARGET_SIZE = (512,512)
 
 root = Tk()
 root.filename =  filedialog.askdirectory(initialdir = os.getcwd(),title = "Select directory of image files")
