@@ -179,4 +179,7 @@ if not 'TESTTIMEAUG' in locals():
 for counter,f in enumerate(sample_filenames):
     do_seg(f, [model], metadatadict, sample_direc,NCLASSES, N_DATA_BANDS,TARGET_SIZE,TESTTIMEAUG)
     print('%i out of %i done'%(counter,len(sample_filenames)))
+<<<<<<< HEAD
 
+=======
+>>>>>>> main

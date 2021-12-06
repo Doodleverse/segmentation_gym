@@ -90,7 +90,7 @@ def label_to_colors(
 
 
 ##========================================================
-def rescale(dat,
+def rescale_array(dat,
     mn,
     mx):
     '''
