@@ -30,7 +30,7 @@ USE_GPU = True #False
 
 if USE_GPU == True:
    ##use the first available GPU
-   os.environ['CUDA_VISIBLE_DEVICES'] = '0' #'1'
+   os.environ['CUDA_VISIBLE_DEVICES'] = '1' #'1'
 else:
    ## to use the CPU (not recommended):
    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
@@ -172,6 +172,14 @@ if len(sample_filenames)==0:
 
 print('Number of samples: %i' % (len(sample_filenames)))
 
+#look for TTA config
+if not 'TESTTIMEAUG' in locals():
+    TESTTIMEAUG = False
+
 for counter,f in enumerate(sample_filenames):
-    do_seg(f, [model], metadatadict, sample_direc,NCLASSES, N_DATA_BANDS,TARGET_SIZE)
+    do_seg(f, [model], metadatadict, sample_direc,NCLASSES, N_DATA_BANDS,TARGET_SIZE,TESTTIMEAUG)
     print('%i out of %i done'%(counter,len(sample_filenames)))
+<<<<<<< HEAD
+
+=======
+>>>>>>> main

@@ -141,7 +141,7 @@ def seg_file2tensor_3band(f, TARGET_SIZE):#, resize):
 #
 
 # =========================================================
-def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,temp=0):
+def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TESTTIMEAUG,temp=0):
 
     if 'jpg' in f:
     	segfile = f.replace('.jpg', '_predseg.png')
@@ -187,6 +187,17 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,tem
             #heatmap = make_gradcam_heatmap(tf.expand_dims(image, 0) , model)
 
             est_label = model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
+
+            if TESTTIMEAUG == True:
+                #return the flipped prediction
+                est_label2 = np.flipud(model.predict(tf.expand_dims(np.flipud(image), 0), batch_size=1).squeeze())
+                est_label3 = np.fliplr(model.predict(tf.expand_dims(np.fliplr(image), 0), batch_size=1).squeeze())
+                est_label4 = np.flipud(np.fliplr(model.predict(tf.expand_dims(np.flipud(np.fliplr(image)), 0), batch_size=1).squeeze()))
+
+                #soft voting - sum the softmax scores to return the new TTA estimated softmax scores
+                est_label = est_label + est_label2 + est_label3 + est_label4
+
+
             print('Model {} applied'.format(counter))
             E0.append(resize(est_label[:,:,0],(w,h), preserve_range=True, clip=True))
             E1.append(resize(est_label[:,:,1],(w,h), preserve_range=True, clip=True))
@@ -236,9 +247,21 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,tem
         for counter,model in enumerate(M):
             heatmap = make_gradcam_heatmap(tf.expand_dims(image, 0) , model)
 
-            # est_label = model.predict(tf.expand_dims(image, 0 , batch_size=1).squeeze()
+            #return the base prediction
             est_label = model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
-            est_label += resize(est_label,(TARGET_SIZE[0],TARGET_SIZE[1]))
+
+            #EBG commented, since returned tensor should be the correct size
+            #est_label += resize(est_label,(TARGET_SIZE[0],TARGET_SIZE[1]))
+
+            if TESTTIMEAUG == True:
+                #return the flipped prediction
+                est_label2 = np.flipud(model.predict(tf.expand_dims(np.flipud(image), 0), batch_size=1).squeeze())
+                est_label3 = np.fliplr(model.predict(tf.expand_dims(np.fliplr(image), 0), batch_size=1).squeeze())
+                est_label4 = np.flipud(np.fliplr(model.predict(tf.expand_dims(np.flipud(np.fliplr(image)), 0), batch_size=1).squeeze()))
+
+                #soft voting - sum the softmax scores to return the new TTA estimated softmax scores
+                est_label = est_label + est_label2 + est_label3 + est_label4
+
             K.clear_session()
 
         est_label /= counter+1

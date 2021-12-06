@@ -196,8 +196,12 @@ print('Number of samples: %i' % (len(sample_filenames)))
 
 temp = -0.05
 
+#look for TTA config
+if not 'TESTTIMEAUG' in locals():
+    TESTTIMEAUG = False
+
 for counter,f in enumerate(sample_filenames):
-    do_seg(f, M, metadatadict, sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,temp)
+    do_seg(f, M, metadatadict, sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TESTTIMEAUG, temp)
     print('%i out of %i done'%(counter,len(sample_filenames)))
 
 
