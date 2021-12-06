@@ -87,58 +87,6 @@ def seg_file2tensor_3band(f, TARGET_SIZE):#, resize):
     h = tf.shape(bigimage)[1]
 
     return smallimage, w, h, bigimage
-#
-# #-----------------------------------
-# def seg_file2tensor_4band(f, fir, TARGET_SIZE,resize):
-#     """
-#     "seg_file2tensor(f)"
-#     This function reads a jpeg image from file into a cropped and resized tensor,
-#     for use in prediction with a trained segmentation model
-#     INPUTS:
-#         * f [string] file name of jpeg
-#     OPTIONAL INPUTS: None
-#     OUTPUTS:
-#         * image [tensor array]: unstandardized image
-#     GLOBAL INPUTS: TARGET_SIZE
-#     """
-#     bits = tf.io.read_file(f)
-#
-#     if 'jpg' in f:
-#         bigimage = tf.image.decode_jpeg(bits)
-#     elif 'png' in f:
-#         bigimage = tf.image.decode_png(bits)
-#
-#     bits = tf.io.read_file(fir)
-#     if 'jpg' in fir:
-#         nir = tf.image.decode_jpeg(bits)
-#     elif 'png' in f:
-#         nir = tf.image.decode_png(bits)
-#
-#     bigimage = tf.concat([bigimage, nir],-1)[:,:,:N_DATA_BANDS]
-#
-#     w = tf.shape(bigimage)[0]
-#     h = tf.shape(bigimage)[1]
-#
-#     if resize:
-#
-#         tw = TARGET_SIZE[0]
-#         th = TARGET_SIZE[1]
-#         resize_crit = (w * th) / (h * tw)
-#         image = tf.cond(resize_crit < 1,
-#                       lambda: tf.image.resize(bigimage, [w*tw/w, h*tw/w]), # if true
-#                       lambda: tf.image.resize(bigimage, [w*th/h, h*th/h])  # if false
-#                      )
-#
-#         nw = tf.shape(image)[0]
-#         nh = tf.shape(image)[1]
-#         image = tf.image.crop_to_bounding_box(image, (nw - tw) // 2, (nh - th) // 2, tw, th)
-#         # image = tf.cast(image, tf.uint8) #/ 255.0
-#
-#         return image, w, h, bigimage
-#
-#     else:
-#         return None, w, h, bigimage
-#
 
 # =========================================================
 def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TESTTIMEAUG,temp=0):
@@ -167,15 +115,6 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TES
 
         if N_DATA_BANDS<=3:
             image, w, h, bigimage = seg_file2tensor_3band(f, TARGET_SIZE)#, resize=True)
-        # if image is None:
-        #     image = bigimage#/255
-        #     #bigimage = bigimage#/255
-        #     w = w.numpy(); h = h.numpy()
-        # else:
-        #     image, w, h, bigimage = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir'), TARGET_SIZE,resize=True )
-        #     if image is None:
-        #         image = bigimage#/255
-        #         w = w.numpy(); h = h.numpy()
 
         print("Working on %i x %i image" % (w,h))
 
@@ -231,11 +170,6 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TES
         	image = image#/255
         	bigimage = bigimage#/255
         	w = w.numpy(); h = h.numpy()
-        # else:
-        # 	image, w, h, bigimage = seg_file2tensor_4band(f, f.replace('aug_images', 'aug_nir'), TARGET_SIZE, resize=True )
-        # 	image = image#/255
-        # 	bigimage = bigimage#/255
-        # 	w = w.numpy(); h = h.numpy()
 
         print("Working on %i x %i image" % (w,h))
 
@@ -317,7 +251,7 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TES
     plt.savefig(segfile, dpi=200, bbox_inches='tight')
     plt.close('all')
 
-    segfile = segfile.replace('_overlay.png','_gradcam.png')
+    # segfile = segfile.replace('_overlay.png','_gradcam.png')
 
     # plt.imshow(bigimage); plt.imshow(heatmap, cmap='bwr', alpha=0.5);
     # plt.axis('off')
@@ -365,3 +299,154 @@ def make_gradcam_heatmap(image, model):
     #plt.imshow(image.numpy().squeeze()); plt.imshow(heatmap, cmap='bwr',alpha=0.5); plt.savefig('tmp.png')
 
     return heatmap
+
+
+
+###### for patches-based segmentation
+
+def window2d(window_func, window_size, **kwargs):
+    '''
+    Generates a 2D square image (of size window_size) containing a 2D user-defined
+    window with values ranging from 0 to 1.
+    It is possible to pass arguments to the window function by setting kwargs.
+    All available windows: https://docs.scipy.org/doc/scipy/reference/signal.windows.html
+    '''
+    window = np.matrix(window_func(M=window_size, sym=False, **kwargs))
+    return window.T.dot(window)
+
+def generate_corner_windows(window_func, window_size, **kwargs):
+    step = window_size >> 1
+    window = window2d(window_func, window_size, **kwargs)
+    window_u = np.vstack([np.tile(window[step:step+1, :], (step, 1)), window[step:, :]])
+    window_b = np.vstack([window[:step, :], np.tile(window[step:step+1, :], (step, 1))])
+    window_l = np.hstack([np.tile(window[:, step:step+1], (1, step)), window[:, step:]])
+    window_r = np.hstack([window[:, :step], np.tile(window[:, step:step+1], (1, step))])
+    window_ul = np.block([
+        [np.ones((step, step)), window_u[:step, step:]],
+        [window_l[step:, :step], window_l[step:, step:]]])
+    window_ur = np.block([
+        [window_u[:step, :step], np.ones((step, step))],
+        [window_r[step:, :step], window_r[step:, step:]]])
+    window_bl = np.block([
+        [window_l[:step, :step], window_l[:step, step:]],
+        [np.ones((step, step)), window_b[step:, step:]]])
+    window_br = np.block([
+        [window_r[:step, :step], window_r[:step, step:]],
+        [window_b[step:, :step], np.ones((step, step))]])
+    return np.array([
+        [ window_ul, window_u, window_ur ],
+        [ window_l,  window,   window_r  ],
+        [ window_bl, window_b, window_br ],
+    ])
+
+
+def generate_patch_list(image_width, image_height, window_func, window_size, overlapping=False):
+    patch_list = []
+    if overlapping:
+        step = window_size >> 1
+        windows = generate_corner_windows(window_func, window_size)
+        max_height = int(image_height/step - 1)*step
+        max_width = int(image_width/step - 1)*step
+    else:
+        step = window_size
+        windows = np.ones((window_size, window_size))
+        max_height = int(image_height/step)*step
+        max_width = int(image_width/step)*step
+    for i in range(0, max_height, step):
+        for j in range(0, max_width, step):
+            if overlapping:
+                # Close to border and corner cases
+                # Default (1, 1) is regular center window
+                border_x, border_y = 1, 1
+                if i == 0: border_x = 0
+                if j == 0: border_y = 0
+                if i == max_height-step: border_x = 2
+                if j == max_width-step: border_y = 2
+                # Selecting the right window
+                current_window = windows[border_x, border_y]
+            else:
+                current_window = windows
+            # The patch is cropped when the patch size is not
+            # a multiple of the image size.
+            patch_height = window_size
+            if i+patch_height > image_height:
+                patch_height = image_height - i
+            patch_width = window_size
+            if j+patch_width > image_width:
+                patch_width = image_width - j
+            # Adding the patch
+            patch_list.append(
+                (j, i, patch_width, patch_height, current_window[:patch_height, :patch_width])
+            )
+    return patch_list
+
+
+# =========================================================
+def norm_shape(shap):
+   '''
+   Normalize numpy array shapes so they're always expressed as a tuple,
+   even for one-dimensional shapes.
+   '''
+   try:
+      i = int(shap)
+      return (i,)
+   except TypeError:
+      # shape was not a number
+      pass
+
+   try:
+      t = tuple(shap)
+      return t
+   except TypeError:
+      # shape was not iterable
+      pass
+
+   raise TypeError('shape must be an int, or a tuple of ints')
+
+# =========================================================
+# Return a sliding window over a in any number of dimensions
+# version with no memory mapping
+def sliding_window(a,ws,ss = None,flatten = True):
+    '''
+    Return a sliding window over a in any number of dimensions
+    '''
+    if None is ss:
+        # ss was not provided. the windows will not overlap in any direction.
+        ss = ws
+    ws = norm_shape(ws)
+    ss = norm_shape(ss)
+    # convert ws, ss, and a.shape to numpy arrays
+    ws = np.array(ws)
+    ss = np.array(ss)
+    shap = np.array(a.shape)
+    # ensure that ws, ss, and a.shape all have the same number of dimensions
+    ls = [len(shap),len(ws),len(ss)]
+    if 1 != len(set(ls)):
+        raise ValueError(\
+        'a.shape, ws and ss must all have the same length. They were %s' % str(ls))
+
+    # ensure that ws is smaller than a in every dimension
+    if np.any(ws > shap):
+        raise ValueError(\
+        'ws cannot be larger than a in any dimension.\
+ a.shape was %s and ws was %s' % (str(a.shape),str(ws)))
+    # how many slices will there be in each dimension?
+    newshape = norm_shape(((shap - ws) // ss) + 1)
+    # the shape of the strided array will be the number of slices in each dimension
+    # plus the shape of the window (tuple addition)
+    newshape += norm_shape(ws)
+    # the strides tuple will be the array's strides multiplied by step size, plus
+    # the array's strides (tuple addition)
+    newstrides = norm_shape(np.array(a.strides) * ss) + a.strides
+    a = ast(a,shape = newshape,strides = newstrides)
+    if not flatten:
+        return a
+    # Collapse strided so that it has one more dimension than the window.  I.e.,
+    # the new array is a flat list of slices.
+    meat = len(ws) if ws.shape else 0
+    firstdim = (np.product(newshape[:-meat]),) if ws.shape else ()
+    dim = firstdim + (newshape[-meat:])
+    # remove any dimensions with size 1
+    #dim = filter(lambda i : i != 1,dim)
+
+    return a.reshape(dim), newshape

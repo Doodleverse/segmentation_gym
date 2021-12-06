@@ -130,21 +130,21 @@ def lrfn(epoch):
 
 #-----------------------------------
 def load_npz(example):
-    if N_DATA_BANDS==4:
-        with np.load(example.numpy()) as data:
-            image = data['arr_0'].astype('uint8')
-            image = standardize(image)
-            nir = data['arr_1'].astype('uint8')
-            label = data['arr_2'].astype('uint8')
-            #file = str(data['arr_2'])
-        return image, nir,label#, file
-    else:
-        with np.load(example.numpy()) as data:
-            image = data['arr_0'].astype('uint8')
-            image = standardize(image)
-            label = data['arr_1'].astype('uint8')
-            #file = str(data['arr_2'])
-        return image, label#, file
+    # if N_DATA_BANDS==4:
+    #     with np.load(example.numpy()) as data:
+    #         image = data['arr_0'].astype('uint8')
+    #         image = standardize(image)
+    #         nir = data['arr_1'].astype('uint8')
+    #         label = data['arr_2'].astype('uint8')
+    #         #file = str(data['arr_2'])
+    #     return image, nir,label#, file
+    # else:
+    with np.load(example.numpy()) as data:
+        image = data['arr_0'].astype('uint8')
+        image = standardize(image)
+        label = data['arr_1'].astype('uint8')
+        #file = str(data['arr_2'])
+    return image, label#, file
 
 
 @tf.autograph.experimental.do_not_convert
@@ -161,22 +161,22 @@ def read_seg_dataset_multiclass(example):
         * image [tensor array]
         * class_label [tensor array]
     """
-    if N_DATA_BANDS==4:
-        # image, nir, label, file = tf.py_function(func=load_npz, inp=[example], Tout=[tf.uint8, tf.uint8, tf.uint8, tf.string])
-        image, nir, label = tf.py_function(func=load_npz, inp=[example], Tout=[tf.uint8, tf.uint8, tf.uint8])
-        nir = tf.cast(nir, tf.float32)#/ 255.0
-    else:
-        #image, label, file = tf.py_function(func=load_npz, inp=[example], Tout=[tf.float32, tf.uint8, tf.string])
-        image, label = tf.py_function(func=load_npz, inp=[example], Tout=[tf.float32, tf.uint8])
+    # if N_DATA_BANDS==4:
+    #     # image, nir, label, file = tf.py_function(func=load_npz, inp=[example], Tout=[tf.uint8, tf.uint8, tf.uint8, tf.string])
+    #     image, nir, label = tf.py_function(func=load_npz, inp=[example], Tout=[tf.uint8, tf.uint8, tf.uint8])
+    #     nir = tf.cast(nir, tf.float32)#/ 255.0
+    # else:
+    #image, label, file = tf.py_function(func=load_npz, inp=[example], Tout=[tf.float32, tf.uint8, tf.string])
+    image, label = tf.py_function(func=load_npz, inp=[example], Tout=[tf.float32, tf.uint8])
 
     if NCLASSES==1:
         label = tf.expand_dims(label,-1)
 
-    if N_DATA_BANDS==4:
-        image = tf.concat([image, tf.expand_dims(nir,-1)],-1)
-        return image, label#, file
-    else:
-        return image, label#, file
+    # if N_DATA_BANDS==4:
+    #     image = tf.concat([image, tf.expand_dims(nir,-1)],-1)
+    #     return image, label#, file
+    # else:
+    return image, label#, file
 
 
 #-----------------------------------
@@ -227,7 +227,7 @@ def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_ba
                 lbl = np.argmax(lbl.numpy(), -1)
 
 
-            img = rescale(img.numpy(), 0, 1)
+            img = rescale_array(img.numpy(), 0, 1)
 
             color_estlabel = label_to_colors(est_label, tf.cast(img[:,:,0]==0,tf.uint8),
                                             alpha=128, colormap=class_label_colormap,
@@ -289,6 +289,8 @@ def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_ba
 
 #uncomment to use non-augmented files instead
 #filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'noaug*.npz')
+# if len(filenames)==0:
+#     filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'_noaug*.npz')
 
 filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'aug*.npz')
 if len(filenames)==0:
@@ -346,30 +348,31 @@ val_ds = val_ds.prefetch(AUTO) #
 #
 # for imgs,lbls in train_ds.take(1):
 #   for count,(im,lab) in enumerate(zip(imgs, lbls)):
-#      plt.imshow(im)
+#      print(im.shape)
+#      if im.shape[-1]>3:
+#          plt.imshow(im[:,:,:3])
+#      else:
+#          plt.imshow(im)
 #
 #      print(lab.shape)
 #      lab = np.argmax(lab.numpy().squeeze(),-1)
-#
 #      print(np.unique(lab))
-#      # if len(np.unique(lab))==1:
-#      #     plt.imshow(im); plt.imshow(lab, alpha=0.5); plt.show()
 #
 #      color_label = label_to_colors(np.squeeze(lab), tf.cast(im[:,:,0]==0,tf.uint8),
 #                                     alpha=128, colormap=class_label_colormap,
 #                                      color_class_offset=0, do_alpha=False)
 #
 #      if NCLASSES==1:
-#          plt.imshow(color_label, alpha=0.5)#, vmin=0, vmax=NCLASSES)
+#          plt.imshow(color_label, alpha=0.75, vmin=0, vmax=NCLASSES)
 #      else:
-#          #lab = np.argmax(lab,-1)
-#          plt.imshow(color_label,  alpha=0.5)#, vmin=0, vmax=NCLASSES)
-#      #print(np.unique(lab))
+#          plt.imshow(color_label,  alpha=0.75, vmin=0, vmax=NCLASSES)
 #
 #      plt.axis('off')
-#      plt.show()
+#      #plt.show()
+#      plt.savefig('example-{}.png'.format(count), dpi=200)
 
 
+##===============================================
 print('.....................................')
 print('Creating and compiling model ...')
 
@@ -527,7 +530,7 @@ print('Mean of mean IoUs (train subset)={mean_iou:0.3f}'.format(mean_iou=np.mean
 print('Mean of mean Dice scores (train subset)={mean_dice:0.3f}'.format(mean_dice=np.mean(Dc)))
 print('Mean of mean KLD scores (train subset)={mean_kld:0.3f}'.format(mean_kld=np.mean(Kc)))
 
-
+#
 # plt.plot(Dc, Kc, 'ko')
 # plt.savefig('D_vs_KL.png', dpi=200)
 # plt.close()

@@ -50,8 +50,6 @@ sample_direc = root.filename
 print(sample_direc)
 root.withdraw()
 
-# sample_direc = '/media/marda/TWOTB/USGS/SOFTWARE/Projects/UNets/github/pcmsc_watermasking/sample_benchmark'
-
 root = Tk()
 root.filename =  filedialog.askopenfilename(title = "Select FIRST weights file",filetypes = (("weights file","*.h5"),("all files","*.*")))
 weights = root.filename
