@@ -126,8 +126,9 @@ and just ignore any errors. When you run any script, the tensorflow version shou
 
 1. Organize your files according to [this guide](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki/Directory-Structure-and-Tests)
 2. Create a configuration file according to [this guide](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki/Creation-of-%60config%60-files)
-3. Train and evaluate an image segmentation model according to [this guide](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki/Train-an-image-segmentation-model)
-4. Deploy / evaluate model on unseen sample imagery  *more detail coming soon*
+3. Create a model-ready dataset from your pairs of images and labels. A model-ready dataset is a set of images and corresponding labels in `.npz` format that contain all your data for model training and validation. We hope you find [this guide]() helpful
+4. Train and evaluate an image segmentation model according to [this guide](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki/Train-an-image-segmentation-model)
+5. Deploy / evaluate model on unseen sample imagery  *more detail coming soon*
 
 
 ## 💭 Feedback and Contributing
