@@ -1,6 +1,14 @@
 # 📦 Segmentation Zoo
+[![Last Commit](https://img.shields.io/github/last-commit/dbuscombe-usgs/segmentation_zoo)](
+https://github.com/dbuscombe-usgs/segmentation_zoo/commits/main)
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/dbuscombe-usgs/segmentation_zoo/graphs/commit-activity)
+[![Wiki](https://img.shields.io/badge/wiki-documentation-forestgreen)](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki)
+![GitHub](https://img.shields.io/github/license/dbuscombe-usgs/segmentation_zoo)
+[![Wiki](https://img.shields.io/badge/discussion-active-forestgreen)](hhttps://github.com/dbuscombe-usgs/segmentation_zoo/discussions)
 
-(add your badges here)
+![TensorFlow](https://img.shields.io/badge/TensorFlow-%23FF6F00.svg?style=for-the-badge&logo=TensorFlow&logoColor=white)
+
+![Zoo Logo](./zoo-logo.png)
 
 ## 🌟 Highlights
 
@@ -29,11 +37,11 @@ This toolbox is designed to work seamlessly with [Doodler](https://github.com/db
 ### ✍️ Authors
 
 Package maintainers:
-* @dbuscombe-usgs
-* @ebgoldstein
+* [@dbuscombe-usgs](https://github.com/dbuscombe-usgs)
+* [@ebgoldstein](https://github.com/ebgoldstein)
 
 Contributions:
-* @2320sharon
+* [@2320sharon](https://github.com/2320sharon)
 
 
 ## 🚀 Usage
@@ -52,35 +60,7 @@ We recommend a 6 part workflow:
 
 * Here at Zoo HQ we advocate training models on the augmented data encoded in the datasets, so the original data is a hold-out or test set. This is ideal because although the validation dataset (drawn from augmented data) doesn't get used to adjust model weights, it does influence model training by triggering early stopping if validation loss is not improving. Testing on an untransformed set is also a further check/reassurance of model performance and evaluation metric
 
-* Zoo HQ also advocate use of `ensemble` models where possible, which requires training multiple models each with a config file, and model weights file
-
-### <a name="model"></a>Models
-
-There are currently 5 models included in this toolbox: a 2 [UNets](unet), 2 [Residual UNets](resunet), and a [Satellite UNet](satunet).
-
-*Note that the Residual UNet is a new model, and will be described more fully in a forthcoming paper.*
-
-#### <a name="unet"></a>UNet model
-
-The [UNet model](https://lmb.informatik.uni-freiburg.de/people/ronneber/u-net/) is a fully convolutional neural network that is used for binary segmentation i.e foreground and background pixel-wise classification. It is easily adapted to multiclass segmentation workflows by representing each class as a binary mask, creating a stack of binary masks for each potential class (so-called one-hot encoded label data). A UNet is symmetrical (hence the U in the name) and uses concatenation instead of addition to merge feature maps.
-
-The fully convolutional model framework consists of two parts, the encoder and the decoder. The encoder receives the N x N x M (M=1, 3 or 4 in this implementation) input image and applies a series of convolutional layers and pooling layers to reduce the spatial size and condense features. Six banks of convolutional filters, each using filters that double in size to the previous, thereby progressively downsampling the inputs as features are extracted through pooling. The last set of features (or so-called bottleneck) is a very low-dimensional feature representation of the input imagery. The decoder upsamples the bottleneck into a N x N x 1 label image progressively using six banks of convolutional filters, each using filters half in size to the previous, thereby progressively upsampling the inputs as features are extracted through transpose convolutions and concatenation. A transposed convolution convolves a dilated version of the input tensor, consisting of interleaving zeroed rows and columns between each pair of adjacent rows and columns in the input tensor, in order to upscale the output. The sets of features from each of the six levels in the encoder-decoder structure are concatenated, which allows learning different features at different levels and leads to spatially well-resolved outputs. The final classification layer maps the output of the previous layer to a single 2D output based on a sigmoid activation function.
-
-There are two options with the Unet architecture in this repository: a simple version and a highly configurable version... *more detail coming soon*
-
-#### <a name="resunet"></a>Residual UNet model
-UNet with residual (or lateral/skip connections).
-
-![Res-UNet](./unet/res-unet-diagram.png)
-
- The difference between our Res Unet and the original UNet is in the use of three residual-convolutional encoding and decoding layers instead of regular six convolutional encoding and decoding layers. Residual or 'skip' connections have been shown in numerous contexts to facilitate information flow, which is why we have halved the number of convolutional layers but can still achieve good accuracy on the segmentation tasks. The skip connections essentially add the outputs of the regular convolutional block (sequence of convolutions and ReLu activations) with the inputs, so the model learns to map feature representations in context to the inputs that created those representations.
-
-There are two options with the Res-Unet architecture in this repository: a simple version and a highly configurable version... *more detail coming soon*
-
-#### <a name="satunet"></a>Satellite UNet model
-
-[Satellite Unet](https://deepsense.ai/deep-learning-for-satellite-imagery-via-image-segmentation/)
-*Coming Soon*
+* Zoo HQ also advocates the use of `ensemble` models where possible, which requires training multiple models each with a config file, and model weights file
 
 
 ## ⬇️ Installation
@@ -123,6 +103,7 @@ and just ignore any errors. When you run any script, the tensorflow version shou
 
 
 ## How to use
+Check out the [wiki](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki) for a guide of how to use Zoo
 
 1. Organize your files according to [this guide](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki/Directory-Structure-and-Tests)
 2. Create a configuration file according to [this guide](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki/Creation-of-%60config%60-files)
