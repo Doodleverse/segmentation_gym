@@ -4,7 +4,7 @@ https://github.com/dbuscombe-usgs/segmentation_zoo/commits/main)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/dbuscombe-usgs/segmentation_zoo/graphs/commit-activity)
 [![Wiki](https://img.shields.io/badge/wiki-documentation-forestgreen)](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki)
 ![GitHub](https://img.shields.io/github/license/dbuscombe-usgs/segmentation_zoo)
-[![Wiki](https://img.shields.io/badge/discussion-active-forestgreen)](hhttps://github.com/dbuscombe-usgs/segmentation_zoo/discussions)
+[![Wiki](https://img.shields.io/badge/discussion-active-forestgreen)](https://github.com/dbuscombe-usgs/segmentation_zoo/discussions)
 
 ![TensorFlow](https://img.shields.io/badge/TensorFlow-%23FF6F00.svg?style=for-the-badge&logo=TensorFlow&logoColor=white)
 
