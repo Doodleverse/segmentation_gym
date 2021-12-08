@@ -64,6 +64,33 @@ print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('
 
 
 # #-----------------------------------
+def seg_file2tensor_ND(f, TARGET_SIZE):#, resize):
+    """
+    "seg_file2tensor(f)"
+    This function reads a NPZ image from file into a cropped and resized tensor,
+    for use in prediction with a trained segmentation model
+    INPUTS:
+        * f [string] file name of npz
+    OPTIONAL INPUTS: None
+    OUTPUTS:
+        * image [tensor array]: unstandardized image
+    GLOBAL INPUTS: TARGET_SIZE
+    """
+
+    with np.load(f) as data:
+        bigimage = data['arr_0'].astype('uint8')
+
+    smallimage = resize(bigimage,(TARGET_SIZE[0], TARGET_SIZE[1]), preserve_range=True, clip=True)
+    #smallimage=bigimage.resize((TARGET_SIZE[1], TARGET_SIZE[0]))
+    smallimage = np.array(smallimage)
+    smallimage = tf.cast(smallimage, tf.uint8)
+
+    w = tf.shape(bigimage)[0]
+    h = tf.shape(bigimage)[1]
+
+    return smallimage, w, h, bigimage
+
+# #-----------------------------------
 def seg_file2tensor_3band(f, TARGET_SIZE):#, resize):
     """
     "seg_file2tensor(f)"
@@ -89,12 +116,14 @@ def seg_file2tensor_3band(f, TARGET_SIZE):#, resize):
     return smallimage, w, h, bigimage
 
 # =========================================================
-def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TESTTIMEAUG,temp=0):
+def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TESTTIMEAUG):#,temp=0):
 
     if 'jpg' in f:
     	segfile = f.replace('.jpg', '_predseg.png')
     elif 'png' in f:
     	segfile = f.replace('.png', '_predseg.png')
+    elif 'npz' in f:
+    	segfile = f.replace('.npz', '_predseg.png')
 
     metadatadict['input_file'] = f
 
@@ -114,7 +143,9 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TES
     if NCLASSES==1:
 
         if N_DATA_BANDS<=3:
-            image, w, h, bigimage = seg_file2tensor_3band(f, TARGET_SIZE)#, resize=True)
+            image, w, h, bigimage = seg_file2tensor_3band(f, TARGET_SIZE)
+        else:
+            image, w, h, bigimage = seg_file2tensor_ND(f, TARGET_SIZE)
 
         print("Working on %i x %i image" % (w,h))
 
@@ -158,7 +189,7 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TES
 
         del e0, e1
 
-        thres = threshold_otsu(est_label)+temp
+        thres = threshold_otsu(est_label)
         print("Class threshold: %f" % (thres))
         est_label = (est_label>thres).astype('uint8')
         metadatadict['otsu_threshold'] = thres
@@ -167,9 +198,11 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TES
 
         if N_DATA_BANDS<=3:
         	image, w, h, bigimage = seg_file2tensor_3band(f,TARGET_SIZE)#, resize=True)
-        	image = image#/255
-        	bigimage = bigimage#/255
+        	# image = image#/255
+        	# bigimage = bigimage#/255
         	w = w.numpy(); h = h.numpy()
+        else:
+            image, w, h, bigimage = seg_file2tensor_ND(f, TARGET_SIZE)
 
         print("Working on %i x %i image" % (w,h))
 
@@ -245,7 +278,12 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TES
 
     segfile = segfile.replace('_res.npz','_overlay.png')
 
-    plt.imshow(bigimage); plt.imshow(color_label, alpha=0.5);
+    if N_DATA_BANDS<=3:
+        plt.imshow(bigimage)
+    else:
+        plt.imshow(bigimage[:,:,:3])
+
+    plt.imshow(color_label, alpha=0.5);
     plt.axis('off')
     # plt.show()
     plt.savefig(segfile, dpi=200, bbox_inches='tight')
@@ -267,7 +305,7 @@ def make_gradcam_heatmap(image, model):
     model.layers[-2].activation = None
 
     last_conv_layer_name = model.layers[-39].name
-    print(last_conv_layer_name)
+    # print(last_conv_layer_name)
 
    # First, we create a model that maps the input image to the activations
     # of the last conv layer as well as the output predictions

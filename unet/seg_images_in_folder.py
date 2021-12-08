@@ -45,7 +45,7 @@ from prediction_imports import *
 
 
 root = Tk()
-root.filename =  filedialog.askdirectory(initialdir = "/samples",title = "Select directory of images to segment")
+root.filename =  filedialog.askdirectory(initialdir = "/samples",title = "Select directory of images (or npzs) to segment")
 sample_direc = root.filename
 print(sample_direc)
 root.withdraw()
@@ -184,22 +184,26 @@ metadatadict['model_types'] = T
 print('.....................................')
 print('Using model for prediction on images ...')
 
-# sample_filenames = sorted(tf.io.gfile.glob(sample_direc+os.sep+'*.jpg'))
-sample_filenames = sorted(glob(sample_direc+os.sep+'*.jpg'))
-if len(sample_filenames)==0:
-    # sample_filenames = sorted(tf.io.gfile.glob(sample_direc+os.sep+'*.png'))
-    sample_filenames = sorted(glob(sample_direc+os.sep+'*.png'))
+
+sample_filenames = sorted(glob(sample_direc+os.sep+'*.*'))
+if sample_filenames[0].split('.')[-1]=='npz':
+    sample_filenames = sorted(tf.io.gfile.glob(sample_direc+os.sep+'*.npz'))
+else:
+    sample_filenames = sorted(tf.io.gfile.glob(sample_direc+os.sep+'*.jpg'))
+    if len(sample_filenames)==0:
+        # sample_filenames = sorted(tf.io.gfile.glob(sample_direc+os.sep+'*.png'))
+        sample_filenames = sorted(glob(sample_direc+os.sep+'*.png'))
 
 print('Number of samples: %i' % (len(sample_filenames)))
 
-temp = -0.05
+# temp = -0.05
 
 #look for TTA config
 if not 'TESTTIMEAUG' in locals():
     TESTTIMEAUG = False
 
 for counter,f in enumerate(sample_filenames):
-    do_seg(f, M, metadatadict, sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TESTTIMEAUG, temp)
+    do_seg(f, M, metadatadict, sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TESTTIMEAUG)#, temp)
     print('%i out of %i done'%(counter,len(sample_filenames)))
 
 

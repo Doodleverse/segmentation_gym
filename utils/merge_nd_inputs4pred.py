@@ -23,8 +23,12 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+
+import sys,os, time
+sys.path.insert(1, '../unet/src')
+
 # utility to merge multiple coincident jpeg images into nd numpy arrays
-import sys,os, time, json, shutil)
+import sys,os, time, json, shutil
 
 from skimage.io import imread, imsave
 import numpy as np
@@ -66,16 +70,9 @@ def scale_rgb(img, nR, nC, nD):
 
 
 root = Tk()
-root.filename =  filedialog.askdirectory(initialdir = os.getcwd(),title = "Select directory for OUTPUT files")
+root.filename =  filedialog.askdirectory(initialdir = os.getcwd(),title = "Select directory for storing OUTPUT files")
 output_data_path = root.filename
 print(output_data_path)
-root.withdraw()
-
-
-root = Tk()
-root.filename =  filedialog.askdirectory(initialdir = os.getcwd(),title = "Select directory of LABEL files")
-label_data_path = root.filename
-print(label_data_path)
 root.withdraw()
 
 root = Tk()
@@ -99,7 +96,6 @@ while result == 'yes':
         W.append(data_path)
 
 
-
 ##========================================================
 ## COLLATE FILES INTO LISTS
 ##========================================================
@@ -115,10 +111,6 @@ for data_path in W:
 # number of bands x number of samples
 files = np.vstack(files).T
 
-label_files = sorted(glob(label_data_path+os.sep+'*.jpg'))
-if len(label_files)<1:
-    label_files = sorted(glob(label_data_path+os.sep+'images'+os.sep+'*.jpg'))
-
 
 ##========================================================
 ## MAKING PADDED (RESIZED) COPIES OF IMAGERY
@@ -132,27 +124,37 @@ if len(np.unique(szs))>1:
 else:
     do_resize=False
 
+from tkinter import simpledialog
+application_window = Tk()
+TARGET_X = simpledialog.askinteger("Imagery are different sizes and will be resized.",
+                                "What is the TARGET_SIZE (X) of the intended model?",
+                                 parent=application_window,
+                                 minvalue=32, maxvalue=8192)
+
+TARGET_Y = simpledialog.askinteger("Imagery are different sizes and will be resized.",
+                                "What is the TARGET_SIZE (Y) of the intended model?",
+                                 parent=application_window,
+                                 minvalue=32, maxvalue=8192)
+
+TARGET_SIZE = [TARGET_X,TARGET_Y]
+
 ## rersize / pad imagery so all a consistent size (TARGET_SIZE)
 if do_resize:
 
     ## make padded direcs
     for w in W:
         wend = w.split(os.sep)[-1]
-        print(wend)
+        # print(wend)
         newdirec = w.replace(wend,'padded_'+wend)
         try:
             os.mkdir(newdirec)
         except:
             pass
 
-    newdireclabels = label_data_path.replace('labels','padded_labels')
-    try:
-        os.mkdir(newdireclabels)
-    except:
-        pass
+    W2 = []
 
     ## cycle through, merge and padd/resize if need to
-    for file,lfile in zip(files, label_files):
+    for file in files:
 
         for f in file:
             img = imread(f)
@@ -204,52 +206,16 @@ if do_resize:
                     result = scale(img,TARGET_SIZE[0],TARGET_SIZE[1])
 
 
-            wend = f.split(os.sep)[-2]
-            fdir = os.path.dirname(f)
-            fdirout = fdir.replace(wend,'padded_'+wend)
-            # save result
-            imsave(fdirout+os.sep+f.split(os.sep)[-1].replace('.jpg','.png'), result.astype('uint8'), check_contrast=False, compression=0)
-
-
-        ### labels ------------------------------------
-        lab = imread(lfile)
-        color = (0)
-        result = np.full((new_image_height,new_image_width), color, dtype=np.uint8)
-
-        try: #image is smaller
-            # copy img image into center of result image
-            result[y_center:y_center+old_image_height,
-                   x_center:x_center+old_image_width] = lab+1
-        except:
-            result = scale(lab,TARGET_SIZE[0],TARGET_SIZE[1])+1
-
-            ##lab2 =rescale(lab,(sf,sf),anti_aliasing=True, preserve_range=True, order=0)
-            # result[y_center:y_center+old_image_height,
-            #        x_center:x_center+old_image_width] = lab2+1
-            # del lab2
-
-        # save result
-        imsave(lfile.replace('labels','padded_labels').replace('.jpg','.png'), result.astype('uint8'), check_contrast=False, compression=0)
-
-## write padded labels to file
-if do_resize:
-    label_data_path = label_data_path.replace('labels','padded_labels')
-
-    label_files = sorted(glob(label_data_path+os.sep+'*.png'))
-    if len(label_files)<1:
-        label_files = sorted(glob(label_data_path+os.sep+'images'+os.sep+'*.png'))
-    print("{} label files".format(len(label_files)))
-
     W2 = []
     for w in W:
         wend = w.split(os.sep)[-1]
-        w = w.replace(wend,'padded_'+wend)
-        W2.append(w)
-    W = W2
-    del W2
+        fdirout = w.replace(wend,'padded_'+wend)
+        W2.append(fdirout)
 
+
+    ## redeifne 'files' if do_resize
     files = []
-    for data_path in W:
+    for data_path in W2:
         f = sorted(glob(data_path+os.sep+'*.png'))
         if len(f)<1:
             f = sorted(glob(data_path+os.sep+'images'+os.sep+'*.png'))
@@ -257,18 +223,7 @@ if do_resize:
 
     # number of bands x number of samples
     files = np.vstack(files).T
-    print("{} sets of {} files".format(len(W),len(files)))
 
-else:
-
-    label_files = sorted(glob(label_data_path+os.sep+'*.jpg'))
-    if len(label_files)<1:
-        label_files = sorted(glob(label_data_path+os.sep+'images'+os.sep+'*.jpg'))
-    print("{} label files".format(len(label_files)))
-
-    files = sorted(glob(data_path+os.sep+'*.jpg'))
-    if len(f)<1:
-        files = sorted(glob(data_path+os.sep+'images'+os.sep+'*.jpg'))
 
 ###================================================
 
@@ -277,75 +232,36 @@ else:
 ##========================================================
 
 
-print("Creating non-augmented subset")
+ROOT_STRING = 'forpred_'+str(TARGET_SIZE[0])+'_'+str(TARGET_SIZE[1])
+
 ## make non-aug subset first
 # cycle through pairs of files and labels
-for counter,(f,l) in enumerate(zip(files,label_files)):
+for counter,f in enumerate(files):
     im=[] # read all images into a list
     for k in f:
         im.append(imread(k))
     datadict={}
-    try:
-        im=np.dstack(im)# create a dtack which takes care of different sized inputs
-        datadict['arr_0'] = im.astype(np.uint8)
+    im=np.dstack(im)# create a dtack which takes care of different sized inputs
 
-        lab = imread(l) # reac the label
-
-        if 'REMAP_CLASSES' in locals():
-            for k in REMAP_CLASSES.items():
-                lab[lab==int(k[0])] = int(k[1])
-
-        lab[lab>NCLASSES]=NCLASSES
-
-        if len(np.unique(lab))==1:
-            nx,ny = lab.shape
-            if NCLASSES==1:
-                lstack = np.zeros((nx,ny,NCLASSES+1))
-            else:
-                lstack = np.zeros((nx,ny,NCLASSES))
-
-            lstack[:,:,np.unique(lab)[0]]=np.ones((nx,ny))
-        else:
-            nx,ny = lab.shape
-            if NCLASSES==1:
-                lstack = np.zeros((nx,ny,NCLASSES+1))
-                lstack[:,:,:NCLASSES+1] = (np.arange(NCLASSES+1) == 1+lab[...,None]-1).astype(int) #one-hot encode
-            else:
-                lstack = np.zeros((nx,ny,NCLASSES))
-                lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+lab[...,None]-1).astype(int) #one-hot encode
-
-        if FILTER_VALUE>1:
-
-            for kk in range(lstack.shape[-1]):
-                lab = remove_small_objects(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
-                lab = remove_small_holes(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
-                lstack[:,:,kk] = np.round(lab).astype(np.uint8)
-                del lab
-
-        datadict['arr_1'] = np.squeeze(lstack).astype(np.uint8)
-        datadict['num_bands'] = im.shape[-1]
-        datadict['files'] = [fi.split(os.sep)[-1] for fi in f]
-        segfile = output_data_path+os.sep+ROOT_STRING+'_noaug_nd_data_000000'+str(counter)+'.npz'
-        np.savez_compressed(segfile, **datadict)
-        del datadict, im, lstack
-    except:
-        print("Inconsistent inputs associated with label file: ".format(l))
-
+    datadict['arr_0'] = im.astype(np.uint8)
+    datadict['num_bands'] = im.shape[-1]
+    datadict['files'] = [fi.split(os.sep)[-1] for fi in f]
+    segfile = output_data_path+os.sep+ROOT_STRING+'_noaug_nd_data_000000'+str(counter)+'.npz'
+    np.savez_compressed(segfile, **datadict)
+    del datadict, im
 
 
 
 ###================================
-
 from imports import *
 
 #-----------------------------------
 def load_npz(example):
     with np.load(example.numpy()) as data:
         image = data['arr_0'].astype('uint8')
-        image = standardize(image)
-        label = data['arr_1'].astype('uint8')
+        #image = standardize(image)
         file = [''.join(f) for f in data['files']]
-    return image, label, file[0]
+    return image, file[0]
 
 @tf.autograph.experimental.do_not_convert
 #-----------------------------------
@@ -361,19 +277,16 @@ def read_seg_dataset_multiclass(example):
         * image [tensor array]
         * class_label [tensor array]
     """
-    image, label, file = tf.py_function(func=load_npz, inp=[example], Tout=[tf.float32, tf.uint8, tf.string])
+    image, file = tf.py_function(func=load_npz, inp=[example], Tout=[tf.float32, tf.string])
 
-    if NCLASSES==1:
-        label = tf.expand_dims(label,-1)
-
-    return image, label, file
+    return image, file
 
 ###================================
 
 ##========================================================
 ## READ, VERIFY and PLOT NON-AUGMENTED FILES
 ##========================================================
-
+BATCH_SIZE = 8
 
 filenames = tf.io.gfile.glob(output_data_path+os.sep+ROOT_STRING+'_noaug*.npz')
 dataset = tf.data.Dataset.list_files(filenames, shuffle=False)
@@ -391,42 +304,19 @@ try:
 except:
     pass
 
-#blue,red, yellow,green
-class_label_colormap = ['#3366CC','#DC3912','#FF9900','#109618','#990099','#0099C6','#DD4477',
-                        '#66AA00','#B82E2E', '#316395','#0d0887', '#46039f', '#7201a8',
-                        '#9c179e', '#bd3786', '#d8576b', '#ed7953', '#fb9f3a', '#fdca26', '#f0f921']
-
-if NCLASSES>1:
-    class_label_colormap = class_label_colormap[:NCLASSES]
-else:
-    class_label_colormap = class_label_colormap[:NCLASSES+1]
-
-
 print('.....................................')
 print('Printing examples to file ...')
 
 counter=0
-for imgs,lbls,files in dataset.take(10):
+for imgs,files in dataset.take(10):
 
-  for count,(im,lab, file) in enumerate(zip(imgs, lbls, files)):
+  for count,(im, file) in enumerate(zip(imgs, files)):
 
      im = rescale_array(im.numpy(), 0, 1)
      if im.shape[-1]:
          im = im[:,:,:3]
 
      plt.imshow(im)
-
-     lab = np.argmax(lab.numpy().squeeze(),-1)
-
-     color_label = label_to_colors(np.squeeze(lab), tf.cast(im[:,:,0]==0,tf.uint8),
-                                    alpha=128, colormap=class_label_colormap,
-                                     color_class_offset=0, do_alpha=False)
-
-     if NCLASSES==1:
-         plt.imshow(color_label, alpha=0.5)#, vmin=0, vmax=NCLASSES)
-     else:
-         #lab = np.argmax(lab,-1)
-         plt.imshow(color_label,  alpha=0.5)#, vmin=0, vmax=NCLASSES)
 
      file = file.numpy()
 
