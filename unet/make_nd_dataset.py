@@ -70,6 +70,21 @@ def scale_rgb(img, nR, nC, nD):
 def do_pad_label(lfile, TARGET_SIZE):
     ### labels ------------------------------------
     lab = imread(lfile)
+
+    try:
+        old_image_height, old_image_width, channels = lab.shape
+    except:
+        old_image_height, old_image_width = lab.shape
+        channels=0
+
+    # create new image of desired size and color (black) for padding
+    new_image_width = TARGET_SIZE[0]
+    new_image_height = TARGET_SIZE[0]
+
+    # compute center offset
+    x_center = (new_image_width - old_image_width) // 2
+    y_center = (new_image_height - old_image_height) // 2
+
     color = (0)
     result = np.full((new_image_height,new_image_width), color, dtype=np.uint8)
 
