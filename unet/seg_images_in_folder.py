@@ -202,9 +202,9 @@ print('Number of samples: %i' % (len(sample_filenames)))
 if not 'TESTTIMEAUG' in locals():
     TESTTIMEAUG = False
 
-for counter,f in enumerate(sample_filenames):
+for f in tqdm(sample_filenames):
     do_seg(f, M, metadatadict, sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TESTTIMEAUG)#, temp)
-    print('%i out of %i done'%(counter,len(sample_filenames)))
+    #print('%i out of %i done'%(counter,len(sample_filenames)))
 
 
 # w = Parallel(n_jobs=2, verbose=0, max_nbytes=None)(delayed(do_seg)(f) for f in tqdm(sample_filenames))

@@ -15,9 +15,11 @@ https://github.com/dbuscombe-usgs/segmentation_zoo/commits/main)
 ## 🌟 Highlights
 
 - Zoo is for training, evaluating, and deploying deep learning models for image segmentation
-- We take transferability seriously; Zoo is designed to be a "one stop shop" for image segmentation on N-D imagery (well, at least Earth Observation and aerial remote sensing imagery)
+- We take transferability seriously; Zoo is designed to be a "one stop shop" for image segmentation on N-D imagery (i.e. any number of coincident bands). It is tailored to Earth Observation and aerial remote sensing imagery.
 - Zoo encodes relatively powerful models like UNets, and provides lots of ways to manipulate data, model training, and model architectures that should yield good results with some informed experimentation
 - Zoo works seamlessly with [Doodler](https://github.com/dbuscombe-usgs/dash_doodler), a human-in-the loop labeling tool
+- Zoo implements models based on the U-Net. Despite being one of the "original" deep learning segmentation models (dating to [2016](https://arxiv.org/abs/1505.04597)), UNets have proven themselves enormously flexible for a wide range of image segmentation tasks and spatial regression tasks in the natural sciences. So, we expect these models, and, perhaps more importantly, the training and implementation of those models in an end-to-end pipeline, to work for a very wide variety of cases. Additional models may be added later.
+- You can read more about the models [here](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki/Models-in-Zoo) but be warned! We at Zoo HQ have discovered - often the hard way - that success is more about the data than the model. Zoo helps you wrangle and tame your data, and makes your data work hard for you (nothing fancy, we just use augmentation)
 
 ## ℹ️ Overview
 
@@ -26,12 +28,12 @@ We are building a toolbox to segment imagery with a variety of supervised deep-l
 * Preprocessing of imagery for deep learning model training and prediction, such as image padding and/or resizing
 * Coupling of N-dimensional imagery, perhaps stored across multiple files, with corresponding integer label images
 * Use of an existing (i.e. pre-trained) model to segment new imagery (by using provided code and model weights)
-* Use of images and corresponding label images, or 'labels', to develop a 'model-ready' dataset
+* Use of images and corresponding label images, or 'labels', to develop a 'model-ready' dataset. A model-ready dataset is a set of images and corresponding labels in a serial binary archive format (we use `.npz`) that contain all your data for model training and validation, and that can be unpacked directory as tensorflow tensors. We initially used tfrecord format files, but abandoned the approach because of the relative complexity, and because the npz format is more familiar to Earth scientists who code with python.
 * Training a new model from scratch using this new dataset
 * Evaluating the model against a validation subset
 * Applying the model (or ensemble of models) on sample imagery, i.e. model deployment
 
-We have tested on a variety of Earth and environmental imagery of coastal environments, which is the authors' motivation for creating this toolbox. However, we expect the toolbox to be useful for all types of imagery when properly applied.
+We have tested on a variety of Earth and environmental imagery of coastal, river, and other natural environments. However, we expect the toolbox to be useful for all types of imagery when properly applied.
 
 This toolbox is designed to work seamlessly with [Doodler](https://github.com/dbuscombe-usgs/dash_doodler), a human-in-the loop labeling tool that will help you make training data for Zoo. It would also work on any imagery in jpg or png format that has corresponding 2d greyscale integer label images (jpg or png), however acquired.
 
@@ -109,7 +111,7 @@ Check out the [wiki](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki) fo
 
 1. Organize your files according to [this guide](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki/Directory-Structure-and-Tests)
 2. Create a configuration file according to [this guide](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki/Creation-of-%60config%60-files)
-3. Create a model-ready dataset from your pairs of images and labels. A model-ready dataset is a set of images and corresponding labels in `.npz` format that contain all your data for model training and validation. We hope you find [this guide]() helpful
+3. Create a model-ready dataset from your pairs of images and labels. AWe hope you find [this guide](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki/Create-a-model-ready-dataset) helpful
 4. Train and evaluate an image segmentation model according to [this guide](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki/Train-an-image-segmentation-model)
 5. Deploy / evaluate model on unseen sample imagery  *more detail coming soon*
 

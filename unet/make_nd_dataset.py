@@ -35,7 +35,7 @@ from glob import glob
 from skimage.transform import rescale ## this is actually for resizing
 from skimage.morphology import remove_small_objects, remove_small_holes
 from tqdm import tqdm
-
+from joblib import Parallel, delayed
 ###===========================================
 
 #-----------------------------------
@@ -65,6 +65,91 @@ def scale_rgb(img, nR, nC, nD):
       imgout[:,:,k] = np.array(tmp).reshape((nR,nC))
   return imgout
 
+
+#-----------------------------------
+def do_pad_label(lfile, TARGET_SIZE):
+    ### labels ------------------------------------
+    lab = imread(lfile)
+    color = (0)
+    result = np.full((new_image_height,new_image_width), color, dtype=np.uint8)
+
+    try: #image is smaller
+        # copy img image into center of result image
+        result[y_center:y_center+old_image_height,
+               x_center:x_center+old_image_width] = lab+1
+    except:
+        result = scale(lab,TARGET_SIZE[0],TARGET_SIZE[1])+1
+
+        ##lab2 =rescale(lab,(sf,sf),anti_aliasing=True, preserve_range=True, order=0)
+        # result[y_center:y_center+old_image_height,
+        #        x_center:x_center+old_image_width] = lab2+1
+        # del lab2
+
+    wend = lfile.split(os.sep)[-2]
+    fdir = os.path.dirname(lfile)
+    fdirout = fdir.replace(wend,'padded_'+wend)
+
+    # save result
+    #imsave(lfile.replace('labels','padded_labels').replace('.jpg','.png'), result.astype('uint8'), check_contrast=False, compression=0)
+    imsave(fdirout+os.sep+lfile.split(os.sep)[-1].replace('.jpg','.png'), result.astype('uint8'), check_contrast=False, compression=0)
+
+
+#-----------------------------------
+def do_pad_image(f, TARGET_SIZE):
+    img = imread(f)
+
+    try:
+        old_image_height, old_image_width, channels = img.shape
+    except:
+        old_image_height, old_image_width = img.shape
+        channels=0
+
+    # create new image of desired size and color (black) for padding
+    new_image_width = TARGET_SIZE[0]
+    new_image_height = TARGET_SIZE[0]
+    if channels>0:
+        color = (0,0,0)
+        result = np.full((new_image_height,new_image_width, channels), color, dtype=np.uint8)
+    else:
+        color = (0)
+        result = np.full((new_image_height,new_image_width), color, dtype=np.uint8)
+
+    # compute center offset
+    x_center = (new_image_width - old_image_width) // 2
+    y_center = (new_image_height - old_image_height) // 2
+
+    try:
+        # copy img image into center of result image
+        result[y_center:y_center+old_image_height,
+               x_center:x_center+old_image_width] = img
+    except:
+        ## AN ALTERNATIVE WAY - DO NOT REMOVE
+        # sf = np.minimum(new_image_width/old_image_width,new_image_height/old_image_height)
+        # if channels>0:
+        #     img = rescale(img,(sf,sf,1),anti_aliasing=True, preserve_range=True, order=1)
+        # else:
+        #     img = rescale(img,(sf,sf),anti_aliasing=True, preserve_range=True, order=1)
+        # if channels>0:
+        #     old_image_height, old_image_width, channels = img.shape
+        # else:
+        #     old_image_height, old_image_width = img.shape
+        #
+        # x_center = (new_image_width - old_image_width) // 2
+        # y_center = (new_image_height - old_image_height) // 2
+        #
+        # result[y_center:y_center+old_image_height,
+        #        x_center:x_center+old_image_width] = img.astype('uint8')
+        if channels>0:
+            result = scale_rgb(img,TARGET_SIZE[0],TARGET_SIZE[1],3)
+        else:
+            result = scale(img,TARGET_SIZE[0],TARGET_SIZE[1])
+
+
+    wend = f.split(os.sep)[-2]
+    fdir = os.path.dirname(f)
+    fdirout = fdir.replace(wend,'padded_'+wend)
+    # save result
+    imsave(fdirout+os.sep+f.split(os.sep)[-1].replace('.jpg','.png'), result.astype('uint8'), check_contrast=False, compression=0)
 
 
 ##========================================================
@@ -98,18 +183,16 @@ else:
    ## to use the CPU (not recommended):
    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
-if N_DATA_BANDS<=3:
-    print("This program is for 1 or 3D imagery, i.e. N_DATA_BANDS <= 3")
-    print("Exiting ...")
-    sys.exit(2)
-else:
-    root = Tk()
-    root.filename =  filedialog.askdirectory(initialdir = os.getcwd(),title = "Select directory for OUTPUT files")
-    output_data_path = root.filename
-    print(output_data_path)
-    root.withdraw()
-
-# output_data_path = '/media/marda/TWOTB/USGS/SOFTWARE/Projects/UNets/coast_train_model_datasets/datasetE_L8/npz_forModel'
+# if N_DATA_BANDS<=3:
+#     print("This program is for 1 or 3D imagery, i.e. N_DATA_BANDS <= 3")
+#     print("Exiting ...")
+#     sys.exit(2)
+# else:
+root = Tk()
+root.filename =  filedialog.askdirectory(initialdir = os.getcwd(),title = "Select directory for OUTPUT files")
+output_data_path = root.filename
+print(output_data_path)
+root.withdraw()
 
 
 root = Tk()
@@ -124,9 +207,6 @@ data_path = root.filename
 print(data_path)
 root.withdraw()
 
-# label_data_path = '/media/marda/TWOTB/USGS/SOFTWARE/Projects/UNets/coast_train_datasets/datasetF_L8/all_data/labels'
-# data_path = '/media/marda/TWOTB/USGS/SOFTWARE/Projects/UNets/coast_train_datasets/datasetF_L8/all_data/image'
-
 W=[]
 W.append(data_path)
 
@@ -140,11 +220,6 @@ while result == 'yes':
         print(data_path)
         root.withdraw()
         W.append(data_path)
-#
-# W =['/media/marda/TWOTB/USGS/SOFTWARE/Projects/UNets/coast_train_datasets/datasetF_L8/all_data/images',
-#  '/media/marda/TWOTB/USGS/SOFTWARE/Projects/UNets/coast_train_datasets/datasetF_L8/all_data/nir',
-#  '/media/marda/TWOTB/USGS/SOFTWARE/Projects/UNets/coast_train_datasets/datasetF_L8/all_data/swir']
-
 
 ##========================================================
 ## COLLATE FILES INTO LISTS
@@ -163,8 +238,10 @@ files = np.vstack(files).T
 
 label_files = sorted(glob(label_data_path+os.sep+'*.jpg'))
 if len(label_files)<1:
-    label_files = sorted(glob(label_data_path+os.sep+'images'+os.sep+'*.jpg'))
+    label_files = sorted(glob(label_data_path+os.sep+'labels'+os.sep+'*.jpg'))
 
+
+print("Found {} image and {} label files".format(len(files), len(label_files)))
 
 ##========================================================
 ## MAKING PADDED (RESIZED) COPIES OF IMAGERY
@@ -197,85 +274,20 @@ if do_resize:
     except:
         pass
 
-    ## cycle through, merge and padd/resize if need to
-    for file,lfile in zip(files, label_files):
 
-        for f in file:
-            img = imread(f)
+    if len(W)==1:
+        w = Parallel(n_jobs=-2, verbose=0, max_nbytes=None)(delayed(do_pad_image)(f, TARGET_SIZE) for f in files.squeeze())
 
-            try:
-                old_image_height, old_image_width, channels = img.shape
-            except:
-                old_image_height, old_image_width = img.shape
-                channels=0
+        w = Parallel(n_jobs=-2, verbose=0, max_nbytes=None)(delayed(do_pad_label)(lfile, TARGET_SIZE) for lfile in label_files)
 
-            # create new image of desired size and color (black) for padding
-            new_image_width = TARGET_SIZE[0]
-            new_image_height = TARGET_SIZE[0]
-            if channels>0:
-                color = (0,0,0)
-                result = np.full((new_image_height,new_image_width, channels), color, dtype=np.uint8)
-            else:
-                color = (0)
-                result = np.full((new_image_height,new_image_width), color, dtype=np.uint8)
+    else:
+        ## cycle through, merge and padd/resize if need to
+        for file,lfile in zip(files, label_files):
 
-            # compute center offset
-            x_center = (new_image_width - old_image_width) // 2
-            y_center = (new_image_height - old_image_height) // 2
+            for f in file:
+                do_pad_image(f, TARGET_SIZE)
+            do_pad_label(lfile, TARGET_SIZE)
 
-            try:
-                # copy img image into center of result image
-                result[y_center:y_center+old_image_height,
-                       x_center:x_center+old_image_width] = img
-            except:
-                ## AN ALTERNATIVE WAY - DO NOT REMOVE
-                # sf = np.minimum(new_image_width/old_image_width,new_image_height/old_image_height)
-                # if channels>0:
-                #     img = rescale(img,(sf,sf,1),anti_aliasing=True, preserve_range=True, order=1)
-                # else:
-                #     img = rescale(img,(sf,sf),anti_aliasing=True, preserve_range=True, order=1)
-                # if channels>0:
-                #     old_image_height, old_image_width, channels = img.shape
-                # else:
-                #     old_image_height, old_image_width = img.shape
-                #
-                # x_center = (new_image_width - old_image_width) // 2
-                # y_center = (new_image_height - old_image_height) // 2
-                #
-                # result[y_center:y_center+old_image_height,
-                #        x_center:x_center+old_image_width] = img.astype('uint8')
-                if channels>0:
-                    result = scale_rgb(img,TARGET_SIZE[0],TARGET_SIZE[1],3)
-                else:
-                    result = scale(img,TARGET_SIZE[0],TARGET_SIZE[1])
-
-
-            wend = f.split(os.sep)[-2]
-            fdir = os.path.dirname(f)
-            fdirout = fdir.replace(wend,'padded_'+wend)
-            # save result
-            imsave(fdirout+os.sep+f.split(os.sep)[-1].replace('.jpg','.png'), result.astype('uint8'), check_contrast=False, compression=0)
-
-
-        ### labels ------------------------------------
-        lab = imread(lfile)
-        color = (0)
-        result = np.full((new_image_height,new_image_width), color, dtype=np.uint8)
-
-        try: #image is smaller
-            # copy img image into center of result image
-            result[y_center:y_center+old_image_height,
-                   x_center:x_center+old_image_width] = lab+1
-        except:
-            result = scale(lab,TARGET_SIZE[0],TARGET_SIZE[1])+1
-
-            ##lab2 =rescale(lab,(sf,sf),anti_aliasing=True, preserve_range=True, order=0)
-            # result[y_center:y_center+old_image_height,
-            #        x_center:x_center+old_image_width] = lab2+1
-            # del lab2
-
-        # save result
-        imsave(lfile.replace('labels','padded_labels').replace('.jpg','.png'), result.astype('uint8'), check_contrast=False, compression=0)
 
 ## write padded labels to file
 if do_resize:
@@ -303,7 +315,7 @@ if do_resize:
 
     # number of bands x number of samples
     files = np.vstack(files).T
-    print("{} sets of {} files".format(len(W),len(files)))
+    print("{} sets of {} image files".format(len(W),len(files)))
 
 else:
 
@@ -327,9 +339,13 @@ print("Creating non-augmented subset")
 ## make non-aug subset first
 # cycle through pairs of files and labels
 for counter,(f,l) in enumerate(zip(files,label_files)):
-    im=[] # read all images into a list
-    for k in f:
-        im.append(imread(k))
+
+    if len(W)>1:
+        im=[] # read all images into a list
+        for k in f:
+            im.append(imread(k))
+    else:
+        im = [imread(f)]
     datadict={}
     try:
         im=np.dstack(im)# create a dtack which takes care of different sized inputs
@@ -388,7 +404,10 @@ def load_npz(example):
         image = data['arr_0'].astype('uint8')
         image = standardize(image)
         label = data['arr_1'].astype('uint8')
-        file = [''.join(f) for f in data['files']]
+        try:
+            file = [''.join(f) for f in data['files']]
+        except:
+            file = [f]
     return image, label, file[0]
 
 @tf.autograph.experimental.do_not_convert
@@ -418,6 +437,8 @@ def read_seg_dataset_multiclass(example):
 ## READ, VERIFY and PLOT NON-AUGMENTED FILES
 ##========================================================
 
+# to deal with non-resized imaegry
+BATCH_SIZE = 1
 
 filenames = tf.io.gfile.glob(output_data_path+os.sep+ROOT_STRING+'_noaug*.npz')
 dataset = tf.data.Dataset.list_files(filenames, shuffle=False)
@@ -435,7 +456,7 @@ try:
 except:
     pass
 
-#blue,red, yellow,green
+#blue,red, yellow,green, etc
 class_label_colormap = ['#3366CC','#DC3912','#FF9900','#109618','#990099','#0099C6','#DD4477',
                         '#66AA00','#B82E2E', '#316395','#0d0887', '#46039f', '#7201a8',
                         '#9c179e', '#bd3786', '#d8576b', '#ed7953', '#fb9f3a', '#fdca26', '#f0f921']
@@ -450,7 +471,7 @@ print('.....................................')
 print('Printing examples to file ...')
 
 counter=0
-for imgs,lbls,files in dataset.take(10):
+for imgs,lbls,files in dataset.take(20):
 
   for count,(im,lab, file) in enumerate(zip(imgs, lbls, files)):
 
@@ -524,7 +545,7 @@ image_datagen = tf.keras.preprocessing.image.ImageDataGenerator(**data_gen_args)
 
 ## put images in subfolders
 for counter,w in enumerate(W):
-    n_im = len(glob(w+os.sep+'*.png'))
+    n_im = len(glob(w+os.sep+'*.png')+glob(w+os.sep+'*.jpg'))
     if n_im>0:
         try:
             os.mkdir(w+os.sep+'images')
@@ -532,20 +553,25 @@ for counter,w in enumerate(W):
             pass
         for file in glob(w+os.sep+'*.png'):
             shutil.move(file,w+os.sep+'images')
-    n_im = len(glob(w+os.sep+'images'+os.sep+'*.png'))
+        for file in glob(w+os.sep+'*.jpg'):
+            shutil.move(file,w+os.sep+'images')
+
+    n_im = len(glob(w+os.sep+'images'+os.sep+'*.*'))
 
 
-## put images in subfolders
-n_im = len(glob(label_data_path+os.sep+'*.png'))
+## put label images in subfolders
+n_im = len(glob(label_data_path+os.sep+'*.png')+glob(label_data_path+os.sep+'*.jpg'))
 if n_im>0:
     try:
         os.mkdir(label_data_path+os.sep+'images')
     except:
         pass
 
+for file in glob(label_data_path+os.sep+'*.jpg'):
+    shutil.move(file,label_data_path+os.sep+'images')
 for file in glob(label_data_path+os.sep+'*.png'):
     shutil.move(file,label_data_path+os.sep+'images')
-n_im = len(glob(label_data_path+os.sep+'images'+os.sep+'*.png'))
+n_im = len(glob(label_data_path+os.sep+'images'+os.sep+'*.*'))
 
 
 #### make training generators directly, and in advance
@@ -724,7 +750,7 @@ print('.....................................')
 print('Printing examples to file ...')
 
 counter=0
-for imgs,lbls,files in dataset.take(10):
+for imgs,lbls,files in dataset.take(20):
 
   for count,(im,lab, file) in enumerate(zip(imgs, lbls, files)):
 

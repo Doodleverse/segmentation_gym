@@ -147,7 +147,7 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TES
         else:
             image, w, h, bigimage = seg_file2tensor_ND(f, TARGET_SIZE)
 
-        print("Working on %i x %i image" % (w,h))
+        # print("Working on %i x %i image" % (w,h))
 
         image = standardize(image.numpy()).squeeze()
 
@@ -168,7 +168,7 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TES
                 est_label = est_label + est_label2 + est_label3 + est_label4
 
 
-            print('Model {} applied'.format(counter))
+            # print('Model {} applied'.format(counter))
             E0.append(resize(est_label[:,:,0],(w,h), preserve_range=True, clip=True))
             E1.append(resize(est_label[:,:,1],(w,h), preserve_range=True, clip=True))
             del est_label
@@ -190,7 +190,7 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TES
         del e0, e1
 
         thres = threshold_otsu(est_label)
-        print("Class threshold: %f" % (thres))
+        # print("Class threshold: %f" % (thres))
         est_label = (est_label>thres).astype('uint8')
         metadatadict['otsu_threshold'] = thres
 
@@ -204,7 +204,7 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TES
         else:
             image, w, h, bigimage = seg_file2tensor_ND(f, TARGET_SIZE)
 
-        print("Working on %i x %i image" % (w,h))
+        # print("Working on %i x %i image" % (w,h))
 
         #image = tf.image.per_image_standardization(image)
         image = standardize(image.numpy())
