@@ -38,6 +38,7 @@ from glob import glob
 from skimage.transform import rescale ## this is actually for resizing
 from skimage.morphology import remove_small_objects, remove_small_holes
 from tqdm import tqdm
+from joblib import Parallel, delayed
 
 ###===========================================
 
@@ -68,7 +69,65 @@ def scale_rgb(img, nR, nC, nD):
       imgout[:,:,k] = np.array(tmp).reshape((nR,nC))
   return imgout
 
+#-----------------------------------
+def do_pad_image(f, TARGET_SIZE):
+    img = imread(f)
 
+    try:
+        old_image_height, old_image_width, channels = img.shape
+    except:
+        old_image_height, old_image_width = img.shape
+        channels=0
+
+    # create new image of desired size and color (black) for padding
+    new_image_width = TARGET_SIZE[0]
+    new_image_height = TARGET_SIZE[0]
+    if channels>0:
+        color = (0,0,0)
+        result = np.full((new_image_height,new_image_width, channels), color, dtype=np.uint8)
+    else:
+        color = (0)
+        result = np.full((new_image_height,new_image_width), color, dtype=np.uint8)
+
+    # compute center offset
+    x_center = (new_image_width - old_image_width) // 2
+    y_center = (new_image_height - old_image_height) // 2
+
+    try:
+        # copy img image into center of result image
+        result[y_center:y_center+old_image_height,
+               x_center:x_center+old_image_width] = img
+    except:
+        ## AN ALTERNATIVE WAY - DO NOT REMOVE
+        # sf = np.minimum(new_image_width/old_image_width,new_image_height/old_image_height)
+        # if channels>0:
+        #     img = rescale(img,(sf,sf,1),anti_aliasing=True, preserve_range=True, order=1)
+        # else:
+        #     img = rescale(img,(sf,sf),anti_aliasing=True, preserve_range=True, order=1)
+        # if channels>0:
+        #     old_image_height, old_image_width, channels = img.shape
+        # else:
+        #     old_image_height, old_image_width = img.shape
+        #
+        # x_center = (new_image_width - old_image_width) // 2
+        # y_center = (new_image_height - old_image_height) // 2
+        #
+        # result[y_center:y_center+old_image_height,
+        #        x_center:x_center+old_image_width] = img.astype('uint8')
+        if channels>0:
+            result = scale_rgb(img,TARGET_SIZE[0],TARGET_SIZE[1],3)
+        else:
+            result = scale(img,TARGET_SIZE[0],TARGET_SIZE[1])
+
+
+    wend = f.split(os.sep)[-2]
+    fdir = os.path.dirname(f)
+    fdirout = fdir.replace(wend,'padded_'+wend)
+    # save result
+    imsave(fdirout+os.sep+f.split(os.sep)[-1].replace('.jpg','.png'), result.astype('uint8'), check_contrast=False, compression=0)
+
+
+#-----------------------------------
 root = Tk()
 root.filename =  filedialog.askdirectory(initialdir = os.getcwd(),title = "Select directory for storing OUTPUT files")
 output_data_path = root.filename
@@ -100,7 +159,6 @@ while result == 'yes':
 ## COLLATE FILES INTO LISTS
 ##========================================================
 
-
 files = []
 for data_path in W:
     f = sorted(glob(data_path+os.sep+'*.jpg'))
@@ -110,7 +168,6 @@ for data_path in W:
 
 # number of bands x number of samples
 files = np.vstack(files).T
-
 
 ##========================================================
 ## MAKING PADDED (RESIZED) COPIES OF IMAGERY
@@ -144,78 +201,38 @@ if do_resize:
     ## make padded direcs
     for w in W:
         wend = w.split(os.sep)[-1]
-        # print(wend)
+        print(wend)
         newdirec = w.replace(wend,'padded_'+wend)
         try:
             os.mkdir(newdirec)
         except:
             pass
 
-    W2 = []
 
-    ## cycle through, merge and padd/resize if need to
-    for file in files:
+    if len(W)==1:
+        for file in files:
+            w = Parallel(n_jobs=-2, verbose=0, max_nbytes=None)(delayed(do_pad_image)(f, TARGET_SIZE) for f in file.squeeze())
 
-        for f in file:
-            img = imread(f)
+    else:
+        ## cycle through, merge and padd/resize if need to
+        for file in files:
+            for f in file:
+                do_pad_image(f, TARGET_SIZE)
 
-            try:
-                old_image_height, old_image_width, channels = img.shape
-            except:
-                old_image_height, old_image_width = img.shape
-                channels=0
 
-            # create new image of desired size and color (black) for padding
-            new_image_width = TARGET_SIZE[0]
-            new_image_height = TARGET_SIZE[0]
-            if channels>0:
-                color = (0,0,0)
-                result = np.full((new_image_height,new_image_width, channels), color, dtype=np.uint8)
-            else:
-                color = (0)
-                result = np.full((new_image_height,new_image_width), color, dtype=np.uint8)
-
-            # compute center offset
-            x_center = (new_image_width - old_image_width) // 2
-            y_center = (new_image_height - old_image_height) // 2
-
-            try:
-                # copy img image into center of result image
-                result[y_center:y_center+old_image_height,
-                       x_center:x_center+old_image_width] = img
-            except:
-                ## AN ALTERNATIVE WAY - DO NOT REMOVE
-                # sf = np.minimum(new_image_width/old_image_width,new_image_height/old_image_height)
-                # if channels>0:
-                #     img = rescale(img,(sf,sf,1),anti_aliasing=True, preserve_range=True, order=1)
-                # else:
-                #     img = rescale(img,(sf,sf),anti_aliasing=True, preserve_range=True, order=1)
-                # if channels>0:
-                #     old_image_height, old_image_width, channels = img.shape
-                # else:
-                #     old_image_height, old_image_width = img.shape
-                #
-                # x_center = (new_image_width - old_image_width) // 2
-                # y_center = (new_image_height - old_image_height) // 2
-                #
-                # result[y_center:y_center+old_image_height,
-                #        x_center:x_center+old_image_width] = img.astype('uint8')
-                if channels>0:
-                    result = scale_rgb(img,TARGET_SIZE[0],TARGET_SIZE[1],3)
-                else:
-                    result = scale(img,TARGET_SIZE[0],TARGET_SIZE[1])
-
+## write padded labels to file
+if do_resize:
 
     W2 = []
     for w in W:
         wend = w.split(os.sep)[-1]
-        fdirout = w.replace(wend,'padded_'+wend)
-        W2.append(fdirout)
+        w = w.replace(wend,'padded_'+wend)
+        W2.append(w)
+    W = W2
+    del W2
 
-
-    ## redeifne 'files' if do_resize
     files = []
-    for data_path in W2:
+    for data_path in W:
         f = sorted(glob(data_path+os.sep+'*.png'))
         if len(f)<1:
             f = sorted(glob(data_path+os.sep+'images'+os.sep+'*.png'))
@@ -223,6 +240,13 @@ if do_resize:
 
     # number of bands x number of samples
     files = np.vstack(files).T
+    print("{} sets of {} image files".format(len(W),len(files)))
+
+else:
+
+    files = sorted(glob(data_path+os.sep+'*.jpg'))
+    if len(f)<1:
+        files = sorted(glob(data_path+os.sep+'images'+os.sep+'*.jpg'))
 
 
 ###================================================
