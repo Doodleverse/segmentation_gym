@@ -118,11 +118,11 @@ def seg_file2tensor_3band(f, TARGET_SIZE):#, resize):
 # =========================================================
 def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TESTTIMEAUG):#,temp=0):
 
-    if 'jpg' in f:
+    if f.endswith('jpg'):
     	segfile = f.replace('.jpg', '_predseg.png')
-    elif 'png' in f:
+    elif f.endswith('png'):
     	segfile = f.replace('.png', '_predseg.png')
-    elif 'npz' in f:
+    elif f.endswith('npz'):# in f:
     	segfile = f.replace('.npz', '_predseg.png')
 
     metadatadict['input_file'] = f
@@ -138,7 +138,7 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TES
     metadatadict['nclasses'] = NCLASSES
     metadatadict['n_data_bands'] = N_DATA_BANDS
 
-    datadict={}
+    # datadict={}
 
     if NCLASSES==1:
 
@@ -185,7 +185,7 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TES
 
         est_label = (e1+(1-e0))/2
 
-        datadict['av_prob_stack'] = est_label
+        metadatadict['av_prob_stack'] = est_label
 
         del e0, e1
 
@@ -234,7 +234,7 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TES
         est_label /= counter+1
         est_label = resize(est_label,(w,h))
 
-        datadict['av_prob_stack'] = est_label
+        metadatadict['av_prob_stack'] = est_label
 
         est_label = np.argmax(est_label, -1)
         metadatadict['otsu_threshold'] = np.nan
@@ -265,16 +265,16 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TES
 
     segfile = segfile.replace('.png','_meta.npz')
 
-    np.savez_compressed(segfile, **metadatadict)
+    # np.savez_compressed(segfile, **metadatadict)
 
     segfile = segfile.replace('_meta.npz','_res.npz')
 
     # datadict['color_label'] = color_label
-    datadict['grey_label'] = est_label
+    metadatadict['grey_label'] = est_label
     # datadict['image_fullsize'] = bigimage
     # datadict['image_targetsize'] = image
 
-    np.savez_compressed(segfile, **datadict)
+    np.savez_compressed(segfile, **metadatadict)
 
     segfile = segfile.replace('_res.npz','_overlay.png')
 
