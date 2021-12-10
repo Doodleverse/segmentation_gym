@@ -44,20 +44,17 @@ from prediction_imports import *
 #====================================================
 
 
-# root = Tk()
-# root.filename =  filedialog.askdirectory(initialdir = "/samples",title = "Select directory of images (or npzs) to segment")
-# sample_direc = root.filename
-# print(sample_direc)
-# root.withdraw()
-#
-# root = Tk()
-# root.filename =  filedialog.askopenfilename(title = "Select FIRST weights file",filetypes = (("weights file","*.h5"),("all files","*.*")))
-# weights = root.filename
-# print(weights)
-# root.withdraw()
+root = Tk()
+root.filename =  filedialog.askdirectory(initialdir = "/samples",title = "Select directory of images (or npzs) to segment")
+sample_direc = root.filename
+print(sample_direc)
+root.withdraw()
 
-sample_direc = '/media/marda/TWOTB/USGS/SOFTWARE/Projects/satellites/CoastSat/data/ALDERCAMP/jpg_files/preprocessed/npz4pred'
-weights = '/media/marda/TWOTB/USGS/SOFTWARE/Projects/UNets/coast_train_model_datasets/datasetE_L8klamath/weights/resunet/ct_E_resunet_allclasses_512_pad_remap.h5'
+root = Tk()
+root.filename =  filedialog.askopenfilename(title = "Select FIRST weights file",filetypes = (("weights file","*.h5"),("all files","*.*")))
+weights = root.filename
+print(weights)
+root.withdraw()
 
 
 W=[]
@@ -73,9 +70,6 @@ while result == 'yes':
         root.withdraw()
         W.append(weights)
 
-# W=['/media/marda/TWOTB/USGS/SOFTWARE/Projects/UNets/coast_train_model_datasets/datasetE_L8klamath/weights/resunet/ct_E_resunet_allclasses_512_pad_remap.h5',
-#  '/media/marda/TWOTB/USGS/SOFTWARE/Projects/UNets/coast_train_model_datasets/datasetE_L8klamath/weights/resunet/ct_E_resunet_allclasses_512_pad_remap_cat.h5',
-#  '/media/marda/TWOTB/USGS/SOFTWARE/Projects/UNets/coast_train_model_datasets/datasetE_L8klamath/weights/resunet/ct_E_resunet_allclasses_512_pad_remap_kld.h5']
 
 M= []; C=[]; T = []
 for counter,weights in enumerate(W):
@@ -204,15 +198,12 @@ else:
 
 print('Number of samples: %i' % (len(sample_filenames)))
 
-# temp = -0.05
-
 #look for TTA config
 if not 'TESTTIMEAUG' in locals():
     TESTTIMEAUG = False
 
 for f in tqdm(sample_filenames):
-    do_seg(f, M, metadatadict, sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TESTTIMEAUG)#, temp)
-    #print('%i out of %i done'%(counter,len(sample_filenames)))
+    do_seg(f, M, metadatadict, sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TESTTIMEAUG)
 
 
 # w = Parallel(n_jobs=2, verbose=0, max_nbytes=None)(delayed(do_seg)(f) for f in tqdm(sample_filenames))

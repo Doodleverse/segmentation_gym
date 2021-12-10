@@ -198,11 +198,7 @@ else:
    ## to use the CPU (not recommended):
    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
-# if N_DATA_BANDS<=3:
-#     print("This program is for 1 or 3D imagery, i.e. N_DATA_BANDS <= 3")
-#     print("Exiting ...")
-#     sys.exit(2)
-# else:
+
 root = Tk()
 root.filename =  filedialog.askdirectory(initialdir = os.getcwd(),title = "Select directory for OUTPUT files")
 output_data_path = root.filename
@@ -729,9 +725,6 @@ for copy in tqdm(range(AUG_COPIES)):
 
             np.savez_compressed(output_data_path+os.sep+ROOT_STRING+'_aug_nd_data_000000'+str(i),
                                 **datadict)
-            #
-            # np.savez_compressed(output_data_path+os.sep+ROOT_STRING+'_aug_nd_data_000000'+str(i),
-            #                     im.astype(np.uint8), np.squeeze(lstack).astype(np.uint8), files)
 
             del lstack, l, im
 
@@ -742,7 +735,6 @@ for copy in tqdm(range(AUG_COPIES)):
 ##========================================================
 ## READ, VERIFY and PLOT AUGMENTED FILES
 ##========================================================
-
 
 filenames = tf.io.gfile.glob(output_data_path+os.sep+ROOT_STRING+'_aug*.npz')
 dataset = tf.data.Dataset.list_files(filenames, shuffle=False)
@@ -801,9 +793,6 @@ for imgs,lbls,files in dataset.take(20):
      #counter +=1
      plt.close('all')
      counter += 1
-
-
-
 
 
 

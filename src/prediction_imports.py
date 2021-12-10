@@ -116,7 +116,7 @@ def seg_file2tensor_3band(f, TARGET_SIZE):#, resize):
     return smallimage, w, h, bigimage
 
 # =========================================================
-def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TESTTIMEAUG):#,temp=0):
+def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TESTTIMEAUG):
 
     if f.endswith('jpg'):
     	segfile = f.replace('.jpg', '_predseg.png')
@@ -138,16 +138,12 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TES
     metadatadict['nclasses'] = NCLASSES
     metadatadict['n_data_bands'] = N_DATA_BANDS
 
-    # datadict={}
-
     if NCLASSES==1:
 
         if N_DATA_BANDS<=3:
             image, w, h, bigimage = seg_file2tensor_3band(f, TARGET_SIZE)
         else:
             image, w, h, bigimage = seg_file2tensor_ND(f, TARGET_SIZE)
-
-        # print("Working on %i x %i image" % (w,h))
 
         image = standardize(image.numpy()).squeeze()
 
@@ -167,8 +163,6 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TES
                 #soft voting - sum the softmax scores to return the new TTA estimated softmax scores
                 est_label = est_label + est_label2 + est_label3 + est_label4
 
-
-            # print('Model {} applied'.format(counter))
             E0.append(resize(est_label[:,:,0],(w,h), preserve_range=True, clip=True))
             E1.append(resize(est_label[:,:,1],(w,h), preserve_range=True, clip=True))
             del est_label
@@ -198,13 +192,9 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TES
 
         if N_DATA_BANDS<=3:
         	image, w, h, bigimage = seg_file2tensor_3band(f,TARGET_SIZE)#, resize=True)
-        	# image = image#/255
-        	# bigimage = bigimage#/255
         	w = w.numpy(); h = h.numpy()
         else:
             image, w, h, bigimage = seg_file2tensor_ND(f, TARGET_SIZE)
-
-        # print("Working on %i x %i image" % (w,h))
 
         #image = tf.image.per_image_standardization(image)
         image = standardize(image.numpy())
@@ -217,9 +207,6 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TES
             #return the base prediction
             est_label = model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
 
-            #EBG commented, since returned tensor should be the correct size
-            #est_label += resize(est_label,(TARGET_SIZE[0],TARGET_SIZE[1]))
-
             if TESTTIMEAUG == True:
                 #return the flipped prediction
                 est_label2 = np.flipud(model.predict(tf.expand_dims(np.flipud(image), 0), batch_size=1).squeeze())
@@ -228,6 +215,7 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TES
 
                 #soft voting - sum the softmax scores to return the new TTA estimated softmax scores
                 est_label = est_label + est_label2 + est_label3 + est_label4
+                del est_label2, est_label3, est_label4
 
             K.clear_session()
 
@@ -263,10 +251,6 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TES
 
     metadatadict['color_segmentation_output'] = segfile
 
-    segfile = segfile.replace('.png','_meta.npz')
-
-    # np.savez_compressed(segfile, **metadatadict)
-
     segfile = segfile.replace('_meta.npz','_res.npz')
 
     # datadict['color_label'] = color_label
@@ -288,14 +272,6 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TES
     # plt.show()
     plt.savefig(segfile, dpi=200, bbox_inches='tight')
     plt.close('all')
-
-    # segfile = segfile.replace('_overlay.png','_gradcam.png')
-
-    # plt.imshow(bigimage); plt.imshow(heatmap, cmap='bwr', alpha=0.5);
-    # plt.axis('off')
-    # # plt.show()
-    # plt.savefig(segfile, dpi=200, bbox_inches='tight')
-    # plt.close('all')
 
 
 
