@@ -24,11 +24,9 @@
 # SOFTWARE.
 
 
-import sys,os, time
-sys.path.insert(1, '../src')
-
 # utility to merge multiple coincident jpeg images into nd numpy arrays
 import sys,os, time, json, shutil
+sys.path.insert(1, '../src')
 
 from skimage.io import imread, imsave
 import numpy as np
@@ -154,11 +152,6 @@ while result == 'yes':
         print(data_path)
         root.withdraw()
         W.append(data_path)
-
-
-W = ['/media/marda/TWOTB/USGS/SOFTWARE/Projects/satellites/CoastSat/data/ALDERCAMP/jpg_files/preprocessed/rgb',
- '/media/marda/TWOTB/USGS/SOFTWARE/Projects/satellites/CoastSat/data/ALDERCAMP/jpg_files/preprocessed/nir',
- '/media/marda/TWOTB/USGS/SOFTWARE/Projects/satellites/CoastSat/data/ALDERCAMP/jpg_files/preprocessed/swir']
 
 ##========================================================
 ## COLLATE FILES INTO LISTS

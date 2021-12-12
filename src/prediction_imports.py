@@ -165,7 +165,7 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TES
 
             E0.append(resize(est_label[:,:,0],(w,h), preserve_range=True, clip=True))
             E1.append(resize(est_label[:,:,1],(w,h), preserve_range=True, clip=True))
-            del est_label
+            del est_label, est_label2, est_label3, est_label4
 
         #heatmap = resize(heatmap,(w,h), preserve_range=True, clip=True)
         K.clear_session()
