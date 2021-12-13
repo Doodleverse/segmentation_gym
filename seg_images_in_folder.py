@@ -51,7 +51,7 @@ print(sample_direc)
 root.withdraw()
 
 root = Tk()
-root.filename =  filedialog.askopenfilename(title = "Select FIRST weights file",filetypes = (("weights file","*.h5"),("all files","*.*")))
+root.filename =  filedialog.askopenfilename(initialdir = sample_direc, title = "Select FIRST weights file",filetypes = (("weights file","*.h5"),("all files","*.*")))
 weights = root.filename
 print(weights)
 root.withdraw()

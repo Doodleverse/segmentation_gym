@@ -134,7 +134,7 @@ print(output_data_path)
 root.withdraw()
 
 root = Tk()
-root.filename =  filedialog.askdirectory(initialdir = os.getcwd(),title = "Select FIRST directory of IMAGE files")
+root.filename =  filedialog.askdirectory(initialdir = output_data_path,title = "Select FIRST directory of IMAGE files")
 data_path = root.filename
 print(data_path)
 root.withdraw()
@@ -147,7 +147,7 @@ while result == 'yes':
     result = messagebox.askquestion("More directories of images?", "More directories of images?", icon='warning')
     if result == 'yes':
         root = Tk()
-        root.filename =  filedialog.askdirectory(initialdir = os.getcwd(),title = "Select directory of image files")
+        root.filename =  filedialog.askdirectory(initialdir =data_path,title = "Select directory of image files")
         data_path = root.filename
         print(data_path)
         root.withdraw()
