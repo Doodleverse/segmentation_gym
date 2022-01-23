@@ -177,8 +177,6 @@ configfile = root.filename
 print(configfile)
 root.withdraw()
 
-# configfile = '/media/marda/TWOTB/USGS/SOFTWARE/Projects/UNets/coast_train_model_datasets/datasetE_L8/config/resunet/ct_E_resunet_allclasses_512_remap_kld_larger.json'
-
 with open(configfile) as f:
     config = json.load(f)
 
@@ -217,6 +215,7 @@ root.filename =  filedialog.askdirectory(initialdir = os.getcwd(),title = "Selec
 data_path = root.filename
 print(data_path)
 root.withdraw()
+
 
 W=[]
 W.append(data_path)
@@ -344,7 +343,6 @@ else:
 ##========================================================
 ## NON-AUGMENTED FILES
 ##========================================================
-
 
 print("Creating non-augmented subset")
 ## make non-aug subset first
