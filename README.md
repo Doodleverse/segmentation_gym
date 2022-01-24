@@ -117,7 +117,7 @@ Check out the [wiki](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki) fo
 
 ## Test Dataset
 
-A test data set, including a set of images/labels, model config files, and a dataset and models created with Zoo, are available [here](https://zenodo.org/record/5895128/files/hatteras_RGB_zenodo_data_release_jan2022.zip?download=1)
+A test data set, including a set of images/labels, model config files, and a dataset and models created with Zoo, are available [here](https://zenodo.org/record/5895128/files/hatteras_RGB_zenodo_data_release_jan2022.zip?download=1) and [described on the zenodo page](https://zenodo.org/record/5895128#.Ye4AgPuIZH4)
 
 
 ## 💭 Feedback and Contributing
