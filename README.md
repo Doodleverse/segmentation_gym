@@ -111,9 +111,13 @@ Check out the [wiki](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki) fo
 
 1. Organize your files according to [this guide](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki/Directory-Structure-and-Tests)
 2. Create a configuration file according to [this guide](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki/Creation-of-%60config%60-files)
-3. Create a model-ready dataset from your pairs of images and labels. AWe hope you find [this guide](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki/Create-a-model-ready-dataset) helpful
+3. Create a model-ready dataset from your pairs of images and labels. We hope you find [this guide](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki/Create-a-model-ready-dataset) helpful
 4. Train and evaluate an image segmentation model according to [this guide](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki/Train-an-image-segmentation-model)
 5. Deploy / evaluate model on unseen sample imagery  *more detail coming soon*
+
+## Test Dataset
+
+A test data set, including a set of images/labels, model config files, and a dataset and models created with Zoo, are available [here](https://zenodo.org/record/5895128/files/hatteras_RGB_zenodo_data_release_jan2022.zip?download=1)
 
 
 ## 💭 Feedback and Contributing
