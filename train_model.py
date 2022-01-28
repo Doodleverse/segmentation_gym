@@ -296,6 +296,11 @@ filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'aug*.npz')
 if len(filenames)==0:
     filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'_aug*.npz')
 
+try:
+    dir_path = os.path.dirname(os.getcwd())
+    os.mkdir(dir_path+os.sep+'weights')
+except:
+    pass # weights direc already exists
 
 shuffle(filenames)
 
@@ -320,7 +325,14 @@ val_files = []
 for i in val_ds:
     val_files.append(i.numpy().decode().split(os.sep)[-1])
 
-np.savetxt(weights.replace('.h5','_train_files.txt'), train_files, fmt='%s')
+try:
+    np.savetxt(weights.replace('.h5','_train_files.txt'), train_files, fmt='%s')
+except:
+    dir_path = os.path.dirname(os.path.realpath(weights))
+    os.mkdir(dir_path)
+    np.savetxt(weights.replace('.h5','_train_files.txt'), train_files, fmt='%s')
+
+
 np.savetxt(weights.replace('.h5','_val_files.txt'), val_files, fmt='%s')
 
 # Set `num_parallel_calls` so multiple images are loaded/processed in parallel.

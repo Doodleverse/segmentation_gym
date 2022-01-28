@@ -235,6 +235,10 @@ while result == 'yes':
 ## COLLATE FILES INTO LISTS
 ##========================================================
 
+# /media/marda/TWOTB1/elwha_sediment_seg/config/resunet/elwha_sed_resunet_allclasses_1024_v1.json
+# /media/marda/TWOTB1/elwha_sediment_seg/npz4model
+# /media/marda/TWOTB1/elwha_sediment_seg/doodler_results/labels
+# /media/marda/TWOTB1/elwha_sediment_seg/doodler_results/images
 
 files = []
 for data_path in W:
@@ -343,6 +347,8 @@ else:
 ##========================================================
 ## NON-AUGMENTED FILES
 ##========================================================
+
+# files = [f[0] for f in files]
 
 print("Creating non-augmented subset")
 ## make non-aug subset first

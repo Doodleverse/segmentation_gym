@@ -30,7 +30,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import plotly.express as px
 from skimage.io import imsave, imread
-
+from glob import glob 
+import os
+from tqdm import tqdm
 
 ##========================================================
 def fromhex(n):
@@ -79,11 +81,15 @@ def label_to_colors(
         return cimg
 
 
-from glob import glob 
 
-folder = '/media/marda/TWOTB/USGS/SOFTWARE/Projects/UNets/coast_train_v2_datasets/elwha/tiles20120627/jpg/out/'
+root = Tk()
+root.filename =  askdirectory(title = "Select directory of output npz files")
+folder = root.filename
+print(folder)
+root.withdraw()
 
-files = glob(folder+'*.npz')
+files = glob(folder+os.sep+'*.npz')
+print("Found {} files".format(len(files)))
 
 Tk().withdraw() # we don't want a full GUI, so keep the root window from appearing
 classfile = askopenfilename(title='Select file containing class (label) names', filetypes=[("Pick classes.txt file","*.txt")])
@@ -91,7 +97,7 @@ classfile = askopenfilename(title='Select file containing class (label) names', 
 with open(classfile) as f:
     classes = f.readlines()
 
-for anno_file in files:
+for anno_file in tqdm(files):
 
     data = dict()
     with load(anno_file, allow_pickle=True) as dat:
@@ -114,3 +120,12 @@ for anno_file in files:
 
     imsave(anno_file.replace('.npz','.npz_cl.jpg'),
                 cimg, quality=100, chroma_subsampling=False, check_contrast=False)
+
+    
+    gimg = data['av_prob_stack'][:,:,1]>.05
+
+    imsave(anno_file.replace('.npz','.npz_gl.jpg'),
+                gimg.astype('uint8'), quality=100, chroma_subsampling=False, check_contrast=False)
+
+
+#
