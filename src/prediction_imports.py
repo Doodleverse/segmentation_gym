@@ -251,7 +251,8 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TES
 
     metadatadict['color_segmentation_output'] = segfile
 
-    segfile = segfile.replace('_meta.npz','_res.npz')
+#   segfile = segfile.replace('_meta.npz','_res.npz')
+    segfile = segfile.replace('_predseg.png','_res.npz')
 
     # datadict['color_label'] = color_label
     metadatadict['grey_label'] = est_label
