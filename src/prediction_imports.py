@@ -162,10 +162,11 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TES
 
                 #soft voting - sum the softmax scores to return the new TTA estimated softmax scores
                 est_label = est_label + est_label2 + est_label3 + est_label4
+                del est_label2, est_label3, est_label4
 
             E0.append(resize(est_label[:,:,0],(w,h), preserve_range=True, clip=True))
             E1.append(resize(est_label[:,:,1],(w,h), preserve_range=True, clip=True))
-            del est_label, est_label2, est_label3, est_label4
+            del est_label
 
         #heatmap = resize(heatmap,(w,h), preserve_range=True, clip=True)
         K.clear_session()
