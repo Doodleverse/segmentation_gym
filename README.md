@@ -1,4 +1,4 @@
-# 📦 Segmentation Zoo
+# 📦 Segmentation Gym :muscle:
 [![Last Commit](https://img.shields.io/github/last-commit/dbuscombe-usgs/segmentation_zoo)](
 https://github.com/dbuscombe-usgs/segmentation_zoo/commits/main)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/dbuscombe-usgs/segmentation_zoo/graphs/commit-activity)
@@ -10,16 +10,16 @@ https://github.com/dbuscombe-usgs/segmentation_zoo/commits/main)
 ![TensorFlow](https://img.shields.io/badge/TensorFlow-%23FF6F00.svg?style=for-the-badge&logo=TensorFlow&logoColor=white)
 ![Keras](https://img.shields.io/badge/Keras-%23D00000.svg?style=for-the-badge&logo=Keras&logoColor=white)
 
-![Zoo Logo](./zoo-logo.png)
+<!-- ![Zoo Logo](./zoo-logo.png) -->
 
 ## 🌟 Highlights
 
-- Zoo is for training, evaluating, and deploying deep learning models for image segmentation
-- We take transferability seriously; Zoo is designed to be a "one stop shop" for image segmentation on N-D imagery (i.e. any number of coincident bands). It is tailored to Earth Observation and aerial remote sensing imagery.
-- Zoo encodes relatively powerful models like UNets, and provides lots of ways to manipulate data, model training, and model architectures that should yield good results with some informed experimentation
-- Zoo works seamlessly with [Doodler](https://github.com/dbuscombe-usgs/dash_doodler), a human-in-the loop labeling tool
-- Zoo implements models based on the U-Net. Despite being one of the "original" deep learning segmentation models (dating to [2016](https://arxiv.org/abs/1505.04597)), UNets have proven themselves enormously flexible for a wide range of image segmentation tasks and spatial regression tasks in the natural sciences. So, we expect these models, and, perhaps more importantly, the training and implementation of those models in an end-to-end pipeline, to work for a very wide variety of cases. Additional models may be added later.
-- You can read more about the models [here](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki/Models-in-Zoo) but be warned! We at Zoo HQ have discovered - often the hard way - that success is more about the data than the model. Zoo helps you wrangle and tame your data, and makes your data work hard for you (nothing fancy, we just use augmentation)
+- Gym is for training, evaluating, and deploying deep learning models for image segmentation
+- We take transferability seriously; Gym is designed to be a "one stop shop" for image segmentation on N-D imagery (i.e. any number of coincident bands). It is tailored to Earth Observation and aerial remote sensing imagery.
+- Gym encodes relatively powerful models like UNets, and provides lots of ways to manipulate data, model training, and model architectures that should yield good results with some informed experimentation
+- Gym works seamlessly with [Doodler](https://github.com/dbuscombe-usgs/dash_doodler), a human-in-the loop labeling tool
+- Gym implements models based on the U-Net. Despite being one of the "original" deep learning segmentation models (dating to [2016](https://arxiv.org/abs/1505.04597)), UNets have proven themselves enormously flexible for a wide range of image segmentation tasks and spatial regression tasks in the natural sciences. So, we expect these models, and, perhaps more importantly, the training and implementation of those models in an end-to-end pipeline, to work for a very wide variety of cases. Additional models may be added later.
+- You can read more about the models [here](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki/Models-in-Zoo) but be warned! We at Doodleverse HQ have discovered - often the hard way - that success is more about the data than the model. Zoo helps you wrangle and tame your data, and makes your data work hard for you (nothing fancy, we just use augmentation)
 
 ## ℹ️ Overview
 
@@ -35,7 +35,7 @@ We are building a toolbox to segment imagery with a variety of supervised deep-l
 
 We have tested on a variety of Earth and environmental imagery of coastal, river, and other natural environments. However, we expect the toolbox to be useful for all types of imagery when properly applied.
 
-This toolbox is designed to work seamlessly with [Doodler](https://github.com/dbuscombe-usgs/dash_doodler), a human-in-the loop labeling tool that will help you make training data for Zoo. It would also work on any imagery in jpg or png format that has corresponding 2d greyscale integer label images (jpg or png), however acquired.
+This toolbox is designed to work seamlessly with [Doodler](https://github.com/dbuscombe-usgs/dash_doodler), a human-in-the loop labeling tool that will help you make training data for Gym. It would also work on any imagery in jpg or png format that has corresponding 2d greyscale integer label images (jpg or png), however acquired.
 
 
 ### ✍️ Authors
@@ -54,17 +54,17 @@ This toolbox is designed for 1,3, or 4-band imagery, and supports both `binary` 
 
 We recommend a 6 part workflow:
 
-1. Download & Install Zoo
-2. Decide on which data to use and move them into the appropriate part of the Zoo [directory structure](#dir). *(We recommend that you first use the included data as a test of Zoo on your machine. After you have confirmed that this works, you can import your own data, or make new data using [Doodler](https://github.com/dbuscombe-usgs/dash_doodler))*
+1. Download & Install Gym
+2. Decide on which data to use and move them into the appropriate part of the Gym [directory structure](#dir). *(We recommend that you first use the included data as a test of Gym on your machine. After you have confirmed that this works, you can import your own data, or make new data using [Doodler](https://github.com/dbuscombe-usgs/dash_doodler))*
 3. Write a `config` file for your data. You will need to make some decisions about the model and hyperparameters.
 4. Run `make_dataset.py` to augment and package your images into npz files for training the model.  
 5. Run `train_model.py` to train a segmentation model.
 6. Run `seg_images_in_folder.py` to segment images with your newly trained model, or `ensemble_seg_images_in_folder.py` to point more than one trained model at the same imagery and ensemble the model outputs
 
 
-* Here at Zoo HQ we advocate training models on the augmented data encoded in the datasets, so the original data is a hold-out or test set. This is ideal because although the validation dataset (drawn from augmented data) doesn't get used to adjust model weights, it does influence model training by triggering early stopping if validation loss is not improving. Testing on an untransformed set is also a further check/reassurance of model performance and evaluation metric
+* Here at Doodleverse HQ we advocate training models on the augmented data encoded in the datasets, so the original data is a hold-out or test set. This is ideal because although the validation dataset (drawn from augmented data) doesn't get used to adjust model weights, it does influence model training by triggering early stopping if validation loss is not improving. Testing on an untransformed set is also a further check/reassurance of model performance and evaluation metric
 
-* Zoo HQ also advocates the use of `ensemble` models where possible, which requires training multiple models each with a config file, and model weights file
+* Doodleverse HQ also advocates the use of `ensemble` models where possible, which requires training multiple models each with a config file, and model weights file
 
 
 ## ⬇️ Installation
@@ -74,7 +74,7 @@ We advise creating a new conda environment to run the program.
 1. Clone the repo:
 
 ```
-git clone --depth 1 https://github.com/dbuscombe-usgs/segmentation_zoo.git
+git clone --depth 1 https://github.com/Doodleverse/segmentation_gym.git
 ```
 
 (`--depth 1` means "give me only the present code, not the whole history of git commits" - this saves disk space, and time)
@@ -107,7 +107,7 @@ and just ignore any errors. When you run any script, the tensorflow version shou
 
 
 ## How to use
-Check out the [wiki](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki) for a guide of how to use Zoo
+Check out the [wiki](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki) for a guide of how to use Gym
 
 1. Organize your files according to [this guide](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki/Directory-Structure-and-Tests)
 2. Create a configuration file according to [this guide](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki/Creation-of-%60config%60-files)
@@ -117,7 +117,7 @@ Check out the [wiki](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki) fo
 
 ## Test Dataset
 
-A test data set, including a set of images/labels, model config files, and a dataset and models created with Zoo, are available [here](https://zenodo.org/record/5895128/files/hatteras_RGB_zenodo_data_release_jan2022.zip?download=1) and [described on the zenodo page](https://zenodo.org/record/5895128#.Ye4AgPuIZH4)
+A test data set, including a set of images/labels, model config files, and a dataset and models created with Gym, are available [here](https://zenodo.org/record/5895128/files/hatteras_RGB_zenodo_data_release_jan2022.zip?download=1) and [described on the zenodo page](https://zenodo.org/record/5895128#.Ye4AgPuIZH4)
 
 
 ## 💭 Feedback and Contributing
