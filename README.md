@@ -10,7 +10,7 @@ https://github.com/dbuscombe-usgs/segmentation_zoo/commits/main)
 ![TensorFlow](https://img.shields.io/badge/TensorFlow-%23FF6F00.svg?style=for-the-badge&logo=TensorFlow&logoColor=white)
 ![Keras](https://img.shields.io/badge/Keras-%23D00000.svg?style=for-the-badge&logo=Keras&logoColor=white)
 
-<!-- ![Zoo Logo](./zoo-logo.png) -->
+![](https://user-images.githubusercontent.com/3596509/153691733-1fe98e37-5379-4122-8d02-adbcb0ab0db3.png)
 
 ## 🌟 Highlights
 
