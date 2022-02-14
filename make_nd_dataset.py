@@ -3,7 +3,7 @@
 #
 # MIT License
 #
-# Copyright (c) 2020-21, Marda Science LLC
+# Copyright (c) 2020-22, Marda Science LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -360,7 +360,11 @@ for counter,(f,l) in enumerate(zip(files,label_files)):
         for k in f:
             im.append(imread(k))
     else:
-        im = [imread(f)]
+        try:
+            im = [imread(f)]
+        except:
+            im = [imread(f[0])]
+
     datadict={}
     try:
         im=np.dstack(im)# create a dtack which takes care of different sized inputs
