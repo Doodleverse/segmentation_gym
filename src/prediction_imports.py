@@ -199,14 +199,17 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TES
 
         #image = tf.image.per_image_standardization(image)
         image = standardize(image.numpy())
-
+        #return the base prediction
+        if N_DATA_BANDS==1:
+            image = image[:,:,0]
+            bigimage = np.dstack((bigimage,bigimage,bigimage))
 
         est_label = np.zeros((TARGET_SIZE[0],TARGET_SIZE[1], NCLASSES))
         for counter,model in enumerate(M):
-            heatmap = make_gradcam_heatmap(tf.expand_dims(image, 0) , model)
+            # heatmap = make_gradcam_heatmap(tf.expand_dims(image, 0) , model)
 
-            #return the base prediction
             est_label = model.predict(tf.expand_dims(image, 0) , batch_size=1).squeeze()
+
 
             if TESTTIMEAUG == True:
                 #return the flipped prediction
@@ -276,7 +279,7 @@ def do_seg(f, M, metadatadict,sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TES
     plt.close('all')
 
 
-
+#--------------------------------------------------------
 def make_gradcam_heatmap(image, model):
 
     # Remove last layer's softmax

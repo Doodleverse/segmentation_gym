@@ -200,7 +200,11 @@ def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_ba
 
             img = standardize(img)
 
-            est_label = model.predict(tf.expand_dims(img, 0) , batch_size=1)
+            try:
+                est_label = model.predict(tf.expand_dims(img, 0) , batch_size=1)
+            except:
+                est_label = model.predict(tf.expand_dims(img[:,:,0], 0) , batch_size=1)
+
 
             iouscore = mean_iou_np(tf.expand_dims(tf.squeeze(lbl), 0), est_label)
             # print(iouscore)
