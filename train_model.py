@@ -517,10 +517,16 @@ if DO_TRAIN:
     plt.close('all')
     K.clear_session()
 
+    model.save(weights.replace('.h5','_fullmodel.h5'))
+
     np.savez_compressed(weights.replace('.h5','_model_history.npz'),**history.history)
 
 else:
-    model.load_weights(weights)
+    try:
+        model = tf.keras.models.load_model(weights.replace('.h5','_fullmodel.h5'))
+    except:
+        model.load_weights(weights)
+
 
 
 # # ##########################################################
