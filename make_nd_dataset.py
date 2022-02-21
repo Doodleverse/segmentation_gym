@@ -172,7 +172,13 @@ def do_pad_image(f, TARGET_SIZE):
 ##========================================================
 
 root = Tk()
-root.filename =  filedialog.askopenfilename(initialdir = "/segmentation_zoo",title = "Select config file",filetypes = (("config files","*.json"),("all files","*.*")))
+root.filename =  filedialog.askdirectory(initialdir = os.getcwd(),title = "Select directory for OUTPUT files")
+output_data_path = root.filename
+print(output_data_path)
+root.withdraw()
+
+root = Tk()
+root.filename =  filedialog.askopenfilename(initialdir = output_data_path,title = "Select config file",filetypes = (("config files","*.json"),("all files","*.*")))
 configfile = root.filename
 print(configfile)
 root.withdraw()
@@ -183,7 +189,7 @@ with open(configfile) as f:
 for k in config.keys():
     exec(k+'=config["'+k+'"]')
 
-USE_GPU = True
+USE_GPU = False #True
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 
 if USE_GPU == True:
@@ -197,21 +203,15 @@ else:
    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 
-root = Tk()
-root.filename =  filedialog.askdirectory(initialdir = os.getcwd(),title = "Select directory for OUTPUT files")
-output_data_path = root.filename
-print(output_data_path)
-root.withdraw()
-
 
 root = Tk()
-root.filename =  filedialog.askdirectory(initialdir = os.getcwd(),title = "Select directory of LABEL files")
+root.filename =  filedialog.askdirectory(initialdir = output_data_path,title = "Select directory of LABEL files")
 label_data_path = root.filename
 print(label_data_path)
 root.withdraw()
 
 root = Tk()
-root.filename =  filedialog.askdirectory(initialdir = os.getcwd(),title = "Select FIRST directory of IMAGE files")
+root.filename =  filedialog.askdirectory(initialdir = output_data_path,title = "Select FIRST directory of IMAGE files")
 data_path = root.filename
 print(data_path)
 root.withdraw()
@@ -225,7 +225,7 @@ while result == 'yes':
     result = messagebox.askquestion("More directories of images?", "More directories of images?", icon='warning')
     if result == 'yes':
         root = Tk()
-        root.filename =  filedialog.askdirectory(initialdir = os.getcwd(),title = "Select directory of image files")
+        root.filename =  filedialog.askdirectory(initialdir = output_data_path,title = "Select directory of image files")
         data_path = root.filename
         print(data_path)
         root.withdraw()
@@ -234,11 +234,6 @@ while result == 'yes':
 ##========================================================
 ## COLLATE FILES INTO LISTS
 ##========================================================
-
-# /media/marda/TWOTB1/elwha_sediment_seg/config/resunet/elwha_sed_resunet_allclasses_1024_v1.json
-# /media/marda/TWOTB1/elwha_sediment_seg/npz4model
-# /media/marda/TWOTB1/elwha_sediment_seg/doodler_results/labels
-# /media/marda/TWOTB1/elwha_sediment_seg/doodler_results/images
 
 files = []
 for data_path in W:
@@ -282,7 +277,10 @@ if do_resize:
         except:
             pass
 
-    newdireclabels = label_data_path.replace('labels','padded_labels')
+    if USEMASK:
+        newdireclabels = label_data_path.replace('masks','padded_masks')
+    else:
+        newdireclabels = label_data_path.replace('labels','padded_labels')
     try:
         os.mkdir(newdireclabels)
     except:
@@ -305,7 +303,7 @@ if do_resize:
 
 ## write padded labels to file
 if do_resize:
-    label_data_path = label_data_path.replace('labels','padded_labels')
+    label_data_path = newdireclabels #label_data_path.replace('labels','padded_labels')
 
     label_files = sorted(glob(label_data_path+os.sep+'*.png'))
     if len(label_files)<1:
@@ -370,7 +368,9 @@ for counter,(f,l) in enumerate(zip(files,label_files)):
         im=np.dstack(im)# create a dtack which takes care of different sized inputs
         datadict['arr_0'] = im.astype(np.uint8)
 
-        lab = imread(l) # reac the label
+        lab = imread(l) # reac the label)
+        if len(np.unique(lab))>NCLASSES+1:
+            lab = (lab==0).astype('uint8')
 
         if 'REMAP_CLASSES' in locals():
             for k in REMAP_CLASSES.items():
