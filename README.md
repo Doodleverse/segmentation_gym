@@ -80,11 +80,11 @@ git clone --depth 1 https://github.com/Doodleverse/segmentation_gym.git
 
 (`--depth 1` means "give me only the present code, not the whole history of git commits" - this saves disk space, and time)
 
-2. Create a conda environment called `imageseg`
+2. Create a conda environment called `gym`
 
 ```
-conda env create --file install/imageseg.yml
-conda activate imageseg
+conda env create --file install/gym.yml
+conda activate gym
 ```
 
 If you get errors associated with loading the model weights you may need to:

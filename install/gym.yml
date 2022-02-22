@@ -1,4 +1,4 @@
-name: imageseg
+name: gym
 channels:
   - conda-forge
   - defaults
