@@ -3,7 +3,7 @@
 #
 # MIT License
 #
-# Copyright (c) 2020, Marda Science LLC
+# Copyright (c) 2021-22, Marda Science LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -36,16 +36,17 @@ from random import shuffle
 ## VARIABLES
 ###############################################################
 
-root = Tk()
-root.filename =  filedialog.askopenfilename(initialdir = "/segmentation_zoo",title = "Select config file",filetypes = (("config files","*.json"),("all files","*.*")))
-configfile = root.filename
-print(configfile)
-root.withdraw()
 
 root = Tk()
 root.filename =  filedialog.askdirectory(initialdir = "/segmentation_zoo",title = "Select directory of data files")
 data_path = root.filename
 print(data_path)
+root.withdraw()
+
+root = Tk()
+root.filename =  filedialog.askopenfilename(initialdir = data_path,title = "Select config file",filetypes = (("config files","*.json"),("all files","*.*")))
+configfile = root.filename
+print(configfile)
 root.withdraw()
 
 
