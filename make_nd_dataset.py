@@ -369,8 +369,8 @@ for counter,(f,l) in enumerate(zip(files,label_files)):
         datadict['arr_0'] = im.astype(np.uint8)
 
         lab = imread(l) # reac the label)
-        if len(np.unique(lab))>NCLASSES+1:
-            lab = (lab==0).astype('uint8')
+        # if len(np.unique(lab))>NCLASSES+1:
+        #     lab = (lab==0).astype('uint8')
 
         if 'REMAP_CLASSES' in locals():
             for k in REMAP_CLASSES.items():
@@ -571,10 +571,15 @@ for counter,w in enumerate(W):
         except:
             pass
         for file in glob(w+os.sep+'*.png'):
-            shutil.move(file,w+os.sep+'images')
+            try:
+                shutil.move(file,w+os.sep+'images')
+            except:
+                pass
         for file in glob(w+os.sep+'*.jpg'):
-            shutil.move(file,w+os.sep+'images')
-
+            try:
+                shutil.move(file,w+os.sep+'images')
+            except:
+                pass
     n_im = len(glob(w+os.sep+'images'+os.sep+'*.*'))
 
 
@@ -587,9 +592,15 @@ if n_im>0:
         pass
 
 for file in glob(label_data_path+os.sep+'*.jpg'):
-    shutil.move(file,label_data_path+os.sep+'images')
+    try:
+        shutil.move(file,label_data_path+os.sep+'images')
+    except:
+        pass   
 for file in glob(label_data_path+os.sep+'*.png'):
-    shutil.move(file,label_data_path+os.sep+'images')
+    try:
+        shutil.move(file,label_data_path+os.sep+'images')
+    except:
+        pass    
 n_im = len(glob(label_data_path+os.sep+'images'+os.sep+'*.*'))
 
 
@@ -643,6 +654,7 @@ for copy in tqdm(range(AUG_COPIES)):
         for counter,train_generator in enumerate(train_generators):
             #grab a batch of images and label images
             x, y = next(train_generator[-1])
+            y = np.round(y)
 
             idx = np.maximum((train_generator[0].batch_index - 1) * train_generator[0].batch_size, 0)
             filenames = train_generator[0].filenames[idx : idx + train_generator[0].batch_size]
@@ -683,7 +695,7 @@ for copy in tqdm(range(AUG_COPIES)):
             ##============================================ label
             if NCLASSES==1:
                 lab=lab.squeeze()
-                lab[lab>0]=1
+                #lab[lab>0]=1
 
             if NCLASSES==1:
                 l = lab.astype(np.uint8)
@@ -771,7 +783,7 @@ for imgs,lbls,files in dataset.take(20):
 
      im = rescale_array(im.numpy(), 0, 1)
      if im.shape[-1]:
-         im = im[:,:,:3]
+         im = im[:,:,:3] #just show the first 3 bands
 
      plt.imshow(im)
 
@@ -789,7 +801,7 @@ for imgs,lbls,files in dataset.take(20):
          plt.imshow(color_label,  alpha=0.5)#, vmin=0, vmax=NCLASSES)
 
      try:
-         file = file.numpy()
+         file = file.numpy().split(os.sep)[-1]
          plt.title(file)
          del file
      except:
