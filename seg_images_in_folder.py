@@ -73,11 +73,15 @@ while result == 'yes':
 
 M= []; C=[]; T = []
 for counter,weights in enumerate(W):
-    configfile = weights.replace('.h5','.json').replace('weights', 'config')
 
-
-    with open(configfile) as f:
-        config = json.load(f)
+    try:
+        configfile = weights.replace('_fullmodel.h5','.json').replace('weights', 'config')
+        with open(configfile) as f:
+            config = json.load(f)
+    except:
+        configfile = weights.replace('.h5','.json').replace('weights', 'config')
+        with open(configfile) as f:
+            config = json.load(f)
 
     for k in config.keys():
         exec(k+'=config["'+k+'"]')
