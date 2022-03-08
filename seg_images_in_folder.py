@@ -26,6 +26,7 @@
 
 import sys,os, time
 # sys.path.insert(1, 'src')
+from tqdm import tqdm
 
 USE_GPU = True
 
