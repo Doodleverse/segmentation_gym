@@ -25,7 +25,7 @@
 
 
 import sys,os, time
-sys.path.insert(1, 'src')
+# sys.path.insert(1, 'src')
 
 USE_GPU = True
 
@@ -40,8 +40,10 @@ else:
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 
-from prediction_imports import *
+# from prediction_imports import *
 #====================================================
+from doodleverse_utils.prediction_imports import *
+#---------------------------------------------------
 
 
 root = Tk()
@@ -87,7 +89,9 @@ for counter,weights in enumerate(W):
         exec(k+'=config["'+k+'"]')
 
 
-    from imports import *
+    #from imports import *
+    from doodleverse_utils.imports import *
+    #---------------------------------------------------
 
     #=======================================================
 

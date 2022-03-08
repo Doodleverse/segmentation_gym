@@ -25,7 +25,7 @@
 
 # utility to merge multiple coincident jpeg images into nd numpy arrays
 import sys,os, time, json, shutil
-sys.path.insert(1, 'src')
+# sys.path.insert(1, 'src')
 
 from skimage.io import imread, imsave
 import numpy as np
@@ -345,7 +345,6 @@ else:
 ##========================================================
 ## NON-AUGMENTED FILES
 ##========================================================
-
 # files = [f[0] for f in files]
 
 print("Creating non-augmented subset")
@@ -369,6 +368,8 @@ for counter,(f,l) in enumerate(zip(files,label_files)):
         datadict['arr_0'] = im.astype(np.uint8)
 
         lab = imread(l) # reac the label)
+        # if np.min(np.unique(lab))>0:
+        #     lab -= 1
         # if len(np.unique(lab))>NCLASSES+1:
         #     lab = (lab==0).astype('uint8')
 
@@ -415,7 +416,9 @@ for counter,(f,l) in enumerate(zip(files,label_files)):
 
 ###================================
 
-from imports import *
+from doodleverse_utils.imports import *
+#---------------------------------------------------
+
 
 #-----------------------------------
 def load_npz(example):

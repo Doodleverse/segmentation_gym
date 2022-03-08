@@ -25,7 +25,7 @@
 
 
 import sys,os, time
-sys.path.insert(1, 'src')
+# sys.path.insert(1, 'src')
 
 import json
 from tkinter import filedialog
@@ -80,7 +80,7 @@ else:
 #suppress tensorflow warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
-from imports import *
+from doodleverse_utils.imports import *
 #---------------------------------------------------
 
 trainsamples_fig = weights.replace('.h5','_train_sample_batch.png').replace('weights', 'modelOut')

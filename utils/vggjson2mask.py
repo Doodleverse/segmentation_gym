@@ -112,6 +112,25 @@ def make_jpegs(alpha):
    print(image_path)
    root.withdraw()
 
+   out_path = image_path.replace(image_path.split(os.sep[-1])[-1],'images')
+   try:
+      os.mkdir(out_path)
+   except:
+      pass
+
+   overlay_path = image_path.replace(image_path.split(os.sep[-1])[-1],'overlays')
+   try:
+      os.mkdir(overlay_path)
+   except:
+      pass
+
+   label_path = image_path.replace(image_path.split(os.sep[-1])[-1],'labels')
+   try:
+      os.mkdir(label_path)
+   except:
+      pass
+
+
    all_labels = []
    for root, dirs, files in os.walk(data_path, topdown=False):
       tmp = []
@@ -173,7 +192,10 @@ def make_jpegs(alpha):
 
                mask, codes = get_mask(X, Y, L, class_dict,image)
                mask = Image.fromarray(mask).convert('L')
-               mask.save(rawfile.replace(rawfile.split(".")[-1],'label.png'), format='PNG')
+               ext = rawfile.split('.')[-1]
+               mask.save((rawfile.split("."+ext)[0]+'_label.jpg').replace(image_path,label_path), format='JPEG')
+
+               image.save((rawfile.split("."+ext)[0]+'.jpg').replace(image_path,out_path), format='JPEG')
 
                # class_label_names = [c.strip() for c in L]
                # class_label_names = np.unique(class_label_names)
@@ -199,20 +221,21 @@ def make_jpegs(alpha):
                plt.imshow(image)
                plt.imshow(mask, cmap=cmap, alpha=alpha, vmin=0, vmax=NUM_LABEL_CLASSES)
                plt.axis('off')
-               plt.savefig(rawfile.replace(rawfile.split(".")[-1],'overlay.png'), dpi=200, bbox_inches='tight')
+               plt.savefig((rawfile.replace(rawfile.split(".")[-1],'overlay.png')).replace(image_path,overlay_path), dpi=200, bbox_inches='tight')
+               plt.close('all')
 
 
-   overdir = os.path.join(image_path, 'overlays')
-   make_dir(overdir)
-   ovfiles = glob.glob(image_path+'/*overlay.png')
-   outdirec = os.path.normpath(image_path + os.sep+'overlays')
-   move_files(ovfiles, outdirec)
+   # overdir = os.path.join(image_path, 'overlays')
+   # make_dir(overdir)
+   # ovfiles = glob.glob(image_path+'/*overlay.png')
+   # outdirec = os.path.normpath(image_path + os.sep+'overlays')
+   # move_files(ovfiles, outdirec)
 
-   overdir = os.path.join(image_path, 'labels')
-   make_dir(overdir)
-   ovfiles = glob.glob(image_path+'/*label.png')
-   outdirec = os.path.normpath(image_path + os.sep+'labels')
-   move_files(ovfiles, outdirec)
+   # overdir = os.path.join(image_path, 'labels')
+   # make_dir(overdir)
+   # ovfiles = glob.glob(image_path+'/*label.png')
+   # outdirec = os.path.normpath(image_path + os.sep+'labels')
+   # move_files(ovfiles, outdirec)
 
 
 ###==================================================================
