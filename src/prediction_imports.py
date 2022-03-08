@@ -24,12 +24,13 @@
 # OUT OF OR IN CONNECTION WITH THE zSOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+from .imports import standardize, label_to_colors#, fromhex
 
 import os, time
 
 import numpy as np
-from skimage.filters.rank import median
-from skimage.morphology import disk
+# from skimage.filters.rank import median
+# from skimage.morphology import disk
 from tkinter import filedialog
 from tkinter import *
 from tkinter import messagebox
@@ -38,18 +39,17 @@ from skimage.io import imsave, imread
 from numpy.lib.stride_tricks import as_strided as ast
 from glob import glob
 
-from joblib import Parallel, delayed
-from skimage.morphology import remove_small_holes, remove_small_objects
-from scipy.ndimage import maximum_filter
+# from joblib import Parallel, delayed
+# from skimage.morphology import remove_small_holes, remove_small_objects
+# from scipy.ndimage import maximum_filter
 from skimage.transform import resize
-from tqdm import tqdm
+# from tqdm import tqdm
 from skimage.filters import threshold_otsu
 import matplotlib.pyplot as plt
 
 import tensorflow as tf #numerical operations on gpu
 import tensorflow.keras.backend as K
 
-from imports import standardize, label_to_colors, fromhex
 
 SEED=42
 np.random.seed(SEED)

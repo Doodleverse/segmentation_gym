@@ -22,7 +22,6 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-
 from tkinter import filedialog, messagebox
 from tkinter import *
 import json, os, glob, shutil
@@ -64,12 +63,13 @@ def get_data(data):
         L.append(data['regions'][k]['region_attributes']['label'])
     return Y,X,L #image coordinates are flipped relative to json coordinates
 	
-def get_mask(X, Y, image):
+def get_mask(X, Y, L, class_dict, image):
     # get the dimensions of the image
     nx, ny, nz = np.shape(image)
     mask = np.zeros((nx,ny))
+    codes = []
     
-    for y,x in zip(X,Y):
+    for y,x,c in zip(X,Y,L):
         # the ImageDraw.Draw().polygon function we will use to create the mask
         # requires the x's and y's are interweaved, which is what the following
         # one-liner does    
@@ -88,15 +88,18 @@ def get_mask(X, Y, image):
         # turn into a numpy array
         #m = np.array(img)
         m = np.flipud(np.rot90(np.array(img)))
+        m[m>0] = class_dict[c]
+        codes.append(class_dict[c])
         try:
             mask = mask + m
         except:
             mask = mask + m.T
-    return mask  
+         
+    return mask , np.unique(codes)
 ########==============================================
 
 
-def make_jpegs():
+def make_jpegs(alpha):
    root = Tk()
    root.filename =  filedialog.askdirectory(initialdir = os.getcwd(),title = "Select directory of VGG JSON files")
    data_path = root.filename
@@ -123,56 +126,80 @@ def make_jpegs():
       for name in files:
          all_names.append(os.path.join(root, name))
 
+   print("{} labels found".format(len(all_labels[0])))
+   print("{} images found".format(len(all_names)))
+
+#    ALL_CLASSES = []
+
+   Tk().withdraw() # we don't want a full GUI, so keep the root window from appearing
+   classfile = filedialog.askopenfilename(title='Select file containing class (label) names', initialdir=image_path, filetypes=[("Pick classes.txt file","*.txt")])
+
+   with open(classfile) as f:
+      classes = f.readlines()
+
+   class_dict = {}
+   for counter, i in enumerate(classes):
+      class_dict[i.strip("\n")]=counter
+
    for tmp in all_labels:
       for label in tmp:
          for img in label.keys():
             print("Working on image {}".format(img))
             X, Y, L = get_data(label[img])
-            rawfile = [f for f in all_names if f.endswith(img)][0]
-            image = Image.open(rawfile)		 	
+            # ALL_CLASSES.append(np.unique(L))
+            try:
+               rawfile = [f for f in all_names if f.endswith(img)][0]
+            except:
+               print("Image not found: {}. Skipping ...")
+               rawfile = None
 
-            for orientation in ExifTags.TAGS.keys():
-               # if ExifTags.TAGS[orientation]=='Orientation':
-               #    break
-               try:
-                  exif=dict(image._getexif().items())
-                  if exif[orientation] == 3:
-                     image=image.rotate(180, expand=True)
-                  elif exif[orientation] == 6:
-                     image=image.rotate(270, expand=True)
-                  elif exif[orientation] == 8:
-                     image=image.rotate(90, expand=True)
-               except:
-                  # print('no exif')
-                  pass
+            if rawfile is not None:
+               image = Image.open(rawfile)		 	
 
-            mask = Image.fromarray(get_mask(X, Y, image)).convert('L')
-            mask.save(rawfile.replace(rawfile.split(".")[-1],'label.png'), format='PNG')
+               for orientation in ExifTags.TAGS.keys():
+                  # if ExifTags.TAGS[orientation]=='Orientation':
+                  #    break
+                  try:
+                     exif=dict(image._getexif().items())
+                     if exif[orientation] == 3:
+                        image=image.rotate(180, expand=True)
+                     elif exif[orientation] == 6:
+                        image=image.rotate(270, expand=True)
+                     elif exif[orientation] == 8:
+                        image=image.rotate(90, expand=True)
+                  except:
+                     # print('no exif')
+                     pass
 
-            class_label_names = [c.strip() for c in L]
+               mask, codes = get_mask(X, Y, L, class_dict,image)
+               mask = Image.fromarray(mask).convert('L')
+               mask.save(rawfile.replace(rawfile.split(".")[-1],'label.png'), format='PNG')
 
-            NUM_LABEL_CLASSES = len(class_label_names)
+               # class_label_names = [c.strip() for c in L]
+               # class_label_names = np.unique(class_label_names)
 
-            if NUM_LABEL_CLASSES<=10:
-               class_label_colormap = px.colors.qualitative.G10
-            else:
-               class_label_colormap = px.colors.qualitative.Light24
+               NUM_LABEL_CLASSES = len(codes) #class_label_names)
 
-            # we can't have fewer colors than classes
-            assert NUM_LABEL_CLASSES <= len(class_label_colormap)
+               if NUM_LABEL_CLASSES<=10:
+                  class_label_colormap = px.colors.qualitative.G10
+               else:
+                  class_label_colormap = px.colors.qualitative.Light24
 
-            colormap = [
-               tuple([fromhex(h[s : s + 2]) for s in range(0, len(h), 2)])
-               for h in [c.replace("#", "") for c in class_label_colormap]
-            ]
+               # we can't have fewer colors than classes
+               assert NUM_LABEL_CLASSES <= len(class_label_colormap)
 
-            cmap = matplotlib.colors.ListedColormap(class_label_colormap[:NUM_LABEL_CLASSES+1])
+               colormap = [
+                  tuple([fromhex(h[s : s + 2]) for s in range(0, len(h), 2)])
+                  for h in [c.replace("#", "") for c in class_label_colormap]
+               ]
 
-            #Make an overlay
-            plt.imshow(image)
-            plt.imshow(mask, cmap=cmap, alpha=0.6, vmin=0, vmax=NUM_LABEL_CLASSES)
-            plt.axis('off')
-            plt.savefig(rawfile.replace(rawfile.split(".")[-1],'overlay.png'), dpi=200, bbox_inches='tight')
+               cmap = matplotlib.colors.ListedColormap(class_label_colormap[:NUM_LABEL_CLASSES+1])
+
+               #Make an overlay
+               plt.imshow(image)
+               plt.imshow(mask, cmap=cmap, alpha=alpha, vmin=0, vmax=NUM_LABEL_CLASSES)
+               plt.axis('off')
+               plt.savefig(rawfile.replace(rawfile.split(".")[-1],'overlay.png'), dpi=200, bbox_inches='tight')
 
 
    overdir = os.path.join(image_path, 'overlays')
@@ -194,7 +221,7 @@ if __name__ == '__main__':
 
     argv = sys.argv[1:]
     try:
-        opts, args = getopt.getopt(argv,"h:") #m:p:l:")
+        opts, args = getopt.getopt(argv,"h:a:") #m:p:l:")
     except getopt.GetoptError:
         print('======================================')
         print('python vggjson2mask.py') #
@@ -202,11 +229,21 @@ if __name__ == '__main__':
     for opt, arg in opts:
         if opt == '-h':
             print('======================================')
-            print('Example usage: python vggjson2mask.py') 
+            print('Example usage: python vggjson2mask.py -a 0.4') 
             print('======================================')
             sys.exit()
+        elif opt == 'a':
+            alpha = arg
+            alpha = float(alpha)
     #ok, dooo it
-    make_jpegs()
+    if 'alpha' in locals():
+      if (alpha < 0) or (alpha>1):
+         alpha=0.5
+         print("alpha outside of range, using alpha = 0.5")
+    else:
+      alpha = 0.5
+
+    make_jpegs(alpha)
 
 
 # boom.    

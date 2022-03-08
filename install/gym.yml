@@ -13,3 +13,7 @@ dependencies:
  - joblib
  - tqdm
  - pandas
+ - pip
+ - pip:
+    - doodleverse_utils
+
