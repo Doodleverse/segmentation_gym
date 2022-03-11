@@ -30,6 +30,9 @@ from tqdm import tqdm
 
 USE_GPU = True
 
+## to store interim model outputs and metadata, use True
+WRITE_MODELMETADATA = False 
+
 if USE_GPU == True:
    ##use the first available GPU
    os.environ['CUDA_VISIBLE_DEVICES'] = '0' #'1'
@@ -215,7 +218,7 @@ if not 'TESTTIMEAUG' in locals():
     TESTTIMEAUG = False
 
 for f in tqdm(sample_filenames):
-    do_seg(f, M, metadatadict, sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TESTTIMEAUG)
+    do_seg(f, M, metadatadict, sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TESTTIMEAUG, WRITE_MODELMETADATA)
 
 
 # w = Parallel(n_jobs=2, verbose=0, max_nbytes=None)(delayed(do_seg)(f) for f in tqdm(sample_filenames))
