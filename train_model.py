@@ -506,6 +506,11 @@ callbacks = [model_checkpoint, earlystop, lr_callback]
 
 
 if DO_TRAIN:
+
+    if 'HOT_START' in locals():
+        model.load_weights(HOT_START)
+        print('transfering model weights for hot start ...')
+
     print('.....................................')
     print('Training model ...')
     history = model.fit(train_ds, steps_per_epoch=steps_per_epoch, epochs=MAX_EPOCHS,
