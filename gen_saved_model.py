@@ -135,4 +135,6 @@ model.compile(optimizer = 'adam', loss = 'categorical_crossentropy')
 
 model.load_weights(weights)
 
-model.save('saved_model')
+saved_model_location = str(weights.replace('.h5','_model'))
+
+model.save(saved_model_location)
