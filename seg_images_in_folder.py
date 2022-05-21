@@ -219,6 +219,3 @@ if not 'TESTTIMEAUG' in locals():
 
 for f in tqdm(sample_filenames):
     do_seg(f, M, metadatadict, sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TESTTIMEAUG, WRITE_MODELMETADATA)
-
-
-# w = Parallel(n_jobs=2, verbose=0, max_nbytes=None)(delayed(do_seg)(f) for f in tqdm(sample_filenames))

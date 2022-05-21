@@ -15,6 +15,7 @@ dependencies:
  - pandas
  - pip
  - plotly
+ - natsort
  - pip:
     - doodleverse_utils
 

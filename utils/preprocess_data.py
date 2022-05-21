@@ -23,6 +23,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import sys, getopt, os 
 
 ###==================================================================
 #===============================================================
@@ -30,7 +31,7 @@ if __name__ == '__main__':
 
     argv = sys.argv[1:]
     try:
-        opts, args = getopt.getopt(argv,"h:") 
+        opts, args = getopt.getopt(argv,"h:t:") 
     except getopt.GetoptError:
         print('======================================')
         print('python preprocess_data.py -t datatype') #

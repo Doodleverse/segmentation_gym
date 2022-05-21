@@ -36,6 +36,8 @@ from skimage.transform import rescale ## this is actually for resizing
 from skimage.morphology import remove_small_objects, remove_small_holes
 from tqdm import tqdm
 from joblib import Parallel, delayed
+from natsort import natsorted
+
 ###===========================================
 
 #-----------------------------------
@@ -235,29 +237,35 @@ while result == 'yes':
 ## COLLATE FILES INTO LISTS
 ##========================================================
 
-files = []
-for data_path in W:
-    f = sorted(glob(data_path+os.sep+'*.jpg'))
-    if len(f)<1:
-        f = sorted(glob(data_path+os.sep+'images'+os.sep+'*.jpg'))
-    files.append(f)
+if len(W)>1:
+    files = []
+    for data_path in W:
+        f = natsorted(glob(data_path+os.sep+'*.jpg'))
+        if len(f)<1:
+            f = natsorted(glob(data_path+os.sep+'images'+os.sep+'*.jpg'))
+        files.append(f)
+    # number of bands x number of samples
+    files = np.vstack(files).T
+else:
+    files = natsorted(glob(data_path+os.sep+'*.jpg'))
+    if len(files)<1:
+        files = natsorted(glob(data_path+os.sep+'images'+os.sep+'*.jpg'))    
 
-# number of bands x number of samples
-files = np.vstack(files).T
-
-label_files = sorted(glob(label_data_path+os.sep+'*.jpg'))
+label_files = natsorted(glob(label_data_path+os.sep+'*.jpg'))
 if len(label_files)<1:
-    label_files = sorted(glob(label_data_path+os.sep+'labels'+os.sep+'*.jpg'))
+    label_files = natsorted(glob(label_data_path+os.sep+'labels'+os.sep+'*.jpg'))
 
 
 print("Found {} image and {} label files".format(len(files), len(label_files)))
+
+
 
 ##========================================================
 ## MAKING PADDED (RESIZED) COPIES OF IMAGERY
 ##========================================================
 
 ## neeed resizing?
-szs = [imread(f).shape for f in files[:,0]]
+szs = [imread(f).shape for f in files] #[:,0]]
 szs = np.vstack(szs)[:,0]
 if len(np.unique(szs))>1:
     do_resize=True
@@ -493,7 +501,7 @@ print('.....................................')
 print('Printing examples to file ...')
 
 counter=0
-for imgs,lbls,files in dataset.take(20):
+for imgs,lbls,files in dataset.take(100):
 
   for count,(im,lab, file) in enumerate(zip(imgs, lbls, files)):
 
@@ -780,7 +788,7 @@ print('.....................................')
 print('Printing examples to file ...')
 
 counter=0
-for imgs,lbls,files in dataset.take(20):
+for imgs,lbls,files in dataset.take(100):
 
   for count,(im,lab, file) in enumerate(zip(imgs, lbls, files)):
 
