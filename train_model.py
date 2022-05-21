@@ -289,17 +289,27 @@ def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_ba
 
 ###==========================================================
 #-------------------------------------------------
-#uncomment to use all files instead
-# filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'*.npz')
+MODE = 'aug'
+# MODE = 'noaug'
+# MODE = 'all'
 
-#uncomment to use non-augmented files instead
-#filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'noaug*.npz')
-# if len(filenames)==0:
-#     filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'_noaug*.npz')
+if MODE=='all':
+    print('MODE "all": using all augmented and non-augmented files')
+    #  use all files instead
+    filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'*.npz')
 
-filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'aug*.npz')
-if len(filenames)==0:
-    filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'_aug*.npz')
+elif MODE=='noaug':
+    print('MODE "noaug": using non-augmented files')
+    # use non-augmented files instead
+    filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'noaug*.npz')
+    if len(filenames)==0:
+        filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'_noaug*.npz')
+
+else:
+    print('MODE "aug": using augmented files')
+    filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'aug*.npz')
+    if len(filenames)==0:
+        filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'_aug*.npz')
 
 try:
     dir_path = os.path.dirname(os.getcwd())

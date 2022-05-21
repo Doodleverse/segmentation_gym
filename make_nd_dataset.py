@@ -313,9 +313,9 @@ if do_resize:
 if do_resize:
     label_data_path = newdireclabels #label_data_path.replace('labels','padded_labels')
 
-    label_files = sorted(glob(label_data_path+os.sep+'*.png'))
+    label_files = natsorted(glob(label_data_path+os.sep+'*.png'))
     if len(label_files)<1:
-        label_files = sorted(glob(label_data_path+os.sep+'images'+os.sep+'*.png'))
+        label_files = natsorted(glob(label_data_path+os.sep+'images'+os.sep+'*.png'))
     print("{} label files".format(len(label_files)))
 
     W2 = []
@@ -328,9 +328,9 @@ if do_resize:
 
     files = []
     for data_path in W:
-        f = sorted(glob(data_path+os.sep+'*.png'))
+        f = natsorted(glob(data_path+os.sep+'*.png'))
         if len(f)<1:
-            f = sorted(glob(data_path+os.sep+'images'+os.sep+'*.png'))
+            f = natsorted(glob(data_path+os.sep+'images'+os.sep+'*.png'))
         files.append(f)
 
     # number of bands x number of samples
@@ -339,14 +339,14 @@ if do_resize:
 
 else:
 
-    label_files = sorted(glob(label_data_path+os.sep+'*.jpg'))
+    label_files = natsorted(glob(label_data_path+os.sep+'*.jpg'))
     if len(label_files)<1:
-        label_files = sorted(glob(label_data_path+os.sep+'images'+os.sep+'*.jpg'))
+        label_files = natsorted(glob(label_data_path+os.sep+'images'+os.sep+'*.jpg'))
     print("{} label files".format(len(label_files)))
 
-    files = sorted(glob(data_path+os.sep+'*.jpg'))
-    if len(f)<1:
-        files = sorted(glob(data_path+os.sep+'images'+os.sep+'*.jpg'))
+    files = natsorted(glob(data_path+os.sep+'*.jpg'))
+    if len(files)<1:
+        files = natsorted(glob(data_path+os.sep+'images'+os.sep+'*.jpg'))
 
 ###================================================
 
@@ -354,6 +354,8 @@ else:
 ## NON-AUGMENTED FILES
 ##========================================================
 # files = [f[0] for f in files]
+
+do_viz = False #True
 
 print("Creating non-augmented subset")
 ## make non-aug subset first
@@ -413,6 +415,14 @@ for counter,(f,l) in enumerate(zip(files,label_files)):
                 del lab
 
         datadict['arr_1'] = np.squeeze(lstack).astype(np.uint8)
+
+        if do_viz == True:
+            if counter%1000 ==0:
+                plt.imshow(datadict['arr_0'])
+                plt.imshow(np.argmax(datadict['arr_1']), alpha=0.3, vmax=1, vmin=0); plt.axis('off')
+                plt.show()
+
+
         datadict['num_bands'] = im.shape[-1]
         datadict['files'] = [fi.split(os.sep)[-1] for fi in f]
         segfile = output_data_path+os.sep+ROOT_STRING+'_noaug_nd_data_000000'+str(counter)+'.npz'
