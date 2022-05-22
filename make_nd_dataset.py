@@ -161,7 +161,6 @@ def do_pad_image(f, TARGET_SIZE):
         else:
             result = scale(img,TARGET_SIZE[0],TARGET_SIZE[1])
 
-
     wend = f.split(os.sep)[-2]
     fdir = os.path.dirname(f)
     fdirout = fdir.replace(wend,'padded_'+wend)
@@ -296,9 +295,12 @@ if do_resize:
 
 
     if len(W)==1:
-        w = Parallel(n_jobs=-2, verbose=0, max_nbytes=None)(delayed(do_pad_image)(f, TARGET_SIZE) for f in files.squeeze())
+        try:
+            w = Parallel(n_jobs=-2, verbose=0, max_nbytes=None)(delayed(do_pad_image)(os.path.normpath(f), TARGET_SIZE) for f in files)
+        except:
+            w = Parallel(n_jobs=-2, verbose=0, max_nbytes=None)(delayed(do_pad_image)(os.path.normpath(f), TARGET_SIZE) for f in files.squeeze())
 
-        w = Parallel(n_jobs=-2, verbose=0, max_nbytes=None)(delayed(do_pad_label)(lfile, TARGET_SIZE) for lfile in label_files)
+        w = Parallel(n_jobs=-2, verbose=0, max_nbytes=None)(delayed(do_pad_label)(os.path.normpath(lfile), TARGET_SIZE) for lfile in label_files)
 
     else:
         ## cycle through, merge and padd/resize if need to
@@ -320,7 +322,7 @@ if do_resize:
 
     W2 = []
     for w in W:
-        wend = w.split(os.sep)[-1]
+        wend = os.path.normpath(w).split(os.sep)[-1]
         w = w.replace(wend,'padded_'+wend)
         W2.append(w)
     W = W2
@@ -328,9 +330,9 @@ if do_resize:
 
     files = []
     for data_path in W:
-        f = natsorted(glob(data_path+os.sep+'*.png'))
+        f = natsorted(glob(os.path.normpath(data_path)+os.sep+'*.png'))
         if len(f)<1:
-            f = natsorted(glob(data_path+os.sep+'images'+os.sep+'*.png'))
+            f = natsorted(glob(os.path.normpath(data_path)+os.sep+'images'+os.sep+'*.png'))
         files.append(f)
 
     # number of bands x number of samples
@@ -339,14 +341,14 @@ if do_resize:
 
 else:
 
-    label_files = natsorted(glob(label_data_path+os.sep+'*.jpg'))
+    label_files = natsorted(glob(os.path.normpath(label_data_path)+os.sep+'*.jpg'))
     if len(label_files)<1:
-        label_files = natsorted(glob(label_data_path+os.sep+'images'+os.sep+'*.jpg'))
+        label_files = natsorted(glob(os.path.normpath(label_data_path)+os.sep+'images'+os.sep+'*.jpg'))
     print("{} label files".format(len(label_files)))
 
-    files = natsorted(glob(data_path+os.sep+'*.jpg'))
+    files = natsorted(glob(os.path.normpath(data_path)+os.sep+'*.jpg'))
     if len(files)<1:
-        files = natsorted(glob(data_path+os.sep+'images'+os.sep+'*.jpg'))
+        files = natsorted(glob(os.path.normpath(data_path)+os.sep+'images'+os.sep+'*.jpg'))
 
 ###================================================
 

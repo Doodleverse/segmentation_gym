@@ -73,8 +73,11 @@ if USE_GPU == True:
     else:
         #use the first available GPU
         os.environ['CUDA_VISIBLE_DEVICES'] = '0' #'1'
-else:
-   ## to use the CPU (not recommended):
+# else:
+#    ## to use the CPU (not recommended):
+#    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+
+if USE_GPU == False:
    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 #suppress tensorflow warnings
@@ -82,6 +85,9 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 from doodleverse_utils.imports import *
 #---------------------------------------------------
+physical_devices = tf.config.experimental.list_physical_devices('GPU')
+tf.config.experimental.set_memory_growth(physical_devices[0], True)
+
 
 trainsamples_fig = weights.replace('.h5','_train_sample_batch.png').replace('weights', 'modelOut')
 valsamples_fig = weights.replace('.h5','_val_sample_batch.png').replace('weights', 'modelOut')
@@ -104,6 +110,10 @@ test_samples_fig =  weights.replace('.h5','_val.png').replace('weights', 'modelO
 if USE_GPU == True:
     print('GPU name: ', tf.config.experimental.list_physical_devices('GPU'))
     print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
+
+    # strategy = tf.distribute.MirroredStrategy()
+    # print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
+
 
 #---------------------------------------------------
 # learning rate function
