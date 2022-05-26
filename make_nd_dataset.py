@@ -264,7 +264,10 @@ print("Found {} image and {} label files".format(len(files), len(label_files)))
 ##========================================================
 
 ## neeed resizing?
-szs = [imread(f).shape for f in files] #[:,0]]
+if len(W)>1:
+    szs = [imread(f).shape for f in files[:,0]]
+else:
+    szs = [imread(f).shape for f in files] #[:,0]]
 szs = np.vstack(szs)[:,0]
 if len(np.unique(szs))>1:
     do_resize=True
@@ -339,16 +342,16 @@ if do_resize:
     files = np.vstack(files).T
     print("{} sets of {} image files".format(len(W),len(files)))
 
-else:
+# else:
 
-    label_files = natsorted(glob(os.path.normpath(label_data_path)+os.sep+'*.jpg'))
-    if len(label_files)<1:
-        label_files = natsorted(glob(os.path.normpath(label_data_path)+os.sep+'images'+os.sep+'*.jpg'))
-    print("{} label files".format(len(label_files)))
+#     label_files = natsorted(glob(os.path.normpath(label_data_path)+os.sep+'*.jpg'))
+#     if len(label_files)<1:
+#         label_files = natsorted(glob(os.path.normpath(label_data_path)+os.sep+'images'+os.sep+'*.jpg'))
+#     print("{} label files".format(len(label_files)))
 
-    files = natsorted(glob(os.path.normpath(data_path)+os.sep+'*.jpg'))
-    if len(files)<1:
-        files = natsorted(glob(os.path.normpath(data_path)+os.sep+'images'+os.sep+'*.jpg'))
+#     files = natsorted(glob(os.path.normpath(data_path)+os.sep+'*.jpg'))
+#     if len(files)<1:
+#         files = natsorted(glob(os.path.normpath(data_path)+os.sep+'images'+os.sep+'*.jpg'))
 
 ###================================================
 

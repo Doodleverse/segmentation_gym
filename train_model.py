@@ -299,8 +299,8 @@ def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_ba
 
 ###==========================================================
 #-------------------------------------------------
-MODE = 'aug'
-# MODE = 'noaug'
+# MODE = 'aug'
+MODE = 'noaug'
 # MODE = 'all'
 
 if MODE=='all':
@@ -311,15 +311,15 @@ if MODE=='all':
 elif MODE=='noaug':
     print('MODE "noaug": using non-augmented files')
     # use non-augmented files instead
-    filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'noaug*.npz')
+    filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'*noaug*.npz')
     if len(filenames)==0:
-        filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'_noaug*.npz')
+        filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'*_noaug*.npz')
 
 else:
     print('MODE "aug": using augmented files')
-    filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'aug*.npz')
+    filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'*aug*.npz')
     if len(filenames)==0:
-        filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'_aug*.npz')
+        filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'*_aug*.npz')
 
 try:
     dir_path = os.path.dirname(os.getcwd())
