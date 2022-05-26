@@ -300,8 +300,8 @@ def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_ba
 ###==========================================================
 #-------------------------------------------------
 # MODE = 'aug'
-MODE = 'noaug'
-# MODE = 'all'
+# MODE = 'noaug'
+MODE = 'all'
 
 if MODE=='all':
     print('MODE "all": using all augmented and non-augmented files')
