@@ -46,13 +46,16 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 from doodleverse_utils.prediction_imports import *
 #---------------------------------------------------
 
-
+# Request the folder containing the imagery/npz to segment 
+# sample_direc: full path to the directory 
 root = Tk()
 root.filename =  filedialog.askdirectory(initialdir = "/samples",title = "Select directory of images (or npzs) to segment")
 sample_direc = root.filename
 print(sample_direc)
 root.withdraw()
 
+# Request the folder containing the model weights
+# weights: full path to the weights file location
 root = Tk()
 root.filename =  filedialog.askopenfilename(initialdir = sample_direc, title = "Select FIRST weights file",filetypes = (("weights file","*.h5"),("all files","*.*")))
 weights = root.filename
@@ -60,9 +63,10 @@ print(weights)
 root.withdraw()
 
 
+# W : list containing all the weight files fill paths
 W=[]
 W.append(weights)
-
+# Prompt user for more model weights and appends them to the list W that contains all the weights
 result = 'yes'
 while result == 'yes':
     result = messagebox.askquestion("More Weights files?", "More Weights files?", icon='warning')
@@ -73,19 +77,24 @@ while result == 'yes':
         root.withdraw()
         W.append(weights)
 
-
+# For each set of weights in W load them in
 M= []; C=[]; T = []
 for counter,weights in enumerate(W):
 
     try:
+        # "fullmodel" is for serving on zoo they are smaller and more portable between systems than traditional h5 files
+        # gym makes a h5 file, then you use gym to make a "fullmodel" version then zoo can read "fullmodel" version
         configfile = weights.replace('_fullmodel.h5','.json').replace('weights', 'config')
         with open(configfile) as f:
             config = json.load(f)
     except:
+        # Turn the .h5 file into a json so that the data can be loaded into dynamic variables
         configfile = weights.replace('.h5','.json').replace('weights', 'config')
         with open(configfile) as f:
             config = json.load(f)
-
+    # Dynamically creates all variables from config dict.
+    # For example configs's {'TARGET_SIZE': [768, 768]} will be created as TARGET_SIZE=[768, 768]
+    # This is how the program is able to use variables that have never been explicitly defined 
     for k in config.keys():
         exec(k+'=config["'+k+'"]')
 
@@ -98,7 +107,17 @@ for counter,weights in enumerate(W):
 
     print('.....................................')
     print('Creating and compiling model {}...'.format(counter))
-
+    # Import the architectures for following models from doodleverse_utils
+    # 1. custom_resunet
+    # 2. custom_unet
+    # 3. simple_resunet
+    # 4. simple_unet
+    # 5. satunet
+    # 6. custom_resunet
+    # 7. custom_satunet
+    
+    # Get the selected model based on the weights file's MODEL key provided
+    # create the model with the data loaded in from the weights file
     if MODEL =='resunet':
         model =  custom_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                         FILTERS,
@@ -175,9 +194,12 @@ for counter,weights in enumerate(W):
         sys.exit(2)
 
     try:
+        # Load in the model from the weights which is the location of the weights file
         model = tf.keras.models.load_model(weights)
 
     except:
+        # Load the metrics mean_iou, dice_coef from doodleverse_utils
+        # Load in the custom loss function from doodleverse_utils
         # model.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics = [mean_iou, dice_coef])
         model.compile(optimizer = 'adam', loss = dice_coef_loss, metrics = [mean_iou, dice_coef])
 
@@ -188,17 +210,19 @@ for counter,weights in enumerate(W):
         T.append(MODEL)
 
 
+# metadatadict contains the model name (T) the config file(C) and the model weights(W)
 metadatadict = {}
 metadatadict['model_weights'] = W
 metadatadict['config_files'] = C
 metadatadict['model_types'] = T
 
 
-### predict
+# The following lines prepare the data to be predicted
+# __________________________________________________________
 print('.....................................')
 print('Using model for prediction on images ...')
 
-
+# Load in  and sort the npz or jpgs from the provided directory sample_direc
 sample_filenames = sorted(glob(sample_direc+os.sep+'*.*'))
 if sample_filenames[0].split('.')[-1]=='npz':
     sample_filenames = sorted(tf.io.gfile.glob(sample_direc+os.sep+'*.npz'))
@@ -214,6 +238,7 @@ print('Number of samples: %i' % (len(sample_filenames)))
 if not 'TESTTIMEAUG' in locals():
     TESTTIMEAUG = False
 
+# Import do_seg() from doodleverse_utils to perform the segmentation on the images
 for f in tqdm(sample_filenames):
     do_seg(f, M, metadatadict, sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TESTTIMEAUG)
 
