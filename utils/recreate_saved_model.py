@@ -50,6 +50,9 @@ for weights in weights_files:
     with open(configfile) as f:
         config = json.load(f)
 
+    # Dynamically creates all variables from config dict.
+    # For example configs's {'TARGET_SIZE': [768, 768]} will be created as TARGET_SIZE=[768, 768]
+    # This is how the program is able to use variables that have never been explicitly defined 
     for k in config.keys():
         exec(k+'=config["'+k+'"]')
 
@@ -57,7 +60,14 @@ for weights in weights_files:
     from imports import *
 
     #=======================================================
-
+    # Import the architectures for following models from doodleverse_utils
+    # 1. custom_resunet
+    # 2. custom_unet
+    # 3. simple_resunet
+    # 4. simple_unet
+    # 5. satunet
+    # 6. custom_resunet
+    # 7. custom_satunet
     if MODEL =='resunet':
         model =  custom_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                         FILTERS,
@@ -138,6 +148,8 @@ for weights in weights_files:
 
     model.save(weights.replace('.h5','_fullmodel.h5'))
 
+    # "fullmodel" is for serving on zoo they are smaller and more portable between systems than traditional h5 files
+    # use gym  make"fullmodel.h5" version which zoo can read "fullmodel.h5" 
     new_model = tf.keras.models.load_model(weights.replace('.h5','_fullmodel.h5'))
 
 
