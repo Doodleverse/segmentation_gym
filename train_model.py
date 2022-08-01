@@ -25,7 +25,6 @@
 
 
 import sys,os, time
-# sys.path.insert(1, 'src')
 
 import json
 from tkinter import filedialog
@@ -36,9 +35,8 @@ from random import shuffle
 ## VARIABLES
 ###############################################################
 
-
 root = Tk()
-root.filename =  filedialog.askdirectory(initialdir = "/segmentation_zoo",title = "Select directory of data files")
+root.filename =  filedialog.askdirectory(initialdir = "./",title = "Select directory of data files")
 data_path = root.filename
 print(data_path)
 root.withdraw()
@@ -49,6 +47,8 @@ configfile = root.filename
 print(configfile)
 root.withdraw()
 
+configfile = os.path.normpath(configfile)
+data_path = os.path.normpath(data_path)
 
 weights = configfile.replace('.json','.h5').replace('config', 'weights')
 
@@ -64,30 +64,75 @@ with open(configfile) as f:
 for k in config.keys():
     exec(k+'=config["'+k+'"]')
 
-USE_GPU = True
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+
+##########################################
+##### set up hardware
+#######################################
+
+
+if SET_GPU != '-1':
+    USE_GPU = True
+    print('Using GPU')
+
+if len(SET_GPU.split(','))>1:
+    USE_MULTI_GPU = True 
+    print('Using multiple GPUs')
+else:
+    USE_MULTI_GPU = False
+    if USE_GPU:
+        print('Using single GPU device')
+    else:
+        print('Using single CPU device')
+
+## this is a bad idea - at least on windows, it reorders the gpus in a way you dont want
+# os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 
 if USE_GPU == True:
-    if 'SET_GPU' in locals():
-        os.environ['CUDA_VISIBLE_DEVICES'] = str(SET_GPU)
-    else:
-        #use the first available GPU
-        os.environ['CUDA_VISIBLE_DEVICES'] = '0' #'1'
-# else:
-#    ## to use the CPU (not recommended):
-#    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+    os.environ['CUDA_VISIBLE_DEVICES'] = SET_GPU
 
-if USE_GPU == False:
-   os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+    from doodleverse_utils.imports import *
+    from tensorflow.python.client import device_lib
+    physical_devices = tf.config.experimental.list_physical_devices('GPU')
+    print(physical_devices)
 
-#suppress tensorflow warnings
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+    if physical_devices:
+        # Restrict TensorFlow to only use the first GPU
+        try:
+            tf.config.experimental.set_visible_devices(physical_devices, 'GPU')
+        except RuntimeError as e:
+            # Visible devices must be set at program startup
+            print(e)
+else:
+    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
-from doodleverse_utils.imports import *
-#---------------------------------------------------
-physical_devices = tf.config.experimental.list_physical_devices('GPU')
-tf.config.experimental.set_memory_growth(physical_devices[0], True)
+    from doodleverse_utils.imports import *
+    from tensorflow.python.client import device_lib
+    physical_devices = tf.config.experimental.list_physical_devices('GPU')
+    print(physical_devices)
 
+### mixed precision
+from tensorflow.keras import mixed_precision
+mixed_precision.set_global_policy('mixed_float16')
+# tf.debugging.set_log_device_placement(True)
+
+for i in physical_devices:
+    tf.config.experimental.set_memory_growth(i, True)
+print(tf.config.get_visible_devices())
+
+if USE_MULTI_GPU:
+    # Create a MirroredStrategy.
+    strategy = tf.distribute.MirroredStrategy([p.name.split('/physical_device:')[-1] for p in physical_devices], cross_device_ops=tf.distribute.HierarchicalCopyAllReduce())
+    print("Number of distributed devices: {}".format(strategy.num_replicas_in_sync))
+
+
+###############################################################
+### main
+###############################################################
+
+
+##########################################
+##### set up output variables
+#######################################
 
 trainsamples_fig = weights.replace('.h5','_train_sample_batch.png').replace('weights', 'modelOut')
 valsamples_fig = weights.replace('.h5','_val_sample_batch.png').replace('weights', 'modelOut')
@@ -107,13 +152,10 @@ test_samples_fig =  weights.replace('.h5','_val.png').replace('weights', 'modelO
 ###############################################################
 ### main
 ###############################################################
-if USE_GPU == True:
-    print('GPU name: ', tf.config.experimental.list_physical_devices('GPU'))
-    print("Num GPUs Available: ", len(tf.config.experimental.list_physical_devices('GPU')))
 
-    # strategy = tf.distribute.MirroredStrategy()
-    # print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
-
+##########################################
+##### set up defs
+#######################################
 
 #---------------------------------------------------
 # learning rate function
@@ -138,23 +180,18 @@ def lrfn(epoch):
         return lr
     return lr(epoch, START_LR, MIN_LR, MAX_LR, RAMPUP_EPOCHS, SUSTAIN_EPOCHS, EXP_DECAY)
 
-
 #-----------------------------------
 def load_npz(example):
-    # if N_DATA_BANDS==4:
-    #     with np.load(example.numpy()) as data:
-    #         image = data['arr_0'].astype('uint8')
-    #         image = standardize(image)
-    #         nir = data['arr_1'].astype('uint8')
-    #         label = data['arr_2'].astype('uint8')
-    #         #file = str(data['arr_2'])
-    #     return image, nir,label#, file
-    # else:
     with np.load(example.numpy()) as data:
         image = data['arr_0'].astype('uint8')
         image = standardize(image)
         label = data['arr_1'].astype('uint8')
         #file = str(data['arr_2'])
+
+    if image.shape[:2]!=[TARGET_SIZE[0],TARGET_SIZE[1]]:
+        image = tf.image.resize(image, TARGET_SIZE) 
+        label = tf.image.resize(label, TARGET_SIZE, method='nearest') 
+
     return image, label#, file
 
 
@@ -172,23 +209,13 @@ def read_seg_dataset_multiclass(example):
         * image [tensor array]
         * class_label [tensor array]
     """
-    # if N_DATA_BANDS==4:
-    #     # image, nir, label, file = tf.py_function(func=load_npz, inp=[example], Tout=[tf.uint8, tf.uint8, tf.uint8, tf.string])
-    #     image, nir, label = tf.py_function(func=load_npz, inp=[example], Tout=[tf.uint8, tf.uint8, tf.uint8])
-    #     nir = tf.cast(nir, tf.float32)#/ 255.0
-    # else:
     #image, label, file = tf.py_function(func=load_npz, inp=[example], Tout=[tf.float32, tf.uint8, tf.string])
     image, label = tf.py_function(func=load_npz, inp=[example], Tout=[tf.float32, tf.uint8])
 
     if NCLASSES==1:
         label = tf.expand_dims(label,-1)
 
-    # if N_DATA_BANDS==4:
-    #     image = tf.concat([image, tf.expand_dims(nir,-1)],-1)
-    #     return image, label#, file
-    # else:
-    return image, label#, file
-
+    return image, label
 
 #-----------------------------------
 def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_batches=10):
@@ -216,7 +243,6 @@ def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_ba
             except:
                 est_label = model.predict(tf.expand_dims(img[:,:,0], 0) , batch_size=1)
 
-
             iouscore = mean_iou_np(tf.expand_dims(tf.squeeze(lbl), 0), est_label)
             # print(iouscore)
 
@@ -226,7 +252,6 @@ def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_ba
             kl = tf.keras.losses.KLDivergence()
             kld = kl(tf.expand_dims(tf.squeeze(lbl), 0), est_label).numpy()
             #print(kld)
-
 
             if NCLASSES==1:
                 est_label = np.argmax(est_label.squeeze(), -1)
@@ -296,12 +321,20 @@ def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_ba
 
     return IOUc, Dc, Kc
 
-
 ###==========================================================
 #-------------------------------------------------
+
+##########################################
+##### set up dataset
+#######################################
+
 # MODE = 'aug'
 # MODE = 'noaug'
-MODE = 'all'
+# MODE = 'all' ##make this a config variable
+
+if 'MODE' not in locals():
+    MODE = 'all'
+    print('MODE not specified in config file. Setting to "all" files')
 
 if MODE=='all':
     print('MODE "all": using all augmented and non-augmented files')
@@ -327,9 +360,11 @@ try:
 except:
     pass # weights direc already exists
 
-shuffle(filenames)
+#----------------------------------------------------------
 
-list_ds = tf.data.Dataset.list_files(filenames, shuffle=False)
+shuffle(filenames) ##shuffle here
+
+list_ds = tf.data.Dataset.list_files(filenames, shuffle=False) ##dont shuffle here
 
 val_size = int(len(filenames) * VALIDATION_SPLIT)
 
@@ -360,146 +395,248 @@ except:
 
 np.savetxt(weights.replace('.h5','_val_files.txt'), val_files, fmt='%s')
 
+######################
+#### set up data throughput pipeline
+#####################
 # Set `num_parallel_calls` so multiple images are loaded/processed in parallel.
+
 train_ds = train_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
 train_ds = train_ds.repeat()
-train_ds = train_ds.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be needed on TPU
+train_ds = train_ds.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be needed on TPU (and possible with distributed gpus)
 train_ds = train_ds.prefetch(AUTO) #
+
 
 val_ds = val_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
 val_ds = val_ds.repeat()
 val_ds = val_ds.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be needed on TPU
 val_ds = val_ds.prefetch(AUTO) #
 
+### the following code is for troubleshooting, when do_viz=True
+do_viz = False 
+# do_viz=True
 
-#
-# ## uncommant to view examples
-# class_label_colormap = ['#3366CC','#DC3912','#FF9900','#109618','#990099','#0099C6','#DD4477',
-#                         '#66AA00','#B82E2E', '#316395','#0d0887', '#46039f', '#7201a8',
-#                         '#9c179e', '#bd3786', '#d8576b', '#ed7953', '#fb9f3a', '#fdca26', '#f0f921']
-#
-# if NCLASSES>1:
-#     class_label_colormap = class_label_colormap[:NCLASSES]
-# else:
-#     class_label_colormap = class_label_colormap[:NCLASSES+1]
-#
-# for imgs,lbls in train_ds.take(1):
-#   for count,(im,lab) in enumerate(zip(imgs, lbls)):
-#      print(im.shape)
-#      if im.shape[-1]>3:
-#          plt.imshow(im[:,:,:3])
-#      else:
-#          plt.imshow(im)
-#
-#      print(lab.shape)
-#      lab = np.argmax(lab.numpy().squeeze(),-1)
-#      print(np.unique(lab))
-#
-#      color_label = label_to_colors(np.squeeze(lab), tf.cast(im[:,:,0]==0,tf.uint8),
-#                                     alpha=128, colormap=class_label_colormap,
-#                                      color_class_offset=0, do_alpha=False)
-#
-#      if NCLASSES==1:
-#          plt.imshow(color_label, alpha=0.75, vmin=0, vmax=NCLASSES)
-#      else:
-#          plt.imshow(color_label,  alpha=0.75, vmin=0, vmax=NCLASSES)
-#
-#      plt.axis('off')
-#      #plt.show()
-#      plt.savefig('example-{}.png'.format(count), dpi=200)
+if do_viz == True:
+    ## to view examples
+    class_label_colormap = ['#3366CC','#DC3912','#FF9900','#109618','#990099','#0099C6','#DD4477',
+                            '#66AA00','#B82E2E', '#316395','#0d0887', '#46039f', '#7201a8',
+                            '#9c179e', '#bd3786', '#d8576b', '#ed7953', '#fb9f3a', '#fdca26', '#f0f921']
+
+    if NCLASSES>1:
+        class_label_colormap = class_label_colormap[:NCLASSES]
+    else:
+        class_label_colormap = class_label_colormap[:NCLASSES+1]
+
+    for counter, (imgs,lbls) in enumerate(train_ds.take(10)):
+        for count,(im,lab) in enumerate(zip(imgs, lbls)):
+            print(im.shape)
+            if im.shape[-1]>3:
+                plt.imshow(im[:,:,:3])
+            else:
+                plt.imshow(im)
+
+            print(lab.shape)
+            lab = np.argmax(lab.numpy().squeeze(),-1)
+            print(np.unique(lab))
+
+            color_label = label_to_colors(np.squeeze(lab), tf.cast(im[:,:,0]==0,tf.uint8),
+                                            alpha=128, colormap=class_label_colormap,
+                                            color_class_offset=0, do_alpha=False)
+
+            if NCLASSES==1:
+                plt.imshow(color_label, alpha=0.75, vmin=0, vmax=NCLASSES)
+            else:
+                plt.imshow(color_label,  alpha=0.75, vmin=0, vmax=NCLASSES)
+
+            plt.axis('off')
+            #plt.show()
+            plt.savefig('example-{}-{}.png'.format(counter,count), dpi=200)
+            plt.close()
 
 
 ##===============================================
+
+##########################################
+##### set up model
+#######################################
+
 print('.....................................')
 print('Creating and compiling model ...')
+if USE_MULTI_GPU:
+    with strategy.scope():
 
-if MODEL =='resunet':
-    model =  custom_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-                    FILTERS,
-                    nclasses=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
-                    kernel_size=(KERNEL,KERNEL),
-                    strides=STRIDE,
-                    dropout=DROPOUT,#0.1,
-                    dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
-                    dropout_type=DROPOUT_TYPE,#"standard",
-                    use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING
-                    )
-elif MODEL=='unet':
-    model =  custom_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-                    FILTERS,
-                    nclasses=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
-                    kernel_size=(KERNEL,KERNEL),
-                    strides=STRIDE,
+        if MODEL =='resunet':
+            model =  custom_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                            FILTERS,
+                            nclasses=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                            kernel_size=(KERNEL,KERNEL),
+                            strides=STRIDE,
+                            dropout=DROPOUT,#0.1,
+                            dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
+                            dropout_type=DROPOUT_TYPE,#"standard",
+                            use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING
+                            )
+        elif MODEL=='unet':
+            model =  custom_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                            FILTERS,
+                            nclasses=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                            kernel_size=(KERNEL,KERNEL),
+                            strides=STRIDE,
+                            dropout=DROPOUT,#0.1,
+                            dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
+                            dropout_type=DROPOUT_TYPE,#"standard",
+                            use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
+                            )
+
+        elif MODEL =='simple_resunet':
+
+            model = simple_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                        kernel = (2, 2),
+                        num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                        activation="relu",
+                        use_batch_norm=True,
+                        dropout=DROPOUT,#0.1,
+                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
+                        dropout_type=DROPOUT_TYPE,#"standard",
+                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
+                        filters=FILTERS,#8,
+                        num_layers=4,
+                        strides=(1,1))
+        #346,564
+        elif MODEL=='simple_unet':
+            model = simple_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                        kernel = (2, 2),
+                        num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                        activation="relu",
+                        use_batch_norm=True,
+                        dropout=DROPOUT,#0.1,
+                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
+                        dropout_type=DROPOUT_TYPE,#"standard",
+                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
+                        filters=FILTERS,#8,
+                        num_layers=4,
+                        strides=(1,1))
+        #242,812
+
+        elif MODEL=='satunet':
+            model = custom_satunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                        kernel = (2, 2),
+                        num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                        activation="relu",
+                        use_batch_norm=True,
+                        dropout=DROPOUT,#0.1,
+                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
+                        dropout_type=DROPOUT_TYPE,#"standard",
+                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
+                        filters=FILTERS,#8,
+                        num_layers=4,
+                        strides=(1,1))
+
+        else:
+            print("Model must be one of 'unet', 'resunet', or 'satunet'")
+            sys.exit(2)
+
+        if LOSS=='hinge':
+            model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalHinge(), metrics = [mean_iou, dice_coef])
+        elif LOSS=='dice':
+            model.compile(optimizer = 'adam', loss =dice_coef_loss, metrics = [mean_iou, dice_coef])
+        elif LOSS.startswith('cat'):
+            model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalCrossentropy(), metrics = [mean_iou, dice_coef])
+        elif LOSS.startswith('k'):
+            model.compile(optimizer = 'adam', loss =tf.keras.losses.KLDivergence(), metrics = [mean_iou, dice_coef]) #, steps_per_execution=2, jit_compile=True
+
+else:
+
+    if MODEL =='resunet':
+        model =  custom_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                        FILTERS,
+                        nclasses=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                        kernel_size=(KERNEL,KERNEL),
+                        strides=STRIDE,
+                        dropout=DROPOUT,#0.1,
+                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
+                        dropout_type=DROPOUT_TYPE,#"standard",
+                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING
+                        )
+    elif MODEL=='unet':
+        model =  custom_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                        FILTERS,
+                        nclasses=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                        kernel_size=(KERNEL,KERNEL),
+                        strides=STRIDE,
+                        dropout=DROPOUT,#0.1,
+                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
+                        dropout_type=DROPOUT_TYPE,#"standard",
+                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
+                        )
+
+    elif MODEL =='simple_resunet':
+
+        model = simple_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                    kernel = (2, 2),
+                    num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                    activation="relu",
+                    use_batch_norm=True,
                     dropout=DROPOUT,#0.1,
                     dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
                     dropout_type=DROPOUT_TYPE,#"standard",
                     use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
-                    )
+                    filters=FILTERS,#8,
+                    num_layers=4,
+                    strides=(1,1))
+    #346,564
+    elif MODEL=='simple_unet':
+        model = simple_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                    kernel = (2, 2),
+                    num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                    activation="relu",
+                    use_batch_norm=True,
+                    dropout=DROPOUT,#0.1,
+                    dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
+                    dropout_type=DROPOUT_TYPE,#"standard",
+                    use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
+                    filters=FILTERS,#8,
+                    num_layers=4,
+                    strides=(1,1))
+    #242,812
 
-elif MODEL =='simple_resunet':
+    elif MODEL=='satunet':
+        model = custom_satunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                    kernel = (2, 2),
+                    num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                    activation="relu",
+                    use_batch_norm=True,
+                    dropout=DROPOUT,#0.1,
+                    dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
+                    dropout_type=DROPOUT_TYPE,#"standard",
+                    use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
+                    filters=FILTERS,#8,
+                    num_layers=4,
+                    strides=(1,1))
 
-    model = simple_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-                kernel = (2, 2),
-                num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
-                activation="relu",
-                use_batch_norm=True,
-                dropout=DROPOUT,#0.1,
-                dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
-                dropout_type=DROPOUT_TYPE,#"standard",
-                use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
-                filters=FILTERS,#8,
-                num_layers=4,
-                strides=(1,1))
-#346,564
-elif MODEL=='simple_unet':
-    model = simple_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-                kernel = (2, 2),
-                num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
-                activation="relu",
-                use_batch_norm=True,
-                dropout=DROPOUT,#0.1,
-                dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
-                dropout_type=DROPOUT_TYPE,#"standard",
-                use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
-                filters=FILTERS,#8,
-                num_layers=4,
-                strides=(1,1))
-#242,812
+    else:
+        print("Model must be one of 'unet', 'resunet', or 'satunet'")
+        sys.exit(2)
 
-elif MODEL=='satunet':
-    #model = sat_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), num_classes=NCLASSES)
 
-    model = custom_satunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-                kernel = (2, 2),
-                num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
-                activation="relu",
-                use_batch_norm=True,
-                dropout=DROPOUT,#0.1,
-                dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
-                dropout_type=DROPOUT_TYPE,#"standard",
-                use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
-                filters=FILTERS,#8,
-                num_layers=4,
-                strides=(1,1))
+    if LOSS=='hinge':
+        model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalHinge(), metrics = [mean_iou, dice_coef]) #, steps_per_execution=2, jit_compile=True
+    elif LOSS=='dice':
+        model.compile(optimizer = 'adam', loss =dice_coef_loss, metrics = [mean_iou, dice_coef])
+    elif LOSS.startswith('cat'):
+        model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalCrossentropy(), metrics = [mean_iou, dice_coef])
+    elif LOSS.startswith('k'):
+        model.compile(optimizer = 'adam', loss =tf.keras.losses.KLDivergence(), metrics = [mean_iou, dice_coef])
 
-else:
-    print("Model must be one of 'unet', 'resunet', or 'satunet'")
-    sys.exit(2)
+#----------------------------------------------------------
+
+##########################################
+##### set up callbacks
+#######################################
 
 # Open the file
 with open(MODEL+'_report.txt','w') as fh:
     # Pass the file handle in as a lambda function to make it callable
     model.summary(print_fn=lambda x: fh.write(x + '\n'))
-
-if LOSS=='hinge':
-    model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalHinge(), metrics = [mean_iou, dice_coef])
-elif LOSS=='dice':
-    model.compile(optimizer = 'adam', loss =dice_coef_loss, metrics = [mean_iou, dice_coef])
-elif LOSS.startswith('cat'):
-    model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalCrossentropy(), metrics = [mean_iou, dice_coef])
-elif LOSS.startswith('k'):
-    model.compile(optimizer = 'adam', loss =tf.keras.losses.KLDivergence(), metrics = [mean_iou, dice_coef])
-
 
 if MODEL =='resunet':
     try:
@@ -512,7 +649,7 @@ elif MODEL=='unet':
     except:
         pass
 earlystop = EarlyStopping(monitor="val_loss",
-                              mode="min", patience=PATIENCE)
+                            mode="min", patience=PATIENCE)
 
 # set checkpoint file
 model_checkpoint = ModelCheckpoint(weights, monitor='val_loss',
@@ -524,6 +661,10 @@ lr_callback = tf.keras.callbacks.LearningRateScheduler(lambda epoch: lrfn(epoch)
 
 callbacks = [model_checkpoint, earlystop, lr_callback]
 
+#----------------------------------------------------------
+##########################################
+##### train!
+#######################################
 
 if DO_TRAIN:
 
@@ -534,8 +675,8 @@ if DO_TRAIN:
     print('.....................................')
     print('Training model ...')
     history = model.fit(train_ds, steps_per_epoch=steps_per_epoch, epochs=MAX_EPOCHS,
-                          validation_data=val_ds, validation_steps=validation_steps,
-                          callbacks=callbacks)
+                        validation_data=val_ds, validation_steps=validation_steps,
+                        callbacks=callbacks)
 
     # Plot training history
     plot_seg_history_iou(history, hist_fig)
@@ -554,9 +695,11 @@ else:
         model.load_weights(weights)
 
 
-
 # # ##########################################################
-# ### evaluate
+##########################################
+##### evaluate
+#######################################
+
 print('.....................................')
 print('Evaluating model on entire validation set ...')
 # # testing
@@ -565,7 +708,6 @@ scores = model.evaluate(val_ds, steps=validation_steps)
 print('loss={loss:0.4f}, Mean IOU={mean_iou:0.4f}, Mean Dice={mean_dice:0.4f}'.format(loss=scores[0], mean_iou=scores[1], mean_dice=scores[2]))
 
 # # # ##########################################################
-
 
 IOUc, Dc, Kc = plotcomp_n_getiou(val_ds,model,NCLASSES,DOPLOT,test_samples_fig,'val')
 print('Mean of mean IoUs (validation subset)={mean_iou:0.3f}'.format(mean_iou=np.mean(IOUc)))
@@ -577,8 +719,3 @@ IOUc, Dc, Kc = plotcomp_n_getiou(train_ds,model,NCLASSES,DOPLOT,test_samples_fig
 print('Mean of mean IoUs (train subset)={mean_iou:0.3f}'.format(mean_iou=np.mean(IOUc)))
 print('Mean of mean Dice scores (train subset)={mean_dice:0.3f}'.format(mean_dice=np.mean(Dc)))
 print('Mean of mean KLD scores (train subset)={mean_kld:0.3f}'.format(mean_kld=np.mean(Kc)))
-
-#
-# plt.plot(Dc, Kc, 'ko')
-# plt.savefig('D_vs_KL.png', dpi=200)
-# plt.close()

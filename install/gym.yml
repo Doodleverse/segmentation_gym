@@ -16,6 +16,8 @@ dependencies:
  - pip
  - plotly
  - natsort
+ - pydensecrf
+ - matplotlib
  - pip:
     - doodleverse_utils
 

@@ -37,8 +37,15 @@ from skimage.morphology import remove_small_objects, remove_small_holes
 from tqdm import tqdm
 from joblib import Parallel, delayed
 from natsort import natsorted
+import matplotlib.pyplot as plt
 
 ###===========================================
+## edit variables
+
+# USE_GPU = False
+USE_GPU = True
+
+###==========================================
 
 #-----------------------------------
 # custom 2d resizing functions for 2d discrete labels
@@ -190,8 +197,11 @@ with open(configfile) as f:
 for k in config.keys():
     exec(k+'=config["'+k+'"]')
 
-USE_GPU = False #True
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+###================================================
+### set up GPU
+###===============================================
+
+# os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 
 if USE_GPU == True:
     if 'SET_GPU' in locals():
@@ -204,6 +214,9 @@ else:
    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 
+###================================================
+### get data files
+###===============================================
 
 root = Tk()
 root.filename =  filedialog.askdirectory(initialdir = output_data_path,title = "Select directory of LABEL files")
@@ -268,7 +281,9 @@ if len(W)>1:
     szs = [imread(f).shape for f in files[:,0]]
 else:
     szs = [imread(f).shape for f in files] #[:,0]]
+
 szs = np.vstack(szs)[:,0]
+
 if len(np.unique(szs))>1:
     do_resize=True
 else:
@@ -279,7 +294,7 @@ if do_resize:
 
     ## make padded direcs
     for w in W:
-        wend = w.split(os.sep)[-1]
+        wend = w.split('/')[-1]
         print(wend)
         newdirec = w.replace(wend,'padded_'+wend)
         try:
@@ -288,9 +303,9 @@ if do_resize:
             pass
 
     if USEMASK:
-        newdireclabels = label_data_path.replace('masks','padded_masks')
+        newdireclabels = label_data_path.replace('mask','padded_mask')
     else:
-        newdireclabels = label_data_path.replace('labels','padded_labels')
+        newdireclabels = label_data_path.replace('label','padded_label')
     try:
         os.mkdir(newdireclabels)
     except:
@@ -358,9 +373,12 @@ if do_resize:
 ##========================================================
 ## NON-AUGMENTED FILES
 ##========================================================
-# files = [f[0] for f in files]
 
-do_viz = False #True
+do_viz = False
+# do_viz = True
+
+if 'REMAP_CLASSES' in locals():
+    NCLASSES = len(np.unique([REMAP_CLASSES[k] for k in REMAP_CLASSES]))
 
 print("Creating non-augmented subset")
 ## make non-aug subset first
@@ -378,63 +396,64 @@ for counter,(f,l) in enumerate(zip(files,label_files)):
             im = [imread(f[0])]
 
     datadict={}
-    try:
-        im=np.dstack(im)# create a dtack which takes care of different sized inputs
-        datadict['arr_0'] = im.astype(np.uint8)
+    # try:
+    im=np.dstack(im)# create a dtack which takes care of different sized inputs
+    datadict['arr_0'] = im.astype(np.uint8)
 
-        lab = imread(l) # reac the label)
-        # if np.min(np.unique(lab))>0:
-        #     lab -= 1
-        # if len(np.unique(lab))>NCLASSES+1:
-        #     lab = (lab==0).astype('uint8')
+    lab = imread(l) # reac the label)
+    # if np.min(np.unique(lab))>0:
+    #     lab -= 1
+    # if len(np.unique(lab))>NCLASSES+1:
+    #     lab = (lab==0).astype('uint8')
 
-        if 'REMAP_CLASSES' in locals():
-            for k in REMAP_CLASSES.items():
-                lab[lab==int(k[0])] = int(k[1])
-
+    if 'REMAP_CLASSES' in locals():
+        for k in REMAP_CLASSES.items():
+            lab[lab==int(k[0])] = int(k[1])
+        # NCLASSES = len(np.unique(lab.flatten()))
+    else:
         lab[lab>NCLASSES]=NCLASSES
 
-        if len(np.unique(lab))==1:
-            nx,ny = lab.shape
-            if NCLASSES==1:
-                lstack = np.zeros((nx,ny,NCLASSES+1))
-            else:
-                lstack = np.zeros((nx,ny,NCLASSES))
-
-            lstack[:,:,np.unique(lab)[0]]=np.ones((nx,ny))
+    if len(np.unique(lab))==1:
+        nx,ny = lab.shape
+        if NCLASSES==1:
+            lstack = np.zeros((nx,ny,NCLASSES+1))
         else:
-            nx,ny = lab.shape
-            if NCLASSES==1:
-                lstack = np.zeros((nx,ny,NCLASSES+1))
-                lstack[:,:,:NCLASSES+1] = (np.arange(NCLASSES+1) == 1+lab[...,None]-1).astype(int) #one-hot encode
-            else:
-                lstack = np.zeros((nx,ny,NCLASSES))
-                lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+lab[...,None]-1).astype(int) #one-hot encode
+            lstack = np.zeros((nx,ny,NCLASSES))
 
-        if FILTER_VALUE>1:
+        lstack[:,:,np.unique(lab)[0]]=np.ones((nx,ny))
+    else:
+        nx,ny = lab.shape
+        if NCLASSES==1:
+            lstack = np.zeros((nx,ny,NCLASSES+1))
+            lstack[:,:,:NCLASSES+1] = (np.arange(NCLASSES+1) == 1+lab[...,None]-1).astype(int) #one-hot encode
+        else:
+            lstack = np.zeros((nx,ny,NCLASSES))
+            lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+lab[...,None]-1).astype(int) #one-hot encode
 
-            for kk in range(lstack.shape[-1]):
-                lab = remove_small_objects(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
-                lab = remove_small_holes(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
-                lstack[:,:,kk] = np.round(lab).astype(np.uint8)
-                del lab
+    if FILTER_VALUE>1:
 
-        datadict['arr_1'] = np.squeeze(lstack).astype(np.uint8)
+        for kk in range(lstack.shape[-1]):
+            lab = remove_small_objects(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
+            lab = remove_small_holes(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
+            lstack[:,:,kk] = np.round(lab).astype(np.uint8)
+            del lab
 
-        if do_viz == True:
-            if counter%1000 ==0:
-                plt.imshow(datadict['arr_0'])
-                plt.imshow(np.argmax(datadict['arr_1']), alpha=0.3, vmax=1, vmin=0); plt.axis('off')
-                plt.show()
+    datadict['arr_1'] = np.squeeze(lstack).astype(np.uint8)
+
+    if do_viz == True:
+        if counter%100 ==0:
+            plt.imshow(datadict['arr_0'])
+            plt.imshow(np.argmax(datadict['arr_1'], axis=-1), alpha=0.3); plt.axis('off')
+            plt.show()
 
 
-        datadict['num_bands'] = im.shape[-1]
-        datadict['files'] = [fi.split(os.sep)[-1] for fi in f]
-        segfile = output_data_path+os.sep+ROOT_STRING+'_noaug_nd_data_000000'+str(counter)+'.npz'
-        np.savez_compressed(segfile, **datadict)
-        del datadict, im, lstack
-    except:
-        print("Inconsistent inputs associated with label file: ".format(l))
+    datadict['num_bands'] = im.shape[-1]
+    datadict['files'] = [fi.split(os.sep)[-1] for fi in f]
+    segfile = output_data_path+os.sep+ROOT_STRING+'_noaug_nd_data_000000'+str(counter)+'.npz'
+    np.savez_compressed(segfile, **datadict)
+    del datadict, im, lstack
+    # except:
+    #     print("Inconsistent inputs associated with label file: ".format(l))
 
 
 ###================================
@@ -524,7 +543,10 @@ for imgs,lbls,files in dataset.take(100):
      if im.shape[-1]:
          im = im[:,:,:3]
 
-     plt.imshow(im)
+     if N_DATA_BANDS==1:
+         plt.imshow(im, cmap='gray')
+     else:
+         plt.imshow(im)
 
      lab = np.argmax(lab.numpy().squeeze(),-1)
 
@@ -546,8 +568,6 @@ for imgs,lbls,files in dataset.take(100):
      #counter +=1
      plt.close('all')
      counter += 1
-
-
 
 ##========================================================
 ## AUGMENTED FILES
@@ -669,6 +689,10 @@ for counter,w in enumerate(W):
 
 ######################## generate and print files
 
+
+if 'REMAP_CLASSES' in locals():
+    NCLASSES = len(np.unique([REMAP_CLASSES[k] for k in REMAP_CLASSES]))
+
 i = 0
 for copy in tqdm(range(AUG_COPIES)):
     for k in range(AUG_LOOPS):
@@ -711,12 +735,7 @@ for copy in tqdm(range(AUG_COPIES)):
         for counter,lab in enumerate(Y):
 
             im = np.dstack([x[counter] for x in X3])
-
-            # try:
             files = np.dstack([x[counter] for x in F])
-            # except:
-            #     files = 'error'
-                ## this happens because the last few indices get chopped off on the last yield of the generator
 
             ##============================================ label
             if NCLASSES==1:
@@ -731,8 +750,8 @@ for copy in tqdm(range(AUG_COPIES)):
             if 'REMAP_CLASSES' in locals():
                 for k in REMAP_CLASSES.items():
                     l[l==int(k[0])] = int(k[1])
-
-            l[l>NCLASSES]=NCLASSES
+            else:
+                l[l>NCLASSES]=NCLASSES
 
             if len(np.unique(l))==1:
                 nx,ny = l.shape
@@ -774,7 +793,6 @@ for copy in tqdm(range(AUG_COPIES)):
 
             del lstack, l, im
 
-
             i += 1
 
 
@@ -811,7 +829,10 @@ for imgs,lbls,files in dataset.take(100):
      if im.shape[-1]:
          im = im[:,:,:3] #just show the first 3 bands
 
-     plt.imshow(im)
+     if N_DATA_BANDS==1:
+         plt.imshow(im, cmap='gray')
+     else:
+         plt.imshow(im)
 
      # print(lab.shape)
      lab = np.argmax(lab.numpy().squeeze(),-1)

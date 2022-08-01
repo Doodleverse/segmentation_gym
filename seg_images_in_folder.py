@@ -23,32 +23,91 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-
 import sys,os, time
 # sys.path.insert(1, 'src')
 from tqdm import tqdm
 
+#####################################
+#### editable variables
+####################################
+do_crf = True
+
 USE_GPU = True
+# USE_GPU = False
+
+## edit to set GPU number
+SET_GPU = 0
 
 ## to store interim model outputs and metadata, use True
 WRITE_MODELMETADATA = False 
 
-if USE_GPU == True:
-   ##use the first available GPU
-   os.environ['CUDA_VISIBLE_DEVICES'] = '0' #'1'
+#####################################
+#### hardware
+####################################
+
+SET_GPU = str(SET_GPU)
+
+if SET_GPU != '-1':
+    USE_GPU = True
+    print('Using GPU')
+
+if len(SET_GPU.split(','))>1:
+    USE_MULTI_GPU = True 
+    print('Using multiple GPUs')
 else:
-   ## to use the CPU (not recommended):
-   os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+    USE_MULTI_GPU = False
+    if USE_GPU:
+        print('Using single GPU device')
+    else:
+        print('Using single CPU device')
 
 #suppress tensorflow warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
+if USE_GPU == True:
+    os.environ['CUDA_VISIBLE_DEVICES'] = SET_GPU
 
-# from prediction_imports import *
+    from doodleverse_utils.prediction_imports import *
+    from tensorflow.python.client import device_lib
+    physical_devices = tf.config.experimental.list_physical_devices('GPU')
+    print(physical_devices)
+
+    if physical_devices:
+        # Restrict TensorFlow to only use the first GPU
+        try:
+            tf.config.experimental.set_visible_devices(physical_devices, 'GPU')
+        except RuntimeError as e:
+            # Visible devices must be set at program startup
+            print(e)
+else:
+    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+
+    from doodleverse_utils.prediction_imports import *
+    from tensorflow.python.client import device_lib
+    physical_devices = tf.config.experimental.list_physical_devices('GPU')
+    print(physical_devices)
+
+### mixed precision
+from tensorflow.keras import mixed_precision
+mixed_precision.set_global_policy('mixed_float16')
+# tf.debugging.set_log_device_placement(True)
+
+for i in physical_devices:
+    tf.config.experimental.set_memory_growth(i, True)
+print(tf.config.get_visible_devices())
+
+if USE_MULTI_GPU:
+    # Create a MirroredStrategy.
+    strategy = tf.distribute.MirroredStrategy([p.name.split('/physical_device:')[-1] for p in physical_devices], cross_device_ops=tf.distribute.HierarchicalCopyAllReduce())
+    print("Number of distributed devices: {}".format(strategy.num_replicas_in_sync))
+
+
+#####################################
+#### session variables
+####################################
+
 #====================================================
-from doodleverse_utils.prediction_imports import *
 #---------------------------------------------------
-
 
 root = Tk()
 root.filename =  filedialog.askdirectory(initialdir = "/samples",title = "Select directory of images (or npzs) to segment")
@@ -62,6 +121,9 @@ weights = root.filename
 print(weights)
 root.withdraw()
 
+#####################################
+#### concatenate models
+####################################
 
 W=[]
 W.append(weights)
@@ -141,7 +203,7 @@ for counter,weights in enumerate(W):
                     filters=FILTERS,#8,
                     num_layers=4,
                     strides=(1,1))
-    #346,564
+
     elif MODEL=='simple_unet':
         model = simple_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                     kernel = (2, 2),
@@ -155,7 +217,6 @@ for counter,weights in enumerate(W):
                     filters=FILTERS,#8,
                     num_layers=4,
                     strides=(1,1))
-    #242,812
 
     elif MODEL=='satunet':
         #model = sat_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), num_classes=NCLASSES)
@@ -181,7 +242,6 @@ for counter,weights in enumerate(W):
         model = tf.keras.models.load_model(weights)
 
     except:
-        # model.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics = [mean_iou, dice_coef])
         model.compile(optimizer = 'adam', loss = dice_coef_loss, metrics = [mean_iou, dice_coef])
 
         model.load_weights(weights)
@@ -196,11 +256,9 @@ metadatadict['model_weights'] = W
 metadatadict['config_files'] = C
 metadatadict['model_types'] = T
 
-
-### predict
-print('.....................................')
-print('Using model for prediction on images ...')
-
+#####################################
+#### read images
+####################################
 
 sample_filenames = sorted(glob(sample_direc+os.sep+'*.*'))
 if sample_filenames[0].split('.')[-1]=='npz':
@@ -208,14 +266,23 @@ if sample_filenames[0].split('.')[-1]=='npz':
 else:
     sample_filenames = sorted(tf.io.gfile.glob(sample_direc+os.sep+'*.jpg'))
     if len(sample_filenames)==0:
-        # sample_filenames = sorted(tf.io.gfile.glob(sample_direc+os.sep+'*.png'))
         sample_filenames = sorted(glob(sample_direc+os.sep+'*.png'))
 
 print('Number of samples: %i' % (len(sample_filenames)))
+
+#####################################
+#### run model on each image in a for loop
+####################################
+### predict
+print('.....................................')
+print('Using model for prediction on images ...')
 
 #look for TTA config
 if not 'TESTTIMEAUG' in locals():
     TESTTIMEAUG = False
 
 for f in tqdm(sample_filenames):
-    do_seg(f, M, metadatadict, sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TESTTIMEAUG, WRITE_MODELMETADATA)
+    try:
+        do_seg(f, M, metadatadict, sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TESTTIMEAUG, WRITE_MODELMETADATA,do_crf)
+    except:
+        print("{} failed".format(f))

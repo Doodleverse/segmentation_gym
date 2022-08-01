@@ -1,10 +1,10 @@
 # 📦 Segmentation Gym :muscle:
-[![Last Commit](https://img.shields.io/github/last-commit/dbuscombe-usgs/segmentation_zoo)](
-https://github.com/dbuscombe-usgs/segmentation_zoo/commits/main)
-[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/dbuscombe-usgs/segmentation_zoo/graphs/commit-activity)
-[![Wiki](https://img.shields.io/badge/wiki-documentation-forestgreen)](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki)
-![GitHub](https://img.shields.io/github/license/dbuscombe-usgs/segmentation_zoo)
-[![Wiki](https://img.shields.io/badge/discussion-active-forestgreen)](https://github.com/dbuscombe-usgs/segmentation_zoo/discussions)
+[![Last Commit](https://img.shields.io/github/last-commit/dbuscombe-usgs/segmentation_gym)](
+https://github.com/dbuscombe-usgs/segmentation_gym/commits/main)
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/dbuscombe-usgs/segmentation_gym/graphs/commit-activity)
+[![Wiki](https://img.shields.io/badge/wiki-documentation-forestgreen)](https://github.com/dbuscombe-usgs/segmentation_gym/wiki)
+![GitHub](https://img.shields.io/github/license/dbuscombe-usgs/segmentation_gym)
+[![Wiki](https://img.shields.io/badge/discussion-active-forestgreen)](https://github.com/dbuscombe-usgs/segmentation_gym/discussions)
 
 ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
 ![TensorFlow](https://img.shields.io/badge/TensorFlow-%23FF6F00.svg?style=for-the-badge&logo=TensorFlow&logoColor=white)
@@ -20,7 +20,7 @@ https://github.com/dbuscombe-usgs/segmentation_zoo/commits/main)
 - Gym encodes relatively powerful models like UNets, and provides lots of ways to manipulate data, model training, and model architectures that should yield good results with some informed experimentation
 - Gym works seamlessly with [Doodler](https://github.com/dbuscombe-usgs/dash_doodler), a human-in-the loop labeling tool
 - Gym implements models based on the U-Net. Despite being one of the "original" deep learning segmentation models (dating to [2016](https://arxiv.org/abs/1505.04597)), UNets have proven themselves enormously flexible for a wide range of image segmentation tasks and spatial regression tasks in the natural sciences. So, we expect these models, and, perhaps more importantly, the training and implementation of those models in an end-to-end pipeline, to work for a very wide variety of cases. Additional models may be added later.
-- You can read more about the models [here](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki/Models-in-Zoo) but be warned! We at Doodleverse HQ have discovered - often the hard way - that success is more about the data than the model. Zoo helps you wrangle and tame your data, and makes your data work hard for you (nothing fancy, we just use augmentation)
+- You can read more about the models [here](https://github.com/dbuscombe-usgs/segmentation_gym/wiki/Models-in-Zoo) but be warned! We at Doodleverse HQ have discovered - often the hard way - that success is more about the data than the model. Zoo helps you wrangle and tame your data, and makes your data work hard for you (nothing fancy, we just use augmentation)
 
 ## ℹ️ Overview
 
@@ -82,8 +82,25 @@ git clone --depth 1 https://github.com/Doodleverse/segmentation_gym.git
 
 2. Create a conda environment called `gym`
 
+First, and optionally, you may want to do some conda housekeeping (recommended)
+
+```
+conda update conda
+conda clean --all
+```
+
+Then:
+
 ```
 conda env create --file install/gym.yml
+conda activate gym
+```
+
+Alternatively, you could install using mamba, which should be significantly faster
+
+```
+conda install mamba -c conda-forge
+mamba env create --file install/gym.yml
 conda activate gym
 ```
 
@@ -95,25 +112,14 @@ pip install "h5py==2.10.0" --force-reinstall
 
 and just ignore any errors.
 
-Also, tensorflow version 2.2.0 or higher is now required, which means you may need to
-
-```
-pip install tensorflow-gpu=2.2.0 --user
-```
-
-and just ignore any errors. When you run any script, the tensorflow version should be printed to screen.
-
-
-( add other minimum requirements like Python versions or operating systems)
-
 
 ## How to use
-Check out the [wiki](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki) for a guide of how to use Gym
+Check out the [wiki](https://github.com/dbuscombe-usgs/segmentation_gym/wiki) for a guide of how to use Gym
 
-1. Organize your files according to [this guide](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki/Directory-Structure-and-Tests)
-2. Create a configuration file according to [this guide](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki/Creation-of-%60config%60-files)
-3. Create a model-ready dataset from your pairs of images and labels. We hope you find [this guide](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki/Create-a-model-ready-dataset) helpful
-4. Train and evaluate an image segmentation model according to [this guide](https://github.com/dbuscombe-usgs/segmentation_zoo/wiki/Train-an-image-segmentation-model)
+1. Organize your files according to [this guide](https://github.com/dbuscombe-usgs/segmentation_gym/wiki/Directory-Structure-and-Tests)
+2. Create a configuration file according to [this guide](https://github.com/dbuscombe-usgs/segmentation_gym/wiki/Creation-of-%60config%60-files)
+3. Create a model-ready dataset from your pairs of images and labels. We hope you find [this guide](https://github.com/dbuscombe-usgs/segmentation_gym/wiki/Create-a-model-ready-dataset) helpful
+4. Train and evaluate an image segmentation model according to [this guide](https://github.com/dbuscombe-usgs/segmentation_gym/wiki/Train-an-image-segmentation-model)
 5. Deploy / evaluate model on unseen sample imagery  *more detail coming soon*
 
 ## Test Dataset
@@ -123,8 +129,8 @@ A test data set, including a set of images/labels, model config files, and a dat
 
 ## 💭 Feedback and Contributing
 
-Please read our [code of conduct](https://github.com/dbuscombe-usgs/segmentation_zoo/blob/main/CODE_OF_CONDUCT.md)
+Please read our [code of conduct](https://github.com/dbuscombe-usgs/segmentation_gym/blob/main/CODE_OF_CONDUCT.md)
 
-Please contribute to the [Discussions tab](https://github.com/dbuscombe-usgs/segmentation_zoo/discussions) - we welcome your ideas and feedback.
+Please contribute to the [Discussions tab](https://github.com/dbuscombe-usgs/segmentation_gym/discussions) - we welcome your ideas and feedback.
 
-We also invite all to open issues for bugs/feature requests using the [Issues tab](https://github.com/dbuscombe-usgs/segmentation_zoo/issues)
+We also invite all to open issues for bugs/feature requests using the [Issues tab](https://github.com/dbuscombe-usgs/segmentation_gym/issues)
