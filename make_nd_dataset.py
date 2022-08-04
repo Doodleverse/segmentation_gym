@@ -549,6 +549,7 @@ for imgs,lbls,files in dataset.take(100):
          plt.imshow(im)
 
      lab = np.argmax(lab.numpy().squeeze(),-1)
+     print(lab.shape)
 
      color_label = label_to_colors(np.squeeze(lab), tf.cast(im[:,:,0]==0,tf.uint8),
                                     alpha=128, colormap=class_label_colormap,

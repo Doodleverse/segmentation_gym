@@ -186,11 +186,14 @@ def load_npz(example):
         image = data['arr_0'].astype('uint8')
         image = standardize(image)
         label = data['arr_1'].astype('uint8')
+
+        # print(label.shape)
+        # print(image.shape)
         #file = str(data['arr_2'])
 
-    if image.shape[:2]!=[TARGET_SIZE[0],TARGET_SIZE[1]]:
-        image = tf.image.resize(image, TARGET_SIZE) 
-        label = tf.image.resize(label, TARGET_SIZE, method='nearest') 
+    # if image.shape[:2]!=[TARGET_SIZE[0],TARGET_SIZE[1]]:
+    #     image = tf.image.resize(image, TARGET_SIZE) 
+    #     label = tf.image.resize(label, TARGET_SIZE, method='nearest') 
 
     return image, label#, file
 
