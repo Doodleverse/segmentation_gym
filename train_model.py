@@ -68,7 +68,8 @@ for k in config.keys():
 ##########################################
 ##### set up hardware
 #######################################
-
+if 'SET_PCI_BUS_ID' not in locals():
+    SET_PCI_BUS_ID = False
 
 if SET_GPU != '-1':
     USE_GPU = True
@@ -84,10 +85,13 @@ else:
     else:
         print('Using single CPU device')
 
-## this is a bad idea - at least on windows, it reorders the gpus in a way you dont want
-# os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 
 if USE_GPU == True:
+
+    ## this could be a bad idea - at least on windows, it reorders the gpus in a way you dont want
+    if SET_PCI_BUS_ID:
+        os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+
     os.environ['CUDA_VISIBLE_DEVICES'] = SET_GPU
 
     from doodleverse_utils.imports import *
@@ -186,10 +190,6 @@ def load_npz(example):
         image = data['arr_0'].astype('uint8')
         image = standardize(image)
         label = data['arr_1'].astype('uint8')
-
-        # print(label.shape)
-        # print(image.shape)
-        #file = str(data['arr_2'])
 
     # if image.shape[:2]!=[TARGET_SIZE[0],TARGET_SIZE[1]]:
     #     image = tf.image.resize(image, TARGET_SIZE) 
