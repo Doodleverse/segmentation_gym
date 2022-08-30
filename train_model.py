@@ -71,9 +71,14 @@ for k in config.keys():
 if 'SET_PCI_BUS_ID' not in locals():
     SET_PCI_BUS_ID = False
 
+SET_GPU = str(SET_GPU)
+
 if SET_GPU != '-1':
     USE_GPU = True
     print('Using GPU')
+else:
+    USE_GPU = False
+    print('Warning: using CPU - model training will be slow')
 
 if len(SET_GPU.split(','))>1:
     USE_MULTI_GPU = True 

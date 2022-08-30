@@ -39,13 +39,6 @@ from joblib import Parallel, delayed
 from natsort import natsorted
 import matplotlib.pyplot as plt
 
-###===========================================
-## edit variables
-
-# USE_GPU = False
-USE_GPU = True
-
-###==========================================
 
 #-----------------------------------
 # custom 2d resizing functions for 2d discrete labels
@@ -202,6 +195,14 @@ for k in config.keys():
 ###===============================================
 
 # os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+
+SET_GPU = str(SET_GPU)
+
+if SET_GPU != '-1':
+    USE_GPU = True
+    print('Using GPU')
+else:
+    USE_GPU = False
 
 if USE_GPU == True:
     if 'SET_GPU' in locals():

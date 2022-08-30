@@ -6,12 +6,14 @@ from tqdm import tqdm
 
 USE_GPU = True
 
+SET_GPU = '0'
+
 ## to store interim model outputs and metadata, use True
 WRITE_MODELMETADATA = False 
 
 if USE_GPU == True:
    ##use the first available GPU
-   os.environ['CUDA_VISIBLE_DEVICES'] = '0' #'1'
+   os.environ['CUDA_VISIBLE_DEVICES'] = SET_GPU
 else:
    ## to use the CPU (not recommended):
    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
