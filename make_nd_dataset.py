@@ -285,10 +285,11 @@ else:
 
 szs = np.vstack(szs)[:,0]
 
-if len(np.unique(szs))>1:
-    do_resize=True
-else:
-    do_resize=False
+do_resize = True
+# if len(np.unique(szs))>1:
+#     do_resize=True
+# else:
+#     do_resize=False
 
 ## rersize / pad imagery so all a consistent size (TARGET_SIZE)
 if do_resize:
