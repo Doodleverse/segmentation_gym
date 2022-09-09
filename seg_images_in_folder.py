@@ -24,11 +24,9 @@
 # SOFTWARE.
 
 import sys,os, json
-# sys.path.insert(1, 'src')
 from tqdm import tqdm
 from tkinter import filedialog, messagebox
 from tkinter import *
-
 
 #####################################
 #### session variables
@@ -298,6 +296,9 @@ print('Using model for prediction on images ...')
 #look for TTA config
 if not 'TESTTIMEAUG' in locals():
     TESTTIMEAUG = False
+#look for do_crf in config
+if not 'do_crf' in locals():
+    do_crf = False
 
 # Import do_seg() from doodleverse_utils to perform the segmentation on the images
 for f in tqdm(sample_filenames):

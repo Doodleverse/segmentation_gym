@@ -48,7 +48,7 @@ Package maintainers:
 
 Contributions:
 * [@2320sharon](https://github.com/2320sharon)
-
+* `doodleverse_utils` functions in `model_metrics.py` use minimally modified code from [here](https://github.com/zhiminwang1/Remote-Sensing-Image-Segmentation/blob/master/seg_metrics.py)
 
 ## 🚀 Usage
 

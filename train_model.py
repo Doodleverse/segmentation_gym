@@ -23,13 +23,13 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-
 import sys,os, time
-
 import json
 from tkinter import filedialog
 from tkinter import *
 from random import shuffle
+import pandas as pd
+import tensorflow_addons as tfa
 
 ###############################################################
 ## VARIABLES
@@ -226,7 +226,7 @@ def read_seg_dataset_multiclass(example):
     return image, label
 
 #-----------------------------------
-def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_batches=10):
+def plotcomp_n_metrics(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_batches=20):
 
     class_label_colormap = ['#3366CC','#DC3912','#FF9900','#109618','#990099','#0099C6','#DD4477',
                             '#66AA00','#B82E2E', '#316395','#0d0887', '#46039f', '#7201a8',
@@ -238,7 +238,8 @@ def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_ba
         class_label_colormap = class_label_colormap[:NCLASSES+1]
 
     IOUc = []; Dc=[]; Kc = []
-
+    OA = []; MIOU = []; FWIOU = []
+    F1 = []; P =[]; R = []; MCC=[]
     counter = 0
     for i,l in ds.take(num_batches):
 
@@ -251,37 +252,54 @@ def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_ba
             except:
                 est_label = model.predict(tf.expand_dims(img[:,:,0], 0) , batch_size=1)
 
+            imgPredict = np.argmax(est_label.squeeze(),axis=-1)
+            label = np.argmax(tf.squeeze(lbl),axis=-1)
+
+            if NCLASSES==1:
+                out = AllMetrics(NCLASSES+1, imgPredict, label)
+            else:
+                out = AllMetrics(NCLASSES, imgPredict, label)
+
+            OA.append(out['OverallAccuracy'])
+            FWIOU.append(out['Frequency_Weighted_Intersection_over_Union'])
+            MIOU.append(out['MeanIntersectionOverUnion'])
+            F1.append(out['F1Score'])
+            R.append(out['Recall'])
+            P.append(out['Precision'])
+            MCC.append(out['MatthewsCorrelationCoefficient'])
+
             iouscore = mean_iou_np(tf.expand_dims(tf.squeeze(lbl), 0), est_label)
-            # print(iouscore)
 
             dicescore = mean_dice_np(tf.expand_dims(tf.squeeze(lbl), 0), est_label)
-            # print(dicescore)
 
-            kl = tf.keras.losses.KLDivergence()
-            kld = kl(tf.expand_dims(tf.squeeze(lbl), 0), est_label).numpy()
-            #print(kld)
+            kl = tf.keras.losses.KLDivergence() #initiate object
+
+            est_label = np.argmax(est_label.squeeze(),axis=-1) #argmax to flatten()
+
+            #one-hot encode
+            nx,ny = est_label.shape
+            if NCLASSES==1:
+                lstack = np.zeros((nx,ny,NCLASSES+1))
+                lstack[:,:,:NCLASSES+1] = (np.arange(NCLASSES) == 1+est_label[...,None]-1).astype(int) 
+            else:
+                lstack = np.zeros((nx,ny,NCLASSES))
+                lstack[:,:,:NCLASSES+1] = (np.arange(NCLASSES) == 1+est_label[...,None]-1).astype(int) 
+
+            #compute on one-hot encoded integer tensors
+            # kld = kl(tf.expand_dims(tf.squeeze(lbl), 0), lstack).numpy()
+            kld = kl(tf.squeeze(lbl), lstack).numpy()
 
             if NCLASSES==1:
-                est_label = np.argmax(est_label.squeeze(), -1)
                 est_label[est_label<.5] = 0
                 est_label[est_label>.5] = 1
-            else:
-                est_label = np.argmax(est_label.squeeze(), -1)
 
-            if NCLASSES==1:
-                lbl = lbl.numpy().squeeze()
-                lbl = np.argmax(lbl, -1)
-            else:
-                lbl = np.argmax(lbl.numpy(), -1)
-
-
-            img = rescale_array(img.numpy(), 0, 1)
+            img = rescale_array(np.array(img), 0, 1) ##.numpy()
 
             color_estlabel = label_to_colors(est_label, tf.cast(img[:,:,0]==0,tf.uint8),
                                             alpha=128, colormap=class_label_colormap,
                                              color_class_offset=0, do_alpha=False)
 
-            color_label = label_to_colors(lbl, tf.cast(img[:,:,0]==0,tf.uint8),
+            color_label = label_to_colors(np.argmax(tf.squeeze(lbl).numpy(),axis=-1), tf.cast(img[:,:,0]==0,tf.uint8),
                                             alpha=128, colormap=class_label_colormap,
                                              color_class_offset=0, do_alpha=False)
 
@@ -292,7 +310,7 @@ def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_ba
                 else:
                     plt.imshow(img)#, cmap='gray')
                 if NCLASSES==1:
-                    plt.imshow(lbl, alpha=0.1, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES)
+                    plt.imshow(color_label, alpha=0.1, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES)
                 else:
                     plt.imshow(color_label, alpha=0.5)#, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES-1)
 
@@ -304,7 +322,7 @@ def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_ba
                 else:
                     plt.imshow(img)#, cmap='gray')
                 if NCLASSES==1:
-                    plt.imshow(est_label, alpha=0.1, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES)
+                    plt.imshow(color_estlabel, alpha=0.1, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES)
                 else:
                     plt.imshow(color_estlabel, alpha=0.5)#, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES-1)
 
@@ -327,7 +345,29 @@ def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_ba
             counter += 1
             K.clear_session()
 
-    return IOUc, Dc, Kc
+
+    metrics_table = np.vstack((OA,MIOU,FWIOU)).T
+    metrics_per_class = np.hstack((F1,R,P))
+
+    metrics_table = {}
+    metrics_table['OverallAccuracy'] = np.array(OA)
+    metrics_table['Frequency_Weighted_Intersection_over_Union'] = np.array(FWIOU)
+    metrics_table['MeanIntersectionOverUnion'] = np.array(MIOU)
+    metrics_table['MatthewsCorrelationCoefficient'] = np.array(MCC)
+
+    df_out1 = pd.DataFrame.from_dict(metrics_table)
+    df_out1.to_csv(test_samples_fig.replace('_val.png', '_model_metrics_per_sample.csv'))
+
+    metrics_per_class = {}
+    for k in range(NCLASSES):
+        metrics_per_class['F1Score_class{}'.format(k)] = np.array(F1)[:,k]
+        metrics_per_class['Recall_class{}'.format(k)] = np.array(R)[:,k]
+        metrics_per_class['Precision_class{}'.format(k)] = np.array(P)[:,k]
+
+    df_out2 = pd.DataFrame.from_dict(metrics_per_class)
+    df_out2.to_csv(test_samples_fig.replace('_val.png', '_model_metrics_per_sample_per_class.csv'))
+
+    return IOUc, Dc, Kc, OA, MIOU, FWIOU, MCC
 
 ###==========================================================
 #-------------------------------------------------
@@ -335,10 +375,6 @@ def plotcomp_n_getiou(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_ba
 ##########################################
 ##### set up dataset
 #######################################
-
-# MODE = 'aug'
-# MODE = 'noaug'
-# MODE = 'all' ##make this a config variable
 
 if 'MODE' not in locals():
     MODE = 'all'
@@ -716,14 +752,21 @@ scores = model.evaluate(val_ds, steps=validation_steps)
 print('loss={loss:0.4f}, Mean IOU={mean_iou:0.4f}, Mean Dice={mean_dice:0.4f}'.format(loss=scores[0], mean_iou=scores[1], mean_dice=scores[2]))
 
 # # # ##########################################################
-
-IOUc, Dc, Kc = plotcomp_n_getiou(val_ds,model,NCLASSES,DOPLOT,test_samples_fig,'val')
+IOUc, Dc, Kc, OA, MIOU, FWIOU, MCC = plotcomp_n_metrics(
+                                val_ds,model,NCLASSES,DOPLOT,test_samples_fig,'val')
 print('Mean of mean IoUs (validation subset)={mean_iou:0.3f}'.format(mean_iou=np.mean(IOUc)))
+print('Mean of mean IoUs, confusion matrix (validation subset)={mean_iou:0.3f}'.format(mean_iou=np.mean(MIOU)))
+print('Mean of mean frequency weighted IoUs, confusion matrix (validation subset)={mean_iou:0.3f}'.format(mean_iou=np.mean(FWIOU)))
+print('Mean of Matthews Correlation Coefficients (validation subset)={mean_dice:0.3f}'.format(mean_dice=np.mean(MCC)))
 print('Mean of mean Dice scores (validation subset)={mean_dice:0.3f}'.format(mean_dice=np.mean(Dc)))
 print('Mean of mean KLD scores (validation subset)={mean_kld:0.3f}'.format(mean_kld=np.mean(Kc)))
 
 
-IOUc, Dc, Kc = plotcomp_n_getiou(train_ds,model,NCLASSES,DOPLOT,test_samples_fig,'train')
+IOUc, Dc, Kc, OA, MIOU, FWIOU, MCC = plotcomp_n_metrics(
+                                train_ds,model,NCLASSES,DOPLOT,test_samples_fig,'train')
 print('Mean of mean IoUs (train subset)={mean_iou:0.3f}'.format(mean_iou=np.mean(IOUc)))
+print('Mean of mean IoUs, confusion matrix (train subset)={mean_iou:0.3f}'.format(mean_iou=np.mean(MIOU)))
+print('Mean of mean frequency weighted IoUs, confusion matrix (train subset)={mean_iou:0.3f}'.format(mean_iou=np.mean(FWIOU)))
+print('Mean of Matthews Correlation Coefficients (train subset)={mean_dice:0.3f}'.format(mean_dice=np.mean(MCC)))
 print('Mean of mean Dice scores (train subset)={mean_dice:0.3f}'.format(mean_dice=np.mean(Dc)))
 print('Mean of mean KLD scores (train subset)={mean_kld:0.3f}'.format(mean_kld=np.mean(Kc)))
