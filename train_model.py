@@ -580,13 +580,13 @@ if USE_MULTI_GPU:
             sys.exit(2)
 
         if LOSS=='hinge':
-            model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalHinge(), metrics = [mean_iou, dice_coef])
+            model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalHinge(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
         elif LOSS=='dice':
-            model.compile(optimizer = 'adam', loss =dice_coef_loss, metrics = [mean_iou, dice_coef])
+            model.compile(optimizer = 'adam', loss =dice_coef_loss(NCLASSES), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
         elif LOSS.startswith('cat'):
-            model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalCrossentropy(), metrics = [mean_iou, dice_coef])
+            model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalCrossentropy(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
         elif LOSS.startswith('k'):
-            model.compile(optimizer = 'adam', loss =tf.keras.losses.KLDivergence(), metrics = [mean_iou, dice_coef]) #, steps_per_execution=2, jit_compile=True
+            model.compile(optimizer = 'adam', loss =tf.keras.losses.KLDivergence(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)]) #, steps_per_execution=2, jit_compile=True
 
 else:
 
@@ -663,13 +663,13 @@ else:
 
 
     if LOSS=='hinge':
-        model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalHinge(), metrics = [mean_iou, dice_coef]) #, steps_per_execution=2, jit_compile=True
+        model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalHinge(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)]) #, steps_per_execution=2, jit_compile=True
     elif LOSS=='dice':
-        model.compile(optimizer = 'adam', loss =dice_coef_loss, metrics = [mean_iou, dice_coef])
+        model.compile(optimizer = 'adam', loss =dice_coef_loss(NCLASSES), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
     elif LOSS.startswith('cat'):
-        model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalCrossentropy(), metrics = [mean_iou, dice_coef])
+        model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalCrossentropy(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
     elif LOSS.startswith('k'):
-        model.compile(optimizer = 'adam', loss =tf.keras.losses.KLDivergence(), metrics = [mean_iou, dice_coef])
+        model.compile(optimizer = 'adam', loss =tf.keras.losses.KLDivergence(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
 
 #----------------------------------------------------------
 

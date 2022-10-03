@@ -257,7 +257,7 @@ for counter,weights in enumerate(W):
     except:
         # Load the metrics mean_iou, dice_coef from doodleverse_utils
         # Load in the custom loss function from doodleverse_utils        
-        model.compile(optimizer = 'adam', loss = dice_coef_loss, metrics = [mean_iou, dice_coef])
+        model.compile(optimizer = 'adam', loss = dice_coef_loss(NCLASSES), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
 
         model.load_weights(weights)
 
