@@ -72,39 +72,41 @@ def scale_rgb(img, nR, nC, nD):
 def do_pad_label(lfile, TARGET_SIZE):
     ### labels ------------------------------------
     lab = imread(lfile)
+    result = scale(lab,TARGET_SIZE[0],TARGET_SIZE[1])
 
-    try:
-        old_image_height, old_image_width, channels = lab.shape
-    except:
-        old_image_height, old_image_width = lab.shape
-        channels=0
+    # try:
+    #     old_image_height, old_image_width, channels = lab.shape
+    # except:
+    #     old_image_height, old_image_width = lab.shape
+    #     channels=0
 
-    # create new image of desired size and color (black) for padding
-    new_image_width = TARGET_SIZE[0]
-    new_image_height = TARGET_SIZE[0]
+    # # create new image of desired size and color (black) for padding
+    # new_image_width = TARGET_SIZE[0]
+    # new_image_height = TARGET_SIZE[0]
 
-    # compute center offset
-    x_center = (new_image_width - old_image_width) // 2
-    y_center = (new_image_height - old_image_height) // 2
+    # # compute center offset
+    # x_center = (new_image_width - old_image_width) // 2
+    # y_center = (new_image_height - old_image_height) // 2
 
-    color = (0)
-    result = np.full((new_image_height,new_image_width), color, dtype=np.uint8)
+    # color = (0)
+    # result = np.full((new_image_height,new_image_width), color, dtype=np.uint8)
 
-    try: #image is smaller
-        # copy img image into center of result image
-        result[y_center:y_center+old_image_height,
-               x_center:x_center+old_image_width] = lab+1
-    except:
-        result = scale(lab,TARGET_SIZE[0],TARGET_SIZE[1])+1
+    # try: #image is smaller
+    #     # copy img image into center of result image
+    #     result[y_center:y_center+old_image_height,
+    #            x_center:x_center+old_image_width] = lab+1
+    # except:
+    #     result = scale(lab,TARGET_SIZE[0],TARGET_SIZE[1])+1
 
-        ##lab2 =rescale(lab,(sf,sf),anti_aliasing=True, preserve_range=True, order=0)
-        # result[y_center:y_center+old_image_height,
-        #        x_center:x_center+old_image_width] = lab2+1
-        # del lab2
+    #     ##lab2 =rescale(lab,(sf,sf),anti_aliasing=True, preserve_range=True, order=0)
+    #     # result[y_center:y_center+old_image_height,
+    #     #        x_center:x_center+old_image_width] = lab2+1
+    #     # del lab2
 
     wend = lfile.split(os.sep)[-2]
     fdir = os.path.dirname(lfile)
-    fdirout = fdir.replace(wend,'padded_'+wend)
+    # fdirout = fdir.replace(wend,'padded_'+wend)
+    fdirout = fdir.replace(wend,'resized_'+wend)
 
     # save result
     #imsave(lfile.replace('labels','padded_labels').replace('.jpg','.png'), result.astype('uint8'), check_contrast=False, compression=0)
@@ -121,49 +123,56 @@ def do_pad_image(f, TARGET_SIZE):
         old_image_height, old_image_width = img.shape
         channels=0
 
-    # create new image of desired size and color (black) for padding
-    new_image_width = TARGET_SIZE[0]
-    new_image_height = TARGET_SIZE[0]
     if channels>0:
-        color = (0,0,0)
-        result = np.full((new_image_height,new_image_width, channels), color, dtype=np.uint8)
+        result = scale_rgb(img,TARGET_SIZE[0],TARGET_SIZE[1],3)
     else:
-        color = (0)
-        result = np.full((new_image_height,new_image_width), color, dtype=np.uint8)
+        result = scale(img,TARGET_SIZE[0],TARGET_SIZE[1])
 
-    # compute center offset
-    x_center = (new_image_width - old_image_width) // 2
-    y_center = (new_image_height - old_image_height) // 2
+    # # create new image of desired size and color (black) for padding
+    # new_image_width = TARGET_SIZE[0]
+    # new_image_height = TARGET_SIZE[0]
+    # if channels>0:
+    #     color = (0,0,0)
+    #     result = np.full((new_image_height,new_image_width, channels), color, dtype=np.uint8)
+    # else:
+    #     color = (0)
+    #     result = np.full((new_image_height,new_image_width), color, dtype=np.uint8)
 
-    try:
-        # copy img image into center of result image
-        result[y_center:y_center+old_image_height,
-               x_center:x_center+old_image_width] = img
-    except:
-        ## AN ALTERNATIVE WAY - DO NOT REMOVE
-        # sf = np.minimum(new_image_width/old_image_width,new_image_height/old_image_height)
-        # if channels>0:
-        #     img = rescale(img,(sf,sf,1),anti_aliasing=True, preserve_range=True, order=1)
-        # else:
-        #     img = rescale(img,(sf,sf),anti_aliasing=True, preserve_range=True, order=1)
-        # if channels>0:
-        #     old_image_height, old_image_width, channels = img.shape
-        # else:
-        #     old_image_height, old_image_width = img.shape
-        #
-        # x_center = (new_image_width - old_image_width) // 2
-        # y_center = (new_image_height - old_image_height) // 2
-        #
-        # result[y_center:y_center+old_image_height,
-        #        x_center:x_center+old_image_width] = img.astype('uint8')
-        if channels>0:
-            result = scale_rgb(img,TARGET_SIZE[0],TARGET_SIZE[1],3)
-        else:
-            result = scale(img,TARGET_SIZE[0],TARGET_SIZE[1])
+    # # compute center offset
+    # x_center = (new_image_width - old_image_width) // 2
+    # y_center = (new_image_height - old_image_height) // 2
+
+    # try:
+    #     # copy img image into center of result image
+    #     result[y_center:y_center+old_image_height,
+    #            x_center:x_center+old_image_width] = img
+    # except:
+    #     ## AN ALTERNATIVE WAY - DO NOT REMOVE
+    #     # sf = np.minimum(new_image_width/old_image_width,new_image_height/old_image_height)
+    #     # if channels>0:
+    #     #     img = rescale(img,(sf,sf,1),anti_aliasing=True, preserve_range=True, order=1)
+    #     # else:
+    #     #     img = rescale(img,(sf,sf),anti_aliasing=True, preserve_range=True, order=1)
+    #     # if channels>0:
+    #     #     old_image_height, old_image_width, channels = img.shape
+    #     # else:
+    #     #     old_image_height, old_image_width = img.shape
+    #     #
+    #     # x_center = (new_image_width - old_image_width) // 2
+    #     # y_center = (new_image_height - old_image_height) // 2
+    #     #
+    #     # result[y_center:y_center+old_image_height,
+    #     #        x_center:x_center+old_image_width] = img.astype('uint8')
+    #     if channels>0:
+    #         result = scale_rgb(img,TARGET_SIZE[0],TARGET_SIZE[1],3)
+    #     else:
+    #         result = scale(img,TARGET_SIZE[0],TARGET_SIZE[1])
 
     wend = f.split(os.sep)[-2]
     fdir = os.path.dirname(f)
-    fdirout = fdir.replace(wend,'padded_'+wend)
+    # fdirout = fdir.replace(wend,'padded_'+wend)
+    fdirout = fdir.replace(wend,'resized_'+wend)
+
     # save result
     imsave(fdirout+os.sep+f.split(os.sep)[-1].replace('.jpg','.png'), result.astype('uint8'), check_contrast=False, compression=0)
 
@@ -285,90 +294,85 @@ else:
 
 szs = np.vstack(szs)[:,0]
 
-do_resize = True
+# do_resize = True
 # if len(np.unique(szs))>1:
 #     do_resize=True
 # else:
 #     do_resize=False
 
 ## rersize / pad imagery so all a consistent size (TARGET_SIZE)
-if do_resize:
+# if do_resize:
 
-    ## make padded direcs
-    for w in W:
-        wend = w.split('/')[-1]
-        print(wend)
-        newdirec = w.replace(wend,'padded_'+wend)
-        try:
-            os.mkdir(newdirec)
-        except:
-            pass
+## make padded direcs
+for w in W:
+    wend = w.split('/')[-1]
+    # print(wend)
+    # newdirec = w.replace(wend,'padded_'+wend)
+    newdirec = w.replace(wend,'resized_'+wend)
 
-    if USEMASK:
-        newdireclabels = label_data_path.replace('mask','padded_mask')
-    else:
-        newdireclabels = label_data_path.replace('label','padded_label')
     try:
-        os.mkdir(newdireclabels)
+        os.mkdir(newdirec)
     except:
         pass
 
+if USEMASK:
+    # newdireclabels = label_data_path.replace('mask','padded_mask')
+    newdireclabels = label_data_path.replace('mask','resized_mask')
+else:
+    # newdireclabels = label_data_path.replace('label','padded_label')
+    newdireclabels = label_data_path.replace('label','resized_label')
+try:
+    os.mkdir(newdireclabels)
+except:
+    pass
 
-    if len(W)==1:
-        try:
-            w = Parallel(n_jobs=-2, verbose=0, max_nbytes=None)(delayed(do_pad_image)(os.path.normpath(f), TARGET_SIZE) for f in files)
-        except:
-            w = Parallel(n_jobs=-2, verbose=0, max_nbytes=None)(delayed(do_pad_image)(os.path.normpath(f), TARGET_SIZE) for f in files.squeeze())
 
-        w = Parallel(n_jobs=-2, verbose=0, max_nbytes=None)(delayed(do_pad_label)(os.path.normpath(lfile), TARGET_SIZE) for lfile in label_files)
+if len(W)==1:
+    try:
+        w = Parallel(n_jobs=-2, verbose=0, max_nbytes=None)(delayed(do_pad_image)(os.path.normpath(f), TARGET_SIZE) for f in files)
+    except:
+        w = Parallel(n_jobs=-2, verbose=0, max_nbytes=None)(delayed(do_pad_image)(os.path.normpath(f), TARGET_SIZE) for f in files.squeeze())
 
-    else:
-        ## cycle through, merge and padd/resize if need to
-        for file,lfile in zip(files, label_files):
+    w = Parallel(n_jobs=-2, verbose=0, max_nbytes=None)(delayed(do_pad_label)(os.path.normpath(lfile), TARGET_SIZE) for lfile in label_files)
 
-            for f in file:
-                do_pad_image(f, TARGET_SIZE)
-            do_pad_label(lfile, TARGET_SIZE)
+else:
+    ## cycle through, merge and padd/resize if need to
+    for file,lfile in zip(files, label_files):
+
+        for f in file:
+            do_pad_image(f, TARGET_SIZE)
+        do_pad_label(lfile, TARGET_SIZE)
 
 
 ## write padded labels to file
-if do_resize:
-    label_data_path = newdireclabels #label_data_path.replace('labels','padded_labels')
+# if do_resize:
+label_data_path = newdireclabels #label_data_path.replace('labels','padded_labels')
 
-    label_files = natsorted(glob(label_data_path+os.sep+'*.png'))
-    if len(label_files)<1:
-        label_files = natsorted(glob(label_data_path+os.sep+'images'+os.sep+'*.png'))
-    print("{} label files".format(len(label_files)))
+label_files = natsorted(glob(label_data_path+os.sep+'*.png'))
+if len(label_files)<1:
+    label_files = natsorted(glob(label_data_path+os.sep+'images'+os.sep+'*.png'))
+print("{} label files".format(len(label_files)))
 
-    W2 = []
-    for w in W:
-        wend = os.path.normpath(w).split(os.sep)[-1]
-        w = w.replace(wend,'padded_'+wend)
-        W2.append(w)
-    W = W2
-    del W2
+W2 = []
+for w in W:
+    wend = os.path.normpath(w).split(os.sep)[-1]
+    # w = w.replace(wend,'padded_'+wend)
+    w = w.replace(wend,'resized_'+wend)
+    W2.append(w)
+W = W2
+del W2
 
-    files = []
-    for data_path in W:
-        f = natsorted(glob(os.path.normpath(data_path)+os.sep+'*.png'))
-        if len(f)<1:
-            f = natsorted(glob(os.path.normpath(data_path)+os.sep+'images'+os.sep+'*.png'))
-        files.append(f)
+files = []
+for data_path in W:
+    f = natsorted(glob(os.path.normpath(data_path)+os.sep+'*.png'))
+    if len(f)<1:
+        f = natsorted(glob(os.path.normpath(data_path)+os.sep+'images'+os.sep+'*.png'))
+    files.append(f)
 
-    # number of bands x number of samples
-    files = np.vstack(files).T
-    print("{} sets of {} image files".format(len(W),len(files)))
+# number of bands x number of samples
+files = np.vstack(files).T
+print("{} sets of {} image files".format(len(W),len(files)))
 
-# else:
-
-#     label_files = natsorted(glob(os.path.normpath(label_data_path)+os.sep+'*.jpg'))
-#     if len(label_files)<1:
-#         label_files = natsorted(glob(os.path.normpath(label_data_path)+os.sep+'images'+os.sep+'*.jpg'))
-#     print("{} label files".format(len(label_files)))
-
-#     files = natsorted(glob(os.path.normpath(data_path)+os.sep+'*.jpg'))
-#     if len(files)<1:
-#         files = natsorted(glob(os.path.normpath(data_path)+os.sep+'images'+os.sep+'*.jpg'))
 
 ###================================================
 
@@ -551,7 +555,7 @@ for imgs,lbls,files in dataset.take(100):
          plt.imshow(im)
 
      lab = np.argmax(lab.numpy().squeeze(),-1)
-     print(lab.shape)
+    #  print(lab.shape)
 
      color_label = label_to_colors(np.squeeze(lab), tf.cast(im[:,:,0]==0,tf.uint8),
                                     alpha=128, colormap=class_label_colormap,

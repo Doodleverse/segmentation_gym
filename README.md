@@ -19,7 +19,7 @@ DOI](https://img.shields.io/badge/%F0%9F%8C%8D%F0%9F%8C%8F%F0%9F%8C%8E%20EarthAr
 ## 🌟 Highlights
 
 - Gym is for training, evaluating, and deploying deep learning models for image segmentation
-- We take transferability seriously; Gym is designed to be a "one stop shop" for image segmentation on N-D imagery (i.e. any number of coincident bands). It is tailored to Earth Observation and aerial remote sensing imagery.
+- We take transferability seriously; Gym is designed to be a "one stop shop" for image segmentation on "N-D" imagery (i.e. any number of coincident bands in a multispectral image). It is tailored to Earth Observation and aerial remote sensing imagery.
 - Gym encodes relatively powerful models like UNets, and provides lots of ways to manipulate data, model training, and model architectures that should yield good results with some informed experimentation
 - Gym works seamlessly with [Doodler](https://github.com/Doodleverse/dash_doodler), a human-in-the loop labeling tool that will help you make training data for Gym. 
 - It would also work on any imagery in jpg or png format that has corresponding 2d greyscale integer label images (jpg or png), however acquired.
@@ -97,7 +97,7 @@ conda env create --file install/gym.yml
 conda activate gym
 ```
 
-Alternatively, you could install using mamba, which should be significantly faster
+[ADVANCED] Alternatively, you could install using mamba, which could be significantly faster
 
 ```
 conda install mamba -c conda-forge

@@ -29,7 +29,7 @@ from tkinter import filedialog
 from tkinter import *
 from random import shuffle
 import pandas as pd
-import tensorflow_addons as tfa
+# import tensorflow_addons as tfa
 
 ###############################################################
 ## VARIABLES
@@ -454,6 +454,13 @@ val_ds = val_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
 val_ds = val_ds.repeat()
 val_ds = val_ds.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be needed on TPU
 val_ds = val_ds.prefetch(AUTO) #
+
+### find NCLASSES
+for counter, (imgs,lbls) in enumerate(train_ds.take(1)):
+    for count,(im,lab) in enumerate(zip(imgs, lbls)):
+        NCLASSES = lab.shape[-1]
+print('Number of classes = {}'.format(NCLASSES))
+
 
 ### the following code is for troubleshooting, when do_viz=True
 do_viz = False 
