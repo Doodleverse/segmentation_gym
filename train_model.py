@@ -29,7 +29,6 @@ from tkinter import filedialog
 from tkinter import *
 from random import shuffle
 import pandas as pd
-# import tensorflow_addons as tfa
 
 ###############################################################
 ## VARIABLES
@@ -225,6 +224,7 @@ def read_seg_dataset_multiclass(example):
 
     return image, label
 
+
 #-----------------------------------
 def plotcomp_n_metrics(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_batches=20):
 
@@ -268,9 +268,9 @@ def plotcomp_n_metrics(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_b
             P.append(out['Precision'])
             MCC.append(out['MatthewsCorrelationCoefficient'])
 
-            iouscore = mean_iou_np(tf.expand_dims(tf.squeeze(lbl), 0), est_label)
+            iouscore = mean_iou_np(tf.expand_dims(tf.squeeze(lbl), 0), est_label, NCLASSES)
 
-            dicescore = mean_dice_np(tf.expand_dims(tf.squeeze(lbl), 0), est_label)
+            dicescore = mean_dice_np(tf.expand_dims(tf.squeeze(lbl), 0), est_label, NCLASSES)
 
             kl = tf.keras.losses.KLDivergence() #initiate object
 
@@ -768,6 +768,31 @@ print('Mean of Matthews Correlation Coefficients (validation subset)={mean_dice:
 print('Mean of mean Dice scores (validation subset)={mean_dice:0.3f}'.format(mean_dice=np.mean(Dc)))
 print('Mean of mean KLD scores (validation subset)={mean_kld:0.3f}'.format(mean_kld=np.mean(Kc)))
 
+## uncomment to see comparison plot of validation metrics
+# plt.figure(figsize=(10,10))
+# plt.subplots_adjust(hspace=0.3, wspace=0.3)
+# plt.subplot(321)
+# plt.plot(IOUc,MIOU,'.')
+# plt.xlabel('mean IOU'); plt.ylabel('mean IOU (Confusion Matrix)')
+
+# plt.subplot(322)
+# plt.plot(IOUc,FWIOU,'.')
+# plt.xlabel('mean IOU'); plt.ylabel('mean Frequency-weighted IOU (Confusion Matrix)')
+
+# plt.subplot(323)
+# plt.plot(IOUc,MCC,'.')
+# plt.xlabel('mean IOU'); plt.ylabel('Matthews Correlation Coefficient (Confusion Matrix)')
+
+# plt.subplot(324)
+# plt.plot(IOUc,Dc,'.')
+# plt.xlabel('mean IOU'); plt.ylabel('mean Dice')
+
+# plt.subplot(325)
+# plt.plot(IOUc,Kc,'.')
+# plt.xlabel('mean IOU'); plt.ylabel('mean K-L divergence')
+
+# plt.savefig('tmp3.png', dpi=200); plt.close()
+
 
 IOUc, Dc, Kc, OA, MIOU, FWIOU, MCC = plotcomp_n_metrics(
                                 train_ds,model,NCLASSES,DOPLOT,test_samples_fig,'train')
@@ -777,3 +802,29 @@ print('Mean of mean frequency weighted IoUs, confusion matrix (train subset)={me
 print('Mean of Matthews Correlation Coefficients (train subset)={mean_dice:0.3f}'.format(mean_dice=np.mean(MCC)))
 print('Mean of mean Dice scores (train subset)={mean_dice:0.3f}'.format(mean_dice=np.mean(Dc)))
 print('Mean of mean KLD scores (train subset)={mean_kld:0.3f}'.format(mean_kld=np.mean(Kc)))
+
+## uncomment to see comparison plot of validation metrics
+
+# plt.figure(figsize=(10,10))
+# plt.subplots_adjust(hspace=0.3, wspace=0.3)
+# plt.subplot(321)
+# plt.plot(IOUc,MIOU,'.')
+# plt.xlabel('mean IOU'); plt.ylabel('mean IOU (Confusion Matrix)')
+
+# plt.subplot(322)
+# plt.plot(IOUc,FWIOU,'.')
+# plt.xlabel('mean IOU'); plt.ylabel('mean Frequency-weighted IOU (Confusion Matrix)')
+
+# plt.subplot(323)
+# plt.plot(IOUc,MCC,'.')
+# plt.xlabel('mean IOU'); plt.ylabel('Matthews Correlation Coefficient (Confusion Matrix)')
+
+# plt.subplot(324)
+# plt.plot(IOUc,Dc,'.')
+# plt.xlabel('mean IOU'); plt.ylabel('mean Dice')
+
+# plt.subplot(325)
+# plt.plot(IOUc,Kc,'.')
+# plt.xlabel('mean IOU'); plt.ylabel('mean K-L divergence')
+
+# plt.savefig('tmp2.png', dpi=200); plt.close()
