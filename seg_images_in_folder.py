@@ -159,6 +159,8 @@ for counter,weights in enumerate(W):
 
     #from imports import *
     from doodleverse_utils.imports import *
+    from doodleverse_utils.model_imports import *
+
     #---------------------------------------------------
 
     #=======================================================
@@ -257,7 +259,7 @@ for counter,weights in enumerate(W):
     except:
         # Load the metrics mean_iou, dice_coef from doodleverse_utils
         # Load in the custom loss function from doodleverse_utils        
-        model.compile(optimizer = 'adam', loss = dice_coef_loss(NCLASSES), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
+        model.compile(optimizer = 'adam', loss = dice_coef_loss(NCLASSES))#, metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
 
         model.load_weights(weights)
 
@@ -299,6 +301,8 @@ if not 'TESTTIMEAUG' in locals():
 #look for do_crf in config
 if not 'do_crf' in locals():
     do_crf = False
+if not 'WRITE_MODELMETADATA' in locals():
+    WRITE_MODELMETADATA = False
 
 # Import do_seg() from doodleverse_utils to perform the segmentation on the images
 for f in tqdm(sample_filenames):
