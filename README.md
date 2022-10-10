@@ -97,13 +97,28 @@ conda env create --file install/gym.yml
 conda activate gym
 ```
 
-[ADVANCED] Alternatively, you could install using mamba, which could be significantly faster
+[ADVANCED] Alternatively, you could install using  the following conda recipe (see https://github.com/Doodleverse/segmentation_gym/issues/78)
 
 ```
-conda install mamba -c conda-forge
-mamba env create --file install/gym.yml
+conda create -n gym python=3.8
 conda activate gym
+conda install -c conda-forge scipy "numpy>=1.16.5, <=1.23.0" scikit-image cython ipython joblib tqdm pandas pip plotly natsort pydensecrf matplotlib
+pip install doodleverse_utils
 ```
+
+Then run one of the following two commands:
+
+```
+    conda install -c conda-forge tensorflow-gpu 
+```
+
+if you have a CUDA-enabled GPU, or
+
+```    
+    conda install -c conda-forge tensorflow 
+```
+
+if you have a CPU
 
 If you get errors associated with loading the model weights you may need to:
 
@@ -125,7 +140,7 @@ Check out the [wiki](https://github.com/dbuscombe-usgs/segmentation_gym/wiki) fo
 
 ## Test Dataset
 
-A test data set, including a set of images/labels, model config files, and a dataset and models created with Gym, are available [here](https://zenodo.org/record/5895128/files/hatteras_RGB_zenodo_data_release_jan2022.zip?download=1) and [described on the zenodo page](https://zenodo.org/record/5895128#.Ye4AgPuIZH4)
+A test data set, including a set of images/labels, model config files, and a dataset and models created with Gym, are available [here](https://zenodo.org/record/7036025/files/my_segmentation_gym_datasets.zip?download=1) and [described on the zenodo page](https://zenodo.org/record/7036025#.YxAQsWzMJhE)
 
 
 ## 💭 Feedback and Contributing
