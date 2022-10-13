@@ -181,70 +181,67 @@ for counter,weights in enumerate(W):
     if MODEL =='resunet':
         model =  custom_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                         FILTERS,
-                        nclasses=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                        nclasses=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
                         kernel_size=(KERNEL,KERNEL),
                         strides=STRIDE,
-                        dropout=DROPOUT,#0.1,
-                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
-                        dropout_type=DROPOUT_TYPE,#"standard",
-                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
+                        dropout=DROPOUT,
+                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
+                        dropout_type=DROPOUT_TYPE,
+                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
                         )
     elif MODEL=='unet':
         model =  custom_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                         FILTERS,
-                        nclasses=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                        nclasses=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
                         kernel_size=(KERNEL,KERNEL),
                         strides=STRIDE,
-                        dropout=DROPOUT,#0.1,
-                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
-                        dropout_type=DROPOUT_TYPE,#"standard",
-                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
+                        dropout=DROPOUT,
+                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
+                        dropout_type=DROPOUT_TYPE,
+                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
                         )
 
     elif MODEL =='simple_resunet':
-        # num_filters = 8 # initial filters
-        # model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), num_filters, NCLASSES, (KERNEL_SIZE, KERNEL_SIZE))
 
         model = simple_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                     kernel = (2, 2),
-                    num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                    num_classes=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
                     activation="relu",
                     use_batch_norm=True,
-                    dropout=DROPOUT,#0.1,
-                    dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
-                    dropout_type=DROPOUT_TYPE,#"standard",
-                    use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
-                    filters=FILTERS,#8,
+                    dropout=DROPOUT,
+                    dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
+                    dropout_type=DROPOUT_TYPE,
+                    use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
+                    filters=FILTERS,
                     num_layers=4,
                     strides=(1,1))
 
     elif MODEL=='simple_unet':
         model = simple_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                     kernel = (2, 2),
-                    num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                    num_classes=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
                     activation="relu",
                     use_batch_norm=True,
-                    dropout=DROPOUT,#0.1,
-                    dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
-                    dropout_type=DROPOUT_TYPE,#"standard",
-                    use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
-                    filters=FILTERS,#8,
+                    dropout=DROPOUT,
+                    dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
+                    dropout_type=DROPOUT_TYPE,
+                    use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
+                    filters=FILTERS,
                     num_layers=4,
                     strides=(1,1))
 
     elif MODEL=='satunet':
-        #model = sat_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), num_classes=NCLASSES)
 
         model = custom_satunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                     kernel = (2, 2),
-                    num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                    num_classes=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
                     activation="relu",
                     use_batch_norm=True,
-                    dropout=DROPOUT,#0.1,
-                    dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
-                    dropout_type=DROPOUT_TYPE,#"standard",
-                    use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
-                    filters=FILTERS,#8,
+                    dropout=DROPOUT,
+                    dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
+                    dropout_type=DROPOUT_TYPE,
+                    use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
+                    filters=FILTERS,
                     num_layers=4,
                     strides=(1,1))
 
