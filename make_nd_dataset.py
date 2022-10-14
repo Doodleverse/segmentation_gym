@@ -237,22 +237,26 @@ try:
 except:
     pass
 
-
-if len(W)==1:
-    try:
-        w = Parallel(n_jobs=-2, verbose=0, max_nbytes=None)(delayed(do_resize_image)(os.path.normpath(f), TARGET_SIZE) for f in files)
-    except:
-        w = Parallel(n_jobs=-2, verbose=0, max_nbytes=None)(delayed(do_resize_image)(os.path.normpath(f), TARGET_SIZE) for f in files.squeeze())
-
-    w = Parallel(n_jobs=-2, verbose=0, max_nbytes=None)(delayed(do_resize_label)(os.path.normpath(lfile), TARGET_SIZE) for lfile in label_files)
-
+# if directories already exist, skip them
+if os.path.isdir(newdireclabels):
+    print("{} already exists: skipping the image resizing step".format(newdireclabels))
 else:
-    ## cycle through, merge and padd/resize if need to
-    for file,lfile in zip(files, label_files):
 
-        for f in file:
-            do_resize_image(f, TARGET_SIZE)
-        do_resize_label(lfile, TARGET_SIZE)
+    if len(W)==1:
+        try:
+            w = Parallel(n_jobs=-2, verbose=0, max_nbytes=None)(delayed(do_resize_image)(os.path.normpath(f), TARGET_SIZE) for f in files)
+        except:
+            w = Parallel(n_jobs=-2, verbose=0, max_nbytes=None)(delayed(do_resize_image)(os.path.normpath(f), TARGET_SIZE) for f in files.squeeze())
+
+        w = Parallel(n_jobs=-2, verbose=0, max_nbytes=None)(delayed(do_resize_label)(os.path.normpath(lfile), TARGET_SIZE) for lfile in label_files)
+
+    else:
+        ## cycle through, merge and padd/resize if need to
+        for file,lfile in zip(files, label_files):
+
+            for f in file:
+                do_resize_image(f, TARGET_SIZE)
+            do_resize_label(lfile, TARGET_SIZE)
 
 
 ## write padded labels to file
