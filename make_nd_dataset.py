@@ -76,11 +76,9 @@ def do_resize_label(lfile, TARGET_SIZE):
 
     wend = lfile.split(os.sep)[-2]
     fdir = os.path.dirname(lfile)
-    # fdirout = fdir.replace(wend,'padded_'+wend)
     fdirout = fdir.replace(wend,'resized_'+wend)
 
     # save result
-    #imsave(lfile.replace('labels','padded_labels').replace('.jpg','.png'), result.astype('uint8'), check_contrast=False, compression=0)
     imsave(fdirout+os.sep+lfile.split(os.sep)[-1].replace('.jpg','.png'), result.astype('uint8'), check_contrast=False, compression=0)
 
 
@@ -91,7 +89,6 @@ def do_resize_image(f, TARGET_SIZE):
     try:
         _, _, channels = img.shape
     except:
-        # old_image_height, old_image_width = img.shape
         channels=0
 
     if channels>0:
@@ -101,7 +98,6 @@ def do_resize_image(f, TARGET_SIZE):
 
     wend = f.split(os.sep)[-2]
     fdir = os.path.dirname(f)
-    # fdirout = fdir.replace(wend,'padded_'+wend)
     fdirout = fdir.replace(wend,'resized_'+wend)
 
     # save result
@@ -296,9 +292,6 @@ print("{} sets of {} image files".format(len(W),len(files)))
 do_viz = False
 # do_viz = True
 
-# if 'REMAP_CLASSES' in locals():
-#     NCLASSES = len(np.unique([REMAP_CLASSES[k] for k in REMAP_CLASSES]))
-
 print("Creating non-augmented subset")
 ## make non-aug subset first
 # cycle through pairs of files and labels
@@ -315,15 +308,10 @@ for counter,(f,l) in enumerate(zip(files,label_files)):
             im = [imread(f[0])]
 
     datadict={}
-    # try:
     im=np.dstack(im)# create a dtack which takes care of different sized inputs
     datadict['arr_0'] = im.astype(np.uint8)
 
     lab = imread(l) # reac the label)
-    # if np.min(np.unique(lab))>0:
-    #     lab -= 1
-    # if len(np.unique(lab))>NCLASSES+1:
-    #     lab = (lab==0).astype('uint8')
 
     if 'REMAP_CLASSES' in locals():
         for k in REMAP_CLASSES.items():
@@ -334,18 +322,11 @@ for counter,(f,l) in enumerate(zip(files,label_files)):
 
     if len(np.unique(lab))==1:
         nx,ny = lab.shape
-        # if NCLASSES==1:
-        #     lstack = np.zeros((nx,ny,NCLASSES+1))
-        # else:
         lstack = np.zeros((nx,ny,NCLASSES))
 
         lstack[:,:,np.unique(lab)[0]]=np.ones((nx,ny))
     else:
         nx,ny = lab.shape
-        # if NCLASSES==1:
-        #     lstack = np.zeros((nx,ny,NCLASSES+1))
-        #     lstack[:,:,:NCLASSES+1] = (np.arange(NCLASSES+1) == 1+lab[...,None]-1).astype(int) #one-hot encode
-        # else:
         lstack = np.zeros((nx,ny,NCLASSES))
         lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+lab[...,None]-1).astype(int) #one-hot encode
 
@@ -371,8 +352,6 @@ for counter,(f,l) in enumerate(zip(files,label_files)):
     segfile = output_data_path+os.sep+ROOT_STRING+'_noaug_nd_data_000000'+str(counter)+'.npz'
     np.savez_compressed(segfile, **datadict)
     del datadict, im, lstack
-    # except:
-    #     print("Inconsistent inputs associated with label file: ".format(l))
 
 
 ###================================
@@ -408,9 +387,6 @@ def read_seg_dataset_multiclass(example):
     """
     image, label, file = tf.py_function(func=load_npz, inp=[example], Tout=[tf.float32, tf.uint8, tf.string])
 
-    # if NCLASSES==2:
-    #     label = tf.expand_dims(label,-1)
-
     return image, label, file
 
 ###================================
@@ -443,11 +419,7 @@ class_label_colormap = ['#3366CC','#DC3912','#FF9900','#109618','#990099','#0099
                         '#66AA00','#B82E2E', '#316395','#0d0887', '#46039f', '#7201a8',
                         '#9c179e', '#bd3786', '#d8576b', '#ed7953', '#fb9f3a', '#fdca26', '#f0f921']
 
-# if NCLASSES>1:
 class_label_colormap = class_label_colormap[:NCLASSES]
-# else:
-#     class_label_colormap = class_label_colormap[:NCLASSES+1]
-
 
 print('.....................................')
 print('Printing examples to file ...')
@@ -467,16 +439,11 @@ for imgs,lbls,files in dataset.take(100):
          plt.imshow(im)
 
      lab = np.argmax(lab.numpy().squeeze(),-1)
-    #  print(lab.shape)
 
      color_label = label_to_colors(np.squeeze(lab), tf.cast(im[:,:,0]==0,tf.uint8),
                                     alpha=128, colormap=class_label_colormap,
                                      color_class_offset=0, do_alpha=False)
 
-    #  if NCLASSES==1:
-    #      plt.imshow(color_label, alpha=0.5)#, vmin=0, vmax=NCLASSES)
-    #  else:
-    #      #lab = np.argmax(lab,-1)
      plt.imshow(color_label,  alpha=0.5)#, vmin=0, vmax=NCLASSES)
 
      file = file.numpy()
@@ -609,15 +576,9 @@ for counter,w in enumerate(W):
 ######################## generate and print files
 
 
-# if 'REMAP_CLASSES' in locals():
-#     NCLASSES = len(np.unique([REMAP_CLASSES[k] for k in REMAP_CLASSES]))
-
 i = 0
 for copy in tqdm(range(AUG_COPIES)):
     for k in range(AUG_LOOPS):
-        # print("Working on copy number {} out of {}".format(copy,AUG_COPIES))
-        # print("Working on loop {} out of {}".format(k,AUG_LOOPS))
-        # print("Starting from augmented sample {}".format(i))
 
         X=[]; Y=[]; F=[]
         for counter,train_generator in enumerate(train_generators):
@@ -657,13 +618,6 @@ for copy in tqdm(range(AUG_COPIES)):
             files = np.dstack([x[counter] for x in F])
 
             ##============================================ label
-            # if NCLASSES==2:
-            #     lab=lab.squeeze()
-            #     #lab[lab>0]=1
-
-            # if NCLASSES==2:
-            #     l = lab.astype(np.uint8)
-            # else:
             l = np.round(lab[:,:,0]).astype(np.uint8)
 
             if 'REMAP_CLASSES' in locals():
@@ -674,18 +628,11 @@ for copy in tqdm(range(AUG_COPIES)):
 
             if len(np.unique(l))==1:
                 nx,ny = l.shape
-                # if NCLASSES==1:
-                #     lstack = np.zeros((nx,ny,NCLASSES+1))
-                # else:
                 lstack = np.zeros((nx,ny,NCLASSES))
 
                 lstack[:,:,np.unique(l)[0]]=np.ones((nx,ny))
             else:
                 nx,ny = l.shape
-                # if NCLASSES==1:
-                #     lstack = np.zeros((nx,ny,NCLASSES+1))
-                #     lstack[:,:,:NCLASSES+1] = (np.arange(NCLASSES+1) == 1+l[...,None]-1).astype(int) #one-hot encode
-                # else:
                 lstack = np.zeros((nx,ny,NCLASSES))
                 lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+l[...,None]-1).astype(int) #one-hot encode
 
@@ -760,11 +707,7 @@ for imgs,lbls,files in dataset.take(100):
                                     alpha=128, colormap=class_label_colormap,
                                      color_class_offset=0, do_alpha=False)
 
-    #  if NCLASSES==1:
-    #      plt.imshow(color_label, alpha=0.5)#, vmin=0, vmax=NCLASSES)
-    #  else:
-    #      #lab = np.argmax(lab,-1)
-     plt.imshow(color_label,  alpha=0.5)#, vmin=0, vmax=NCLASSES)
+     plt.imshow(color_label,  alpha=0.5)
 
      try:
          file = file.numpy().split(os.sep)[-1]
