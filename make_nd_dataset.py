@@ -232,15 +232,16 @@ if USEMASK:
     newdireclabels = label_data_path.replace('mask','resized_mask')
 else:
     newdireclabels = label_data_path.replace('label','resized_label')
-try:
-    os.mkdir(newdireclabels)
-except:
-    pass
 
 # if directories already exist, skip them
 if os.path.isdir(newdireclabels):
     print("{} already exists: skipping the image resizing step".format(newdireclabels))
 else:
+
+    try:
+        os.mkdir(newdireclabels)
+    except:
+        pass
 
     if len(W)==1:
         try:
