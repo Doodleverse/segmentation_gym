@@ -63,6 +63,12 @@ with open(configfile) as f:
 for k in config.keys():
     exec(k+'=config["'+k+'"]')
 
+## NCLASSES>=2
+if NCLASSES>1:
+    pass
+else:
+    print("NCLASSES must be > 1. Use NCLASSES==2 for binary problems")
+    sys.exit(2)
 
 ##########################################
 ##### set up hardware
@@ -219,7 +225,7 @@ def read_seg_dataset_multiclass(example):
     #image, label, file = tf.py_function(func=load_npz, inp=[example], Tout=[tf.float32, tf.uint8, tf.string])
     image, label = tf.py_function(func=load_npz, inp=[example], Tout=[tf.float32, tf.uint8])
 
-    if NCLASSES==1:
+    if NCLASSES==2:
         label = tf.expand_dims(label,-1)
 
     return image, label
@@ -232,10 +238,10 @@ def plotcomp_n_metrics(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_b
                             '#66AA00','#B82E2E', '#316395','#0d0887', '#46039f', '#7201a8',
                             '#9c179e', '#bd3786', '#d8576b', '#ed7953', '#fb9f3a', '#fdca26', '#f0f921']
 
-    if NCLASSES>1:
-        class_label_colormap = class_label_colormap[:NCLASSES]
-    else:
-        class_label_colormap = class_label_colormap[:NCLASSES+1]
+    # if NCLASSES>1:
+    class_label_colormap = class_label_colormap[:NCLASSES]
+    # else:
+    #     class_label_colormap = class_label_colormap[:NCLASSES+1]
 
     IOUc = []; Dc=[]; Kc = []
     OA = []; MIOU = []; FWIOU = []
@@ -255,10 +261,10 @@ def plotcomp_n_metrics(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_b
             imgPredict = np.argmax(est_label.squeeze(),axis=-1)
             label = np.argmax(tf.squeeze(lbl),axis=-1)
 
-            if NCLASSES==1:
-                out = AllMetrics(NCLASSES+1, imgPredict, label)
-            else:
-                out = AllMetrics(NCLASSES, imgPredict, label)
+            # if NCLASSES==1:
+            #     out = AllMetrics(NCLASSES+1, imgPredict, label)
+            # else:
+            out = AllMetrics(NCLASSES, imgPredict, label)
 
             OA.append(out['OverallAccuracy'])
             FWIOU.append(out['Frequency_Weighted_Intersection_over_Union'])
@@ -278,20 +284,11 @@ def plotcomp_n_metrics(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_b
 
             #one-hot encode
             nx,ny = est_label.shape
-            if NCLASSES==1:
-                lstack = np.zeros((nx,ny,NCLASSES+1))
-                lstack[:,:,:NCLASSES+1] = (np.arange(NCLASSES) == 1+est_label[...,None]-1).astype(int) 
-            else:
-                lstack = np.zeros((nx,ny,NCLASSES))
-                lstack[:,:,:NCLASSES+1] = (np.arange(NCLASSES) == 1+est_label[...,None]-1).astype(int) 
+            lstack = np.zeros((nx,ny,NCLASSES))
+            lstack[:,:,:NCLASSES+1] = (np.arange(NCLASSES) == 1+est_label[...,None]-1).astype(int) 
 
             #compute on one-hot encoded integer tensors
-            # kld = kl(tf.expand_dims(tf.squeeze(lbl), 0), lstack).numpy()
             kld = kl(tf.squeeze(lbl), lstack).numpy()
-
-            if NCLASSES==1:
-                est_label[est_label<.5] = 0
-                est_label[est_label>.5] = 1
 
             img = rescale_array(np.array(img), 0, 1) ##.numpy()
 
@@ -309,10 +306,10 @@ def plotcomp_n_metrics(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_b
                     plt.imshow(img[:,:,0], cmap='gray')
                 else:
                     plt.imshow(img)#, cmap='gray')
-                if NCLASSES==1:
-                    plt.imshow(color_label, alpha=0.1, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES)
-                else:
-                    plt.imshow(color_label, alpha=0.5)#, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES-1)
+                # if NCLASSES==1:
+                #     plt.imshow(color_label, alpha=0.1, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES)
+                # else:
+                plt.imshow(color_label, alpha=0.5)#, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES-1)
 
                 plt.axis('off')
 
@@ -321,10 +318,10 @@ def plotcomp_n_metrics(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_b
                     plt.imshow(img[:,:,0], cmap='gray')
                 else:
                     plt.imshow(img)#, cmap='gray')
-                if NCLASSES==1:
-                    plt.imshow(color_estlabel, alpha=0.1, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES)
-                else:
-                    plt.imshow(color_estlabel, alpha=0.5)#, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES-1)
+                # if NCLASSES==1:
+                # plt.imshow(color_estlabel, alpha=0.1, cmap=plt.cm.bwr)#, vmin=0, vmax=NCLASSES)
+                # else:
+                plt.imshow(color_estlabel, alpha=0.5)#, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES-1)
 
                 plt.axis('off')
                 plt.title('dice = '+str(dicescore)[:5]+', kl = '+str(kld)[:5], fontsize=6)
@@ -455,11 +452,11 @@ val_ds = val_ds.repeat()
 val_ds = val_ds.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be needed on TPU
 val_ds = val_ds.prefetch(AUTO) #
 
-### find NCLASSES
-for counter, (imgs,lbls) in enumerate(train_ds.take(1)):
-    for count,(im,lab) in enumerate(zip(imgs, lbls)):
-        NCLASSES = lab.shape[-1]
-print('Number of classes = {}'.format(NCLASSES))
+# ### find NCLASSES
+# for counter, (imgs,lbls) in enumerate(train_ds.take(1)):
+#     for count,(im,lab) in enumerate(zip(imgs, lbls)):
+#         NCLASSES = lab.shape[-1]
+# print('Number of classes = {}'.format(NCLASSES))
 
 
 ### the following code is for troubleshooting, when do_viz=True
@@ -472,10 +469,10 @@ if do_viz == True:
                             '#66AA00','#B82E2E', '#316395','#0d0887', '#46039f', '#7201a8',
                             '#9c179e', '#bd3786', '#d8576b', '#ed7953', '#fb9f3a', '#fdca26', '#f0f921']
 
-    if NCLASSES>1:
-        class_label_colormap = class_label_colormap[:NCLASSES]
-    else:
-        class_label_colormap = class_label_colormap[:NCLASSES+1]
+    # if NCLASSES>1:
+    class_label_colormap = class_label_colormap[:NCLASSES]
+    # else:
+    #     class_label_colormap = class_label_colormap[:NCLASSES+1]
 
     for counter, (imgs,lbls) in enumerate(train_ds.take(10)):
         for count,(im,lab) in enumerate(zip(imgs, lbls)):
@@ -493,10 +490,10 @@ if do_viz == True:
                                             alpha=128, colormap=class_label_colormap,
                                             color_class_offset=0, do_alpha=False)
 
-            if NCLASSES==1:
-                plt.imshow(color_label, alpha=0.75, vmin=0, vmax=NCLASSES)
-            else:
-                plt.imshow(color_label,  alpha=0.75, vmin=0, vmax=NCLASSES)
+            # if NCLASSES==1:
+            #     plt.imshow(color_label, alpha=0.75, vmin=0, vmax=NCLASSES)
+            # else:
+            plt.imshow(color_label,  alpha=0.75, vmin=0, vmax=NCLASSES)
 
             plt.axis('off')
             #plt.show()
@@ -518,67 +515,66 @@ if USE_MULTI_GPU:
         if MODEL =='resunet':
             model =  custom_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                             FILTERS,
-                            nclasses=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                            nclasses=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
                             kernel_size=(KERNEL,KERNEL),
                             strides=STRIDE,
-                            dropout=DROPOUT,#0.1,
-                            dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
-                            dropout_type=DROPOUT_TYPE,#"standard",
+                            dropout=DROPOUT,
+                            dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
+                            dropout_type=DROPOUT_TYPE,
                             use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING
                             )
         elif MODEL=='unet':
             model =  custom_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                             FILTERS,
-                            nclasses=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                            nclasses=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
                             kernel_size=(KERNEL,KERNEL),
                             strides=STRIDE,
-                            dropout=DROPOUT,#0.1,
-                            dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
-                            dropout_type=DROPOUT_TYPE,#"standard",
-                            use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
+                            dropout=DROPOUT,
+                            dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
+                            dropout_type=DROPOUT_TYPE,
+                            use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
                             )
 
         elif MODEL =='simple_resunet':
 
             model = simple_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                         kernel = (2, 2),
-                        num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                        num_classes=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
                         activation="relu",
                         use_batch_norm=True,
-                        dropout=DROPOUT,#0.1,
-                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
-                        dropout_type=DROPOUT_TYPE,#"standard",
-                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
-                        filters=FILTERS,#8,
+                        dropout=DROPOUT,
+                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
+                        dropout_type=DROPOUT_TYPE,
+                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
+                        filters=FILTERS,
                         num_layers=4,
                         strides=(1,1))
-        #346,564
+
         elif MODEL=='simple_unet':
             model = simple_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                         kernel = (2, 2),
-                        num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                        num_classes=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
                         activation="relu",
                         use_batch_norm=True,
-                        dropout=DROPOUT,#0.1,
-                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
-                        dropout_type=DROPOUT_TYPE,#"standard",
-                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
-                        filters=FILTERS,#8,
+                        dropout=DROPOUT,
+                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
+                        dropout_type=DROPOUT_TYPE,
+                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
+                        filters=FILTERS,
                         num_layers=4,
                         strides=(1,1))
-        #242,812
 
         elif MODEL=='satunet':
             model = custom_satunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                         kernel = (2, 2),
-                        num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                        num_classes=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
                         activation="relu",
                         use_batch_norm=True,
-                        dropout=DROPOUT,#0.1,
-                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
-                        dropout_type=DROPOUT_TYPE,#"standard",
-                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
-                        filters=FILTERS,#8,
+                        dropout=DROPOUT,
+                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
+                        dropout_type=DROPOUT_TYPE,
+                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
+                        filters=FILTERS,
                         num_layers=4,
                         strides=(1,1))
 
@@ -586,21 +582,21 @@ if USE_MULTI_GPU:
             print("Model must be one of 'unet', 'resunet', or 'satunet'")
             sys.exit(2)
 
-        if LOSS=='hinge':
-            model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalHinge(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
-        elif LOSS=='dice':
-            model.compile(optimizer = 'adam', loss =dice_coef_loss(NCLASSES), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
-        elif LOSS.startswith('cat'):
-            model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalCrossentropy(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
-        elif LOSS.startswith('k'):
-            model.compile(optimizer = 'adam', loss =tf.keras.losses.KLDivergence(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)]) #, steps_per_execution=2, jit_compile=True
+        # if LOSS=='hinge':
+        #     model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalHinge(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
+        # elif LOSS=='dice':
+        #     model.compile(optimizer = 'adam', loss =dice_coef_loss(NCLASSES), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
+        # elif LOSS.startswith('cat'):
+        #     model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalCrossentropy(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
+        # elif LOSS.startswith('k'):
+        #     model.compile(optimizer = 'adam', loss =tf.keras.losses.KLDivergence(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)]) #, steps_per_execution=2, jit_compile=True
 
 else:
 
     if MODEL =='resunet':
         model =  custom_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                         FILTERS,
-                        nclasses=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                        nclasses=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
                         kernel_size=(KERNEL,KERNEL),
                         strides=STRIDE,
                         dropout=DROPOUT,#0.1,
@@ -611,7 +607,7 @@ else:
     elif MODEL=='unet':
         model =  custom_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                         FILTERS,
-                        nclasses=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                        nclasses=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
                         kernel_size=(KERNEL,KERNEL),
                         strides=STRIDE,
                         dropout=DROPOUT,#0.1,
@@ -624,43 +620,42 @@ else:
 
         model = simple_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                     kernel = (2, 2),
-                    num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                    num_classes=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
                     activation="relu",
                     use_batch_norm=True,
-                    dropout=DROPOUT,#0.1,
-                    dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
-                    dropout_type=DROPOUT_TYPE,#"standard",
-                    use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
-                    filters=FILTERS,#8,
+                    dropout=DROPOUT,
+                    dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
+                    dropout_type=DROPOUT_TYPE,
+                    use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
+                    filters=FILTERS,
                     num_layers=4,
                     strides=(1,1))
-    #346,564
+
     elif MODEL=='simple_unet':
         model = simple_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                     kernel = (2, 2),
-                    num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                    num_classes=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
                     activation="relu",
                     use_batch_norm=True,
-                    dropout=DROPOUT,#0.1,
-                    dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
-                    dropout_type=DROPOUT_TYPE,#"standard",
-                    use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
-                    filters=FILTERS,#8,
+                    dropout=DROPOUT,
+                    dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#
+                    dropout_type=DROPOUT_TYPE,
+                    use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
+                    filters=FILTERS,
                     num_layers=4,
                     strides=(1,1))
-    #242,812
 
     elif MODEL=='satunet':
         model = custom_satunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                     kernel = (2, 2),
-                    num_classes=[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                    num_classes=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
                     activation="relu",
                     use_batch_norm=True,
-                    dropout=DROPOUT,#0.1,
-                    dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
-                    dropout_type=DROPOUT_TYPE,#"standard",
-                    use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
-                    filters=FILTERS,#8,
+                    dropout=DROPOUT,
+                    dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
+                    dropout_type=DROPOUT_TYPE,
+                    use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
+                    filters=FILTERS,
                     num_layers=4,
                     strides=(1,1))
 
@@ -668,11 +663,44 @@ else:
         print("Model must be one of 'unet', 'resunet', or 'satunet'")
         sys.exit(2)
 
+if LOSS=='dice':
+    if 'LOSS_WEIGHTS' in locals():
+        if LOSS_WEIGHTS is True:
+
+            print("Computing loss weights per class ...")
+            N = []
+            # compute class-frequency distribution for 30 batches of training images 
+            for _,lbls in train_ds.take(30):
+                for _,lab in zip(_, lbls):
+                    lab = np.argmax(lab.numpy().squeeze(),-1).flatten()
+                    # make sure bincount is same length as number of classes
+                    N.append(np.bincount(lab,minlength=NCLASSES)) #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0]))
+            # mean of class-frequencies
+            class_weights = np.mean(np.vstack(N),axis=0)
+            # inverse weighting
+            class_weights = 1-(class_weights/np.sum(class_weights))
+
+        elif type(LOSS_WEIGHTS) is list:
+            class_weights = np.array(LOSS_WEIGHTS)
+            # inverse weighting
+            class_weights = 1-(class_weights/np.sum(class_weights))
+            print("Model compiled with class weights {}".format(class_weights)) 
+        else:
+            # if NCLASSES==1:
+            #     class_weights = np.ones(NCLASSES+1)
+            # else:
+            class_weights = np.ones(NCLASSES)
+    
+        model.compile(optimizer = 'adam', loss =weighted_dice_coef_loss(NCLASSES,class_weights), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
+
+    else:
+
+        model.compile(optimizer = 'adam', loss =dice_coef_loss(NCLASSES), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
+
+else:
 
     if LOSS=='hinge':
         model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalHinge(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)]) #, steps_per_execution=2, jit_compile=True
-    elif LOSS=='dice':
-        model.compile(optimizer = 'adam', loss =dice_coef_loss(NCLASSES), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
     elif LOSS.startswith('cat'):
         model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalCrossentropy(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
     elif LOSS.startswith('k'):
@@ -767,31 +795,6 @@ print('Mean of mean frequency weighted IoUs, confusion matrix (validation subset
 print('Mean of Matthews Correlation Coefficients (validation subset)={mean_dice:0.3f}'.format(mean_dice=np.mean(MCC)))
 print('Mean of mean Dice scores (validation subset)={mean_dice:0.3f}'.format(mean_dice=np.mean(Dc)))
 print('Mean of mean KLD scores (validation subset)={mean_kld:0.3f}'.format(mean_kld=np.mean(Kc)))
-
-## uncomment to see comparison plot of validation metrics
-# plt.figure(figsize=(10,10))
-# plt.subplots_adjust(hspace=0.3, wspace=0.3)
-# plt.subplot(321)
-# plt.plot(IOUc,MIOU,'.')
-# plt.xlabel('mean IOU'); plt.ylabel('mean IOU (Confusion Matrix)')
-
-# plt.subplot(322)
-# plt.plot(IOUc,FWIOU,'.')
-# plt.xlabel('mean IOU'); plt.ylabel('mean Frequency-weighted IOU (Confusion Matrix)')
-
-# plt.subplot(323)
-# plt.plot(IOUc,MCC,'.')
-# plt.xlabel('mean IOU'); plt.ylabel('Matthews Correlation Coefficient (Confusion Matrix)')
-
-# plt.subplot(324)
-# plt.plot(IOUc,Dc,'.')
-# plt.xlabel('mean IOU'); plt.ylabel('mean Dice')
-
-# plt.subplot(325)
-# plt.plot(IOUc,Kc,'.')
-# plt.xlabel('mean IOU'); plt.ylabel('mean K-L divergence')
-
-# plt.savefig('tmp3.png', dpi=200); plt.close()
 
 
 IOUc, Dc, Kc, OA, MIOU, FWIOU, MCC = plotcomp_n_metrics(

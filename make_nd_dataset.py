@@ -69,58 +69,26 @@ def scale_rgb(img, nR, nC, nD):
 
 
 #-----------------------------------
-def do_pad_label(lfile, TARGET_SIZE):
+def do_resize_label(lfile, TARGET_SIZE):
     ### labels ------------------------------------
     lab = imread(lfile)
     result = scale(lab,TARGET_SIZE[0],TARGET_SIZE[1])
 
-    # try:
-    #     old_image_height, old_image_width, channels = lab.shape
-    # except:
-    #     old_image_height, old_image_width = lab.shape
-    #     channels=0
-
-    # # create new image of desired size and color (black) for padding
-    # new_image_width = TARGET_SIZE[0]
-    # new_image_height = TARGET_SIZE[0]
-
-    # # compute center offset
-    # x_center = (new_image_width - old_image_width) // 2
-    # y_center = (new_image_height - old_image_height) // 2
-
-    # color = (0)
-    # result = np.full((new_image_height,new_image_width), color, dtype=np.uint8)
-
-    # try: #image is smaller
-    #     # copy img image into center of result image
-    #     result[y_center:y_center+old_image_height,
-    #            x_center:x_center+old_image_width] = lab+1
-    # except:
-    #     result = scale(lab,TARGET_SIZE[0],TARGET_SIZE[1])+1
-
-    #     ##lab2 =rescale(lab,(sf,sf),anti_aliasing=True, preserve_range=True, order=0)
-    #     # result[y_center:y_center+old_image_height,
-    #     #        x_center:x_center+old_image_width] = lab2+1
-    #     # del lab2
-
     wend = lfile.split(os.sep)[-2]
     fdir = os.path.dirname(lfile)
-    # fdirout = fdir.replace(wend,'padded_'+wend)
     fdirout = fdir.replace(wend,'resized_'+wend)
 
     # save result
-    #imsave(lfile.replace('labels','padded_labels').replace('.jpg','.png'), result.astype('uint8'), check_contrast=False, compression=0)
     imsave(fdirout+os.sep+lfile.split(os.sep)[-1].replace('.jpg','.png'), result.astype('uint8'), check_contrast=False, compression=0)
 
 
 #-----------------------------------
-def do_pad_image(f, TARGET_SIZE):
+def do_resize_image(f, TARGET_SIZE):
     img = imread(f)
 
     try:
-        old_image_height, old_image_width, channels = img.shape
+        _, _, channels = img.shape
     except:
-        old_image_height, old_image_width = img.shape
         channels=0
 
     if channels>0:
@@ -128,49 +96,8 @@ def do_pad_image(f, TARGET_SIZE):
     else:
         result = scale(img,TARGET_SIZE[0],TARGET_SIZE[1])
 
-    # # create new image of desired size and color (black) for padding
-    # new_image_width = TARGET_SIZE[0]
-    # new_image_height = TARGET_SIZE[0]
-    # if channels>0:
-    #     color = (0,0,0)
-    #     result = np.full((new_image_height,new_image_width, channels), color, dtype=np.uint8)
-    # else:
-    #     color = (0)
-    #     result = np.full((new_image_height,new_image_width), color, dtype=np.uint8)
-
-    # # compute center offset
-    # x_center = (new_image_width - old_image_width) // 2
-    # y_center = (new_image_height - old_image_height) // 2
-
-    # try:
-    #     # copy img image into center of result image
-    #     result[y_center:y_center+old_image_height,
-    #            x_center:x_center+old_image_width] = img
-    # except:
-    #     ## AN ALTERNATIVE WAY - DO NOT REMOVE
-    #     # sf = np.minimum(new_image_width/old_image_width,new_image_height/old_image_height)
-    #     # if channels>0:
-    #     #     img = rescale(img,(sf,sf,1),anti_aliasing=True, preserve_range=True, order=1)
-    #     # else:
-    #     #     img = rescale(img,(sf,sf),anti_aliasing=True, preserve_range=True, order=1)
-    #     # if channels>0:
-    #     #     old_image_height, old_image_width, channels = img.shape
-    #     # else:
-    #     #     old_image_height, old_image_width = img.shape
-    #     #
-    #     # x_center = (new_image_width - old_image_width) // 2
-    #     # y_center = (new_image_height - old_image_height) // 2
-    #     #
-    #     # result[y_center:y_center+old_image_height,
-    #     #        x_center:x_center+old_image_width] = img.astype('uint8')
-    #     if channels>0:
-    #         result = scale_rgb(img,TARGET_SIZE[0],TARGET_SIZE[1],3)
-    #     else:
-    #         result = scale(img,TARGET_SIZE[0],TARGET_SIZE[1])
-
     wend = f.split(os.sep)[-2]
     fdir = os.path.dirname(f)
-    # fdirout = fdir.replace(wend,'padded_'+wend)
     fdirout = fdir.replace(wend,'resized_'+wend)
 
     # save result
@@ -198,6 +125,13 @@ with open(configfile) as f:
 
 for k in config.keys():
     exec(k+'=config["'+k+'"]')
+
+## NCLASSES>=2
+if NCLASSES>1:
+    pass
+else:
+    print("NCLASSES must be > 1. Use NCLASSES==2 for binary problems")
+    sys.exit(2)
 
 ###================================================
 ### set up GPU
@@ -280,34 +214,13 @@ if len(label_files)<1:
 
 print("Found {} image and {} label files".format(len(files), len(label_files)))
 
-
-
 ##========================================================
-## MAKING PADDED (RESIZED) COPIES OF IMAGERY
+## MAKING RESIZED COPIES OF IMAGERY
 ##========================================================
 
-## neeed resizing?
-if len(W)>1:
-    szs = [imread(f).shape for f in files[:,0]]
-else:
-    szs = [imread(f).shape for f in files] #[:,0]]
-
-szs = np.vstack(szs)[:,0]
-
-# do_resize = True
-# if len(np.unique(szs))>1:
-#     do_resize=True
-# else:
-#     do_resize=False
-
-## rersize / pad imagery so all a consistent size (TARGET_SIZE)
-# if do_resize:
-
-## make padded direcs
+## make  direcs
 for w in W:
     wend = w.split('/')[-1]
-    # print(wend)
-    # newdirec = w.replace(wend,'padded_'+wend)
     newdirec = w.replace(wend,'resized_'+wend)
 
     try:
@@ -316,36 +229,37 @@ for w in W:
         pass
 
 if USEMASK:
-    # newdireclabels = label_data_path.replace('mask','padded_mask')
     newdireclabels = label_data_path.replace('mask','resized_mask')
 else:
-    # newdireclabels = label_data_path.replace('label','padded_label')
     newdireclabels = label_data_path.replace('label','resized_label')
 try:
     os.mkdir(newdireclabels)
 except:
     pass
 
-
-if len(W)==1:
-    try:
-        w = Parallel(n_jobs=-2, verbose=0, max_nbytes=None)(delayed(do_pad_image)(os.path.normpath(f), TARGET_SIZE) for f in files)
-    except:
-        w = Parallel(n_jobs=-2, verbose=0, max_nbytes=None)(delayed(do_pad_image)(os.path.normpath(f), TARGET_SIZE) for f in files.squeeze())
-
-    w = Parallel(n_jobs=-2, verbose=0, max_nbytes=None)(delayed(do_pad_label)(os.path.normpath(lfile), TARGET_SIZE) for lfile in label_files)
-
+# if directories already exist, skip them
+if os.path.isdir(newdireclabels):
+    print("{} already exists: skipping the image resizing step".format(newdireclabels))
 else:
-    ## cycle through, merge and padd/resize if need to
-    for file,lfile in zip(files, label_files):
 
-        for f in file:
-            do_pad_image(f, TARGET_SIZE)
-        do_pad_label(lfile, TARGET_SIZE)
+    if len(W)==1:
+        try:
+            w = Parallel(n_jobs=-2, verbose=0, max_nbytes=None)(delayed(do_resize_image)(os.path.normpath(f), TARGET_SIZE) for f in files)
+        except:
+            w = Parallel(n_jobs=-2, verbose=0, max_nbytes=None)(delayed(do_resize_image)(os.path.normpath(f), TARGET_SIZE) for f in files.squeeze())
+
+        w = Parallel(n_jobs=-2, verbose=0, max_nbytes=None)(delayed(do_resize_label)(os.path.normpath(lfile), TARGET_SIZE) for lfile in label_files)
+
+    else:
+        ## cycle through, merge and padd/resize if need to
+        for file,lfile in zip(files, label_files):
+
+            for f in file:
+                do_resize_image(f, TARGET_SIZE)
+            do_resize_label(lfile, TARGET_SIZE)
 
 
 ## write padded labels to file
-# if do_resize:
 label_data_path = newdireclabels #label_data_path.replace('labels','padded_labels')
 
 label_files = natsorted(glob(label_data_path+os.sep+'*.png'))
@@ -356,7 +270,6 @@ print("{} label files".format(len(label_files)))
 W2 = []
 for w in W:
     wend = os.path.normpath(w).split(os.sep)[-1]
-    # w = w.replace(wend,'padded_'+wend)
     w = w.replace(wend,'resized_'+wend)
     W2.append(w)
 W = W2
@@ -383,9 +296,6 @@ print("{} sets of {} image files".format(len(W),len(files)))
 do_viz = False
 # do_viz = True
 
-if 'REMAP_CLASSES' in locals():
-    NCLASSES = len(np.unique([REMAP_CLASSES[k] for k in REMAP_CLASSES]))
-
 print("Creating non-augmented subset")
 ## make non-aug subset first
 # cycle through pairs of files and labels
@@ -402,15 +312,10 @@ for counter,(f,l) in enumerate(zip(files,label_files)):
             im = [imread(f[0])]
 
     datadict={}
-    # try:
     im=np.dstack(im)# create a dtack which takes care of different sized inputs
     datadict['arr_0'] = im.astype(np.uint8)
 
     lab = imread(l) # reac the label)
-    # if np.min(np.unique(lab))>0:
-    #     lab -= 1
-    # if len(np.unique(lab))>NCLASSES+1:
-    #     lab = (lab==0).astype('uint8')
 
     if 'REMAP_CLASSES' in locals():
         for k in REMAP_CLASSES.items():
@@ -421,20 +326,13 @@ for counter,(f,l) in enumerate(zip(files,label_files)):
 
     if len(np.unique(lab))==1:
         nx,ny = lab.shape
-        if NCLASSES==1:
-            lstack = np.zeros((nx,ny,NCLASSES+1))
-        else:
-            lstack = np.zeros((nx,ny,NCLASSES))
+        lstack = np.zeros((nx,ny,NCLASSES))
 
         lstack[:,:,np.unique(lab)[0]]=np.ones((nx,ny))
     else:
         nx,ny = lab.shape
-        if NCLASSES==1:
-            lstack = np.zeros((nx,ny,NCLASSES+1))
-            lstack[:,:,:NCLASSES+1] = (np.arange(NCLASSES+1) == 1+lab[...,None]-1).astype(int) #one-hot encode
-        else:
-            lstack = np.zeros((nx,ny,NCLASSES))
-            lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+lab[...,None]-1).astype(int) #one-hot encode
+        lstack = np.zeros((nx,ny,NCLASSES))
+        lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+lab[...,None]-1).astype(int) #one-hot encode
 
     if FILTER_VALUE>1:
 
@@ -458,15 +356,12 @@ for counter,(f,l) in enumerate(zip(files,label_files)):
     segfile = output_data_path+os.sep+ROOT_STRING+'_noaug_nd_data_000000'+str(counter)+'.npz'
     np.savez_compressed(segfile, **datadict)
     del datadict, im, lstack
-    # except:
-    #     print("Inconsistent inputs associated with label file: ".format(l))
 
 
 ###================================
 
 from doodleverse_utils.imports import *
 #---------------------------------------------------
-
 
 #-----------------------------------
 def load_npz(example):
@@ -495,9 +390,6 @@ def read_seg_dataset_multiclass(example):
         * class_label [tensor array]
     """
     image, label, file = tf.py_function(func=load_npz, inp=[example], Tout=[tf.float32, tf.uint8, tf.string])
-
-    if NCLASSES==1:
-        label = tf.expand_dims(label,-1)
 
     return image, label, file
 
@@ -531,11 +423,7 @@ class_label_colormap = ['#3366CC','#DC3912','#FF9900','#109618','#990099','#0099
                         '#66AA00','#B82E2E', '#316395','#0d0887', '#46039f', '#7201a8',
                         '#9c179e', '#bd3786', '#d8576b', '#ed7953', '#fb9f3a', '#fdca26', '#f0f921']
 
-if NCLASSES>1:
-    class_label_colormap = class_label_colormap[:NCLASSES]
-else:
-    class_label_colormap = class_label_colormap[:NCLASSES+1]
-
+class_label_colormap = class_label_colormap[:NCLASSES]
 
 print('.....................................')
 print('Printing examples to file ...')
@@ -555,17 +443,12 @@ for imgs,lbls,files in dataset.take(100):
          plt.imshow(im)
 
      lab = np.argmax(lab.numpy().squeeze(),-1)
-    #  print(lab.shape)
 
      color_label = label_to_colors(np.squeeze(lab), tf.cast(im[:,:,0]==0,tf.uint8),
                                     alpha=128, colormap=class_label_colormap,
                                      color_class_offset=0, do_alpha=False)
 
-     if NCLASSES==1:
-         plt.imshow(color_label, alpha=0.5)#, vmin=0, vmax=NCLASSES)
-     else:
-         #lab = np.argmax(lab,-1)
-         plt.imshow(color_label,  alpha=0.5)#, vmin=0, vmax=NCLASSES)
+     plt.imshow(color_label,  alpha=0.5)#, vmin=0, vmax=NCLASSES)
 
      file = file.numpy()
 
@@ -697,15 +580,9 @@ for counter,w in enumerate(W):
 ######################## generate and print files
 
 
-if 'REMAP_CLASSES' in locals():
-    NCLASSES = len(np.unique([REMAP_CLASSES[k] for k in REMAP_CLASSES]))
-
 i = 0
 for copy in tqdm(range(AUG_COPIES)):
     for k in range(AUG_LOOPS):
-        # print("Working on copy number {} out of {}".format(copy,AUG_COPIES))
-        # print("Working on loop {} out of {}".format(k,AUG_LOOPS))
-        # print("Starting from augmented sample {}".format(i))
 
         X=[]; Y=[]; F=[]
         for counter,train_generator in enumerate(train_generators):
@@ -745,14 +622,7 @@ for copy in tqdm(range(AUG_COPIES)):
             files = np.dstack([x[counter] for x in F])
 
             ##============================================ label
-            if NCLASSES==1:
-                lab=lab.squeeze()
-                #lab[lab>0]=1
-
-            if NCLASSES==1:
-                l = lab.astype(np.uint8)
-            else:
-                l = np.round(lab[:,:,0]).astype(np.uint8)
+            l = np.round(lab[:,:,0]).astype(np.uint8)
 
             if 'REMAP_CLASSES' in locals():
                 for k in REMAP_CLASSES.items():
@@ -762,20 +632,13 @@ for copy in tqdm(range(AUG_COPIES)):
 
             if len(np.unique(l))==1:
                 nx,ny = l.shape
-                if NCLASSES==1:
-                    lstack = np.zeros((nx,ny,NCLASSES+1))
-                else:
-                    lstack = np.zeros((nx,ny,NCLASSES))
+                lstack = np.zeros((nx,ny,NCLASSES))
 
                 lstack[:,:,np.unique(l)[0]]=np.ones((nx,ny))
             else:
                 nx,ny = l.shape
-                if NCLASSES==1:
-                    lstack = np.zeros((nx,ny,NCLASSES+1))
-                    lstack[:,:,:NCLASSES+1] = (np.arange(NCLASSES+1) == 1+l[...,None]-1).astype(int) #one-hot encode
-                else:
-                    lstack = np.zeros((nx,ny,NCLASSES))
-                    lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+l[...,None]-1).astype(int) #one-hot encode
+                lstack = np.zeros((nx,ny,NCLASSES))
+                lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+l[...,None]-1).astype(int) #one-hot encode
 
             if FILTER_VALUE>1:
 
@@ -848,11 +711,7 @@ for imgs,lbls,files in dataset.take(100):
                                     alpha=128, colormap=class_label_colormap,
                                      color_class_offset=0, do_alpha=False)
 
-     if NCLASSES==1:
-         plt.imshow(color_label, alpha=0.5)#, vmin=0, vmax=NCLASSES)
-     else:
-         #lab = np.argmax(lab,-1)
-         plt.imshow(color_label,  alpha=0.5)#, vmin=0, vmax=NCLASSES)
+     plt.imshow(color_label,  alpha=0.5)
 
      try:
          file = file.numpy().split(os.sep)[-1]
