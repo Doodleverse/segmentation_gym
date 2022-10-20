@@ -1,5 +1,3 @@
-
-
 # Written by Dr Daniel Buscombe, Marda Science LLC
 # for  the USGS Coastal Change Hazards Program
 #
@@ -26,7 +24,7 @@
 # SOFTWARE.
 
 import sys,os, time
-sys.path.insert(1, '../src')
+# sys.path.insert(1, '../src')
 from tkinter import filedialog
 from tkinter import *
 from tkinter import messagebox
@@ -56,8 +54,8 @@ for weights in weights_files:
     for k in config.keys():
         exec(k+'=config["'+k+'"]')
 
-
-    from imports import *
+    from doodleverse_utils.imports import *
+    from doodleverse_utils.model_imports import *
 
     #=======================================================
     # Import the architectures for following models from doodleverse_utils
@@ -92,8 +90,6 @@ for weights in weights_files:
                         )
 
     elif MODEL =='simple_resunet':
-        # num_filters = 8 # initial filters
-        # model = res_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), num_filters, NCLASSES, (KERNEL_SIZE, KERNEL_SIZE))
 
         model = simple_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                     kernel = (2, 2),
@@ -107,7 +103,6 @@ for weights in weights_files:
                     filters=FILTERS,#8,
                     num_layers=4,
                     strides=(1,1))
-    #346,564
     elif MODEL=='simple_unet':
         model = simple_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                     kernel = (2, 2),
@@ -121,10 +116,8 @@ for weights in weights_files:
                     filters=FILTERS,#8,
                     num_layers=4,
                     strides=(1,1))
-    #242,812
 
     elif MODEL=='satunet':
-        #model = sat_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS), num_classes=NCLASSES)
 
         model = custom_satunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                     kernel = (2, 2),
@@ -139,9 +132,6 @@ for weights in weights_files:
                     num_layers=4,
                     strides=(1,1))
 
-
-
-    # model.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics = [mean_iou, dice_coef])
     model.compile(optimizer = 'adam', loss = tf.keras.losses.CategoricalCrossentropy())
 
     model.load_weights(weights)
@@ -150,7 +140,7 @@ for weights in weights_files:
     # use gym  make"fullmodel.h5" version which zoo can read "fullmodel.h5" 
     model.save(weights.replace('.h5','_fullmodel.h5'))
 
-    new_model = tf.keras.models.load_model(weights.replace('.h5','_fullmodel.h5'))
+    # new_model = tf.keras.models.load_model(weights.replace('.h5','_fullmodel.h5'))
 
 
 

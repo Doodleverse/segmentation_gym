@@ -648,7 +648,7 @@ for copy in tqdm(range(AUG_COPIES)):
                     l = remove_small_objects(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
                     l = remove_small_holes(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
                     lstack[:,:,kk] = np.round(l).astype(np.uint8)
-                    del l
+                    # del l
 
             datadict={}
             datadict['arr_0'] = im.astype(np.uint8)
