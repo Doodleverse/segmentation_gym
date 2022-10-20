@@ -25,7 +25,6 @@
 
 # utility to merge multiple coincident jpeg images into nd numpy arrays
 import sys,os, time, json, shutil
-# sys.path.insert(1, 'src')
 
 from skimage.io import imread, imsave
 import numpy as np
@@ -126,7 +125,6 @@ with open(configfile) as f:
 for k in config.keys():
     exec(k+'=config["'+k+'"]')
 
-## NCLASSES>=2
 if NCLASSES>1:
     pass
 else:
@@ -152,7 +150,7 @@ if USE_GPU == True:
         os.environ['CUDA_VISIBLE_DEVICES'] = str(SET_GPU)
     else:
         #use the first available GPU
-        os.environ['CUDA_VISIBLE_DEVICES'] = '0' #'1'
+        os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 else:
    ## to use the CPU (not recommended):
    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
@@ -261,7 +259,7 @@ else:
 
 
 ## write padded labels to file
-label_data_path = newdireclabels #label_data_path.replace('labels','padded_labels')
+label_data_path = newdireclabels 
 
 label_files = natsorted(glob(label_data_path+os.sep+'*.png'))
 if len(label_files)<1:
@@ -321,7 +319,6 @@ for counter,(f,l) in enumerate(zip(files,label_files)):
     if 'REMAP_CLASSES' in locals():
         for k in REMAP_CLASSES.items():
             lab[lab==int(k[0])] = int(k[1])
-        # NCLASSES = len(np.unique(lab.flatten()))
     else:
         lab[lab>NCLASSES]=NCLASSES
 
@@ -449,14 +446,13 @@ for imgs,lbls,files in dataset.take(100):
                                     alpha=128, colormap=class_label_colormap,
                                      color_class_offset=0, do_alpha=False)
 
-     plt.imshow(color_label,  alpha=0.5)#, vmin=0, vmax=NCLASSES)
+     plt.imshow(color_label,  alpha=0.5)
 
      file = file.numpy()
 
      plt.axis('off')
      plt.title(file)
      plt.savefig(output_data_path+os.sep+'noaug_sample'+os.sep+ ROOT_STRING + 'noaug_ex'+str(counter)+'.png', dpi=200, bbox_inches='tight')
-     #counter +=1
      plt.close('all')
      counter += 1
 
@@ -580,7 +576,6 @@ for counter,w in enumerate(W):
 
 ######################## generate and print files
 
-
 i = 0
 for copy in tqdm(range(AUG_COPIES)):
     for k in range(AUG_LOOPS):
@@ -644,7 +639,6 @@ for copy in tqdm(range(AUG_COPIES)):
             if FILTER_VALUE>1:
 
                 for kk in range(lstack.shape[-1]):
-                    #l = median(lstack[:,:,kk], disk(FILTER_VALUE))
                     l = remove_small_objects(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
                     l = remove_small_holes(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
                     lstack[:,:,kk] = np.round(l).astype(np.uint8)
@@ -705,7 +699,6 @@ for imgs,lbls,files in dataset.take(100):
      else:
          plt.imshow(im)
 
-     # print(lab.shape)
      lab = np.argmax(lab.numpy().squeeze(),-1)
 
      color_label = label_to_colors(np.squeeze(lab), tf.cast(im[:,:,0]==0,tf.uint8),
@@ -724,7 +717,6 @@ for imgs,lbls,files in dataset.take(100):
      plt.axis('off')
 
      plt.savefig(output_data_path+os.sep+'aug_sample'+os.sep+ ROOT_STRING + 'aug_ex'+str(counter)+'.png', dpi=200, bbox_inches='tight')
-     #counter +=1
      plt.close('all')
      counter += 1
 
