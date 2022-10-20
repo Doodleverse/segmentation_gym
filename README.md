@@ -6,8 +6,6 @@ https://github.com/Doodleverse/segmentation_gym/commits/main)
 ![GitHub](https://img.shields.io/github/license/Doodleverse/segmentation_gym)
 [![Wiki](https://img.shields.io/badge/discussion-active-forestgreen)](https://github.com/Doodleverse/segmentation_gym/discussions)
 
-[![Earth ArXiv Preprint
-DOI](https://img.shields.io/badge/%F0%9F%8C%8D%F0%9F%8C%8F%F0%9F%8C%8E%20EarthArXiv-doi.org%2F10.31223%2FX5HS81-%23FF7F2A)](https://doi.org/10.31223/X5HS81)
 
 ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
 ![TensorFlow](https://img.shields.io/badge/TensorFlow-%23FF6F00.svg?style=for-the-badge&logo=TensorFlow&logoColor=white)
@@ -15,6 +13,13 @@ DOI](https://img.shields.io/badge/%F0%9F%8C%8D%F0%9F%8C%8F%F0%9F%8C%8E%20EarthAr
 
 <!-- ![](https://user-images.githubusercontent.com/3596509/153691733-1fe98e37-5379-4122-8d02-adbcb0ab0db3.png) -->
 ![gym](https://user-images.githubusercontent.com/3596509/153696396-0b3148c5-77e4-48b2-b3ce-fd9038ba21ab.png)
+
+## :scroll: Paper 
+[![Earth ArXiv Preprint
+DOI](https://img.shields.io/badge/%F0%9F%8C%8D%F0%9F%8C%8F%F0%9F%8C%8E%20EarthArXiv-doi.org%2F10.31223%2FX5HS81-%23FF7F2A)](https://doi.org/10.31223/X5HS81)
+
+ Buscombe, D., & Goldstein, E. B. (2022). A reproducible and reusable pipeline for segmentation of geoscientific imagery. Earth and Space Science, 9, e2022EA002332. https://doi.org/10.1029/2022EA002332 
+
 
 ## 🌟 Highlights
 
@@ -97,13 +102,28 @@ conda env create --file install/gym.yml
 conda activate gym
 ```
 
-[ADVANCED] Alternatively, you could install using mamba, which could be significantly faster
+[ADVANCED] Alternatively, you could install using  the following conda recipe (see https://github.com/Doodleverse/segmentation_gym/issues/78)
 
 ```
-conda install mamba -c conda-forge
-mamba env create --file install/gym.yml
+conda create -n gym python=3.8
 conda activate gym
+conda install -c conda-forge scipy "numpy>=1.16.5, <=1.23.0" scikit-image cython ipython joblib tqdm pandas pip plotly natsort pydensecrf matplotlib
+pip install doodleverse_utils
 ```
+
+Then run one of the following two commands:
+
+```
+    conda install -c conda-forge tensorflow-gpu 
+```
+
+if you have a CUDA-enabled GPU, or
+
+```    
+    conda install -c conda-forge tensorflow 
+```
+
+if you have a CPU
 
 If you get errors associated with loading the model weights you may need to:
 
@@ -125,7 +145,7 @@ Check out the [wiki](https://github.com/dbuscombe-usgs/segmentation_gym/wiki) fo
 
 ## Test Dataset
 
-A test data set, including a set of images/labels, model config files, and a dataset and models created with Gym, are available [here](https://zenodo.org/record/5895128/files/hatteras_RGB_zenodo_data_release_jan2022.zip?download=1) and [described on the zenodo page](https://zenodo.org/record/5895128#.Ye4AgPuIZH4)
+A test data set, including a set of images/labels, model config files, and a dataset and models created with Gym, are available [here](https://zenodo.org/record/7036025/files/my_segmentation_gym_datasets.zip?download=1) and [described on the zenodo page](https://zenodo.org/record/7036025#.YxAQsWzMJhE)
 
 
 ## 💭 Feedback and Contributing
