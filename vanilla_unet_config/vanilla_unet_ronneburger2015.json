@@ -33,5 +33,14 @@
   "AUG_HFLIP": false,
   "AUG_VFLIP": false,
   "AUG_LOOPS": 10,
-  "AUG_COPIES": 3
+  "AUG_COPIES": 3,
+  "SET_GPU": "0",
+  "WRITE_MODELMETADATA": false,
+  "DO_CRF": false,
+  "LOSS_WEIGHTS": false,
+  "MODE": "all",
+  "SET_PCI_BUS_ID": true,
+  "TESTTIMEAUG": true,
+  "WRITE_MODELMETADATA": true,
+  "OTSU_THRESHOLD": true      
 }

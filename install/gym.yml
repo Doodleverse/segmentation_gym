@@ -10,6 +10,7 @@ dependencies:
  - cython
  - tensorflow-gpu
  - ipython
+ - jupyter
  - joblib
  - tqdm
  - pandas
