@@ -32,7 +32,7 @@ from tkinter import filedialog, messagebox
 from tkinter import *
 from glob import glob
 from skimage.transform import rescale ## this is actually for resizing
-from skimage.morphology import remove_small_objects, remove_small_holes
+from skimage.morphology import dilation, disk #remove_small_objects, remove_small_holes
 from tqdm import tqdm
 from joblib import Parallel, delayed
 from natsort import natsorted
@@ -333,10 +333,11 @@ for counter,(f,l) in enumerate(zip(files,label_files)):
         lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+lab[...,None]-1).astype(int) #one-hot encode
 
     if FILTER_VALUE>1:
-
+        #print("dilating labels with a radius of {}".format(FILTER_VALUE))
         for kk in range(lstack.shape[-1]):
-            lab = remove_small_objects(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
-            lab = remove_small_holes(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
+            # lab = remove_small_objects(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
+            # lab = remove_small_holes(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
+            lab = dilation(lstack[:,:,kk].astype('uint8')>0, disk(FILTER_VALUE))
             lstack[:,:,kk] = np.round(lab).astype(np.uint8)
             del lab
 
@@ -637,12 +638,13 @@ for copy in tqdm(range(AUG_COPIES)):
                 lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+l[...,None]-1).astype(int) #one-hot encode
 
             if FILTER_VALUE>1:
-
+                ##print("dilating labels with a radius of {}".format(FILTER_VALUE))
                 for kk in range(lstack.shape[-1]):
-                    l = remove_small_objects(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
-                    l = remove_small_holes(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
-                    lstack[:,:,kk] = np.round(l).astype(np.uint8)
-                    #del l
+                    # lab = remove_small_objects(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
+                    # lab = remove_small_holes(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
+                    lab = dilation(lstack[:,:,kk].astype('uint8')>0, disk(FILTER_VALUE))
+                    lstack[:,:,kk] = np.round(lab).astype(np.uint8)
+                    del lab
 
             datadict={}
             datadict['arr_0'] = im.astype(np.uint8)

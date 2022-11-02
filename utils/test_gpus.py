@@ -27,21 +27,23 @@ import os
 
 num_epochs = 3
 USE_GPU = True
-USE_MULTI_GPU = True 
-# USE_MULTI_GPU = False
+# USE_MULTI_GPU = True 
+USE_MULTI_GPU = False
 
 if USE_MULTI_GPU:
     GPU_ID = '1,2'
 else:
-    GPU_ID = '1'
+    GPU_ID = '0'
 
 os.environ['CUDA_VISIBLE_DEVICES'] = GPU_ID
 
 import tensorflow as tf
 import tensorflow.keras as keras
-from tensorflow.keras import mixed_precision
-mixed_precision.set_global_policy('mixed_float16')
-# tf.debugging.set_log_device_placement(True)
+
+
+# from tensorflow.keras import mixed_precision
+# mixed_precision.set_global_policy('mixed_float16')
+# # tf.debugging.set_log_device_placement(True)
 
 physical_devices = tf.config.experimental.list_physical_devices('GPU')
 print(physical_devices)

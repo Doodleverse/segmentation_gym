@@ -125,6 +125,25 @@ if you have a CUDA-enabled GPU, or
 
 if you have a CPU
 
+
+### Troubleshooting GPUs
+
+Run this command to see if your Tensorflow can see your GPUs
+
+`python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"`
+
+If not, try:
+
+```
+conda remove tensorflow-gpu 
+conda install -c conda-forge cudatoolkit=11.2 cudnn=8.1.0
+python -m pip install tensorflow
+```
+
+If all else fails, you should check you have the correct NVIDIA drivers installed for your GPU and operating system
+
+
+### Other Troubleshooting
 If you get errors associated with loading the model weights you may need to:
 
 ```

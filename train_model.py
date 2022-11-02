@@ -126,7 +126,11 @@ else:
 
 ### mixed precision
 from tensorflow.keras import mixed_precision
-mixed_precision.set_global_policy('mixed_float16')
+try:
+    mixed_precision.set_global_policy('mixed_float16')
+except:
+    mixed_precision.experimental.set_policy('mixed_float16')
+
 # tf.debugging.set_log_device_placement(True)
 
 for i in physical_devices:
