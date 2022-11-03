@@ -433,8 +433,11 @@ for imgs,lbls,files in dataset.take(100):
   for count,(im,lab, file) in enumerate(zip(imgs, lbls, files)):
 
      im = rescale_array(im.numpy(), 0, 1)
-     if im.shape[-1]:
+     if im.shape[-1]>1:
          im = im[:,:,:3]
+     else:
+         im = np.squeeze(im)
+
 
      if N_DATA_BANDS==1:
          plt.imshow(im, cmap='gray')
@@ -443,9 +446,14 @@ for imgs,lbls,files in dataset.take(100):
 
      lab = np.argmax(lab.numpy().squeeze(),-1)
 
-     color_label = label_to_colors(np.squeeze(lab), tf.cast(im[:,:,0]==0,tf.uint8),
-                                    alpha=128, colormap=class_label_colormap,
-                                     color_class_offset=0, do_alpha=False)
+     try:
+        color_label = label_to_colors(np.squeeze(lab), tf.cast(im[:,:,0]==0,tf.uint8),
+                                        alpha=128, colormap=class_label_colormap,
+                                        color_class_offset=0, do_alpha=False)
+     except:
+        color_label = label_to_colors(np.squeeze(lab), tf.cast(im==0,tf.uint8),
+                                        alpha=128, colormap=class_label_colormap,
+                                        color_class_offset=0, do_alpha=False)
 
      plt.imshow(color_label,  alpha=0.5)
 
@@ -693,8 +701,11 @@ for imgs,lbls,files in dataset.take(100):
   for count,(im,lab, file) in enumerate(zip(imgs, lbls, files)):
 
      im = rescale_array(im.numpy(), 0, 1)
-     if im.shape[-1]:
-         im = im[:,:,:3] #just show the first 3 bands
+     if im.shape[-1]>1:
+         im = im[:,:,:3]
+     else:
+         im = np.squeeze(im)
+
 
      if N_DATA_BANDS==1:
          plt.imshow(im, cmap='gray')
@@ -703,9 +714,14 @@ for imgs,lbls,files in dataset.take(100):
 
      lab = np.argmax(lab.numpy().squeeze(),-1)
 
-     color_label = label_to_colors(np.squeeze(lab), tf.cast(im[:,:,0]==0,tf.uint8),
-                                    alpha=128, colormap=class_label_colormap,
-                                     color_class_offset=0, do_alpha=False)
+     try:
+        color_label = label_to_colors(np.squeeze(lab), tf.cast(im[:,:,0]==0,tf.uint8),
+                                        alpha=128, colormap=class_label_colormap,
+                                        color_class_offset=0, do_alpha=False)
+     except:
+        color_label = label_to_colors(np.squeeze(lab), tf.cast(im==0,tf.uint8),
+                                        alpha=128, colormap=class_label_colormap,
+                                        color_class_offset=0, do_alpha=False)
 
      plt.imshow(color_label,  alpha=0.5)
 
