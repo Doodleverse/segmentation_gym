@@ -62,7 +62,7 @@ This toolbox is designed for 1,3, or 4-band imagery, and supports both `binary` 
 We recommend a 6 part workflow:
 
 1. Download & Install Gym
-2. Decide on which data to use and move them into the appropriate part of the Gym [directory structure](#dir). *(We recommend that you first use the included data as a test of Gym on your machine. After you have confirmed that this works, you can import your own data, or make new data using [Doodler](https://github.com/Doodleverse/dash_doodler))*
+2. Decide on which data to use and move them into the appropriate part of the Gym [directory structure](https://github.com/Doodleverse/segmentation_gym/wiki/3_Directory-Structure-and-Tests). *(We recommend that you first use the included data as a test of Gym on your machine. After you have confirmed that this works, you can import your own data, or make new data using [Doodler](https://github.com/Doodleverse/dash_doodler))*
 3. Write a `config` file for your data. You will need to make some decisions about the model and hyperparameters.
 4. Run `make_dataset.py` to augment and package your images into npz files for training the model.  
 5. Run `train_model.py` to train a segmentation model.
@@ -156,8 +156,8 @@ and just ignore any errors.
 ## How to use
 Check out the [wiki](https://github.com/dbuscombe-usgs/segmentation_gym/wiki) for a guide of how to use Gym
 
-1. Organize your files according to [this guide](https://github.com/Doodleverse/segmentation_gym/wiki/Directory-Structure-and-Tests)
-2. Create a configuration file according to [this guide](https://github.com/Doodleverse/segmentation_gym/wiki/Creation-of-%60config%60-files)
+1. Organize your files according to [this guide](https://github.com/Doodleverse/segmentation_gym/wiki/3_Directory-Structure-and-Tests)
+2. Create a configuration file according to [this guide](https://github.com/Doodleverse/segmentation_gym/wiki/4_Creation-of-%60config%60-file)
 3. Create a model-ready dataset from your pairs of images and labels. We hope you find [this guide](https://github.com/Doodleverse/segmentation_gym/wiki/Create-a-model-ready-dataset) helpful
 4. Train and evaluate an image segmentation model according to [this guide](https://github.com/Doodleverse/segmentation_gym/wiki/Train-an-image-segmentation-model)
 5. Deploy / evaluate model on unseen sample imagery  *more detail coming soon*
