@@ -24,84 +24,20 @@
 # SOFTWARE.
 
 # utility to merge multiple coincident jpeg images into nd numpy arrays
-import sys,os, time, json, shutil
+import sys,os, json, shutil
 
-from skimage.io import imread, imsave
+from skimage.io import imread
 import numpy as np
 from tkinter import filedialog, messagebox
 from tkinter import *
 from glob import glob
-from skimage.transform import rescale ## this is actually for resizing
 from skimage.morphology import dilation, disk #remove_small_objects, remove_small_holes
 from tqdm import tqdm
 from joblib import Parallel, delayed
 from natsort import natsorted
 import matplotlib.pyplot as plt
 
-
-#-----------------------------------
-# custom 2d resizing functions for 2d discrete labels
-def scale(im, nR, nC):
-  '''
-  for reszing 2d integer arrays
-  '''
-  nR0 = len(im)     # source number of rows
-  nC0 = len(im[0])  # source number of columns
-  tmp = [[ im[int(nR0 * r / nR)][int(nC0 * c / nC)]
-             for c in range(nC)] for r in range(nR)]
-  return np.array(tmp).reshape((nR,nC))
-
-#-----------------------------------
-def scale_rgb(img, nR, nC, nD):
-  '''
-  for reszing 3d integer arrays
-  '''
-  imgout = np.zeros((nR, nC, nD))
-  for k in range(3):
-      im = img[:,:,k]
-      nR0 = len(im)     # source number of rows
-      nC0 = len(im[0])  # source number of columns
-      tmp = [[ im[int(nR0 * r / nR)][int(nC0 * c / nC)]
-                 for c in range(nC)] for r in range(nR)]
-      imgout[:,:,k] = np.array(tmp).reshape((nR,nC))
-  return imgout
-
-
-#-----------------------------------
-def do_resize_label(lfile, TARGET_SIZE):
-    ### labels ------------------------------------
-    lab = imread(lfile)
-    result = scale(lab,TARGET_SIZE[0],TARGET_SIZE[1])
-
-    wend = lfile.split(os.sep)[-2]
-    fdir = os.path.dirname(lfile)
-    fdirout = fdir.replace(wend,'resized_'+wend)
-
-    # save result
-    imsave(fdirout+os.sep+lfile.split(os.sep)[-1].replace('.jpg','.png'), result.astype('uint8'), check_contrast=False, compression=0)
-
-
-#-----------------------------------
-def do_resize_image(f, TARGET_SIZE):
-    img = imread(f)
-
-    try:
-        _, _, channels = img.shape
-    except:
-        channels=0
-
-    if channels>0:
-        result = scale_rgb(img,TARGET_SIZE[0],TARGET_SIZE[1],3)
-    else:
-        result = scale(img,TARGET_SIZE[0],TARGET_SIZE[1])
-
-    wend = f.split(os.sep)[-2]
-    fdir = os.path.dirname(f)
-    fdirout = fdir.replace(wend,'resized_'+wend)
-
-    # save result
-    imsave(fdirout+os.sep+f.split(os.sep)[-1].replace('.jpg','.png'), result.astype('uint8'), check_contrast=False, compression=0)
-
+from doodleverse_utils.imports import *
 
 ##========================================================
 ## USER INPUTS
@@ -131,11 +67,12 @@ else:
     print("NCLASSES must be > 1. Use NCLASSES==2 for binary problems")
     sys.exit(2)
 
-###================================================
-### set up GPU
-###===============================================
 
-# os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+##########################################
+##### set up hardware
+#######################################
+if 'SET_PCI_BUS_ID' not in locals():
+    SET_PCI_BUS_ID = False
 
 SET_GPU = str(SET_GPU)
 
@@ -144,16 +81,55 @@ if SET_GPU != '-1':
     print('Using GPU')
 else:
     USE_GPU = False
+    print('Warning: using CPU - model training will be slow')
+
+if len(SET_GPU.split(','))>1:
+    USE_MULTI_GPU = True 
+    print('Using multiple GPUs')
+else:
+    USE_MULTI_GPU = False
+    if USE_GPU:
+        print('Using single GPU device')
+    else:
+        print('Using single CPU device')
 
 if USE_GPU == True:
-    if 'SET_GPU' in locals():
-        os.environ['CUDA_VISIBLE_DEVICES'] = str(SET_GPU)
-    else:
-        #use the first available GPU
-        os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+
+    ## this could be a bad idea - at least on windows, it reorders the gpus in a way you dont want
+    if SET_PCI_BUS_ID:
+        os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+
+    os.environ['CUDA_VISIBLE_DEVICES'] = SET_GPU
+
+    from doodleverse_utils.imports import *
+    from tensorflow.python.client import device_lib
+    physical_devices = tf.config.experimental.list_physical_devices('GPU')
+    print(physical_devices)
+
+    if physical_devices:
+        # Restrict TensorFlow to only use the first GPU
+        try:
+            tf.config.experimental.set_visible_devices(physical_devices, 'GPU')
+        except RuntimeError as e:
+            # Visible devices must be set at program startup
+            print(e)
 else:
-   ## to use the CPU (not recommended):
-   os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+
+    from doodleverse_utils.imports import *
+    from tensorflow.python.client import device_lib
+    physical_devices = tf.config.experimental.list_physical_devices('GPU')
+    print(physical_devices)
+
+
+for i in physical_devices:
+    tf.config.experimental.set_memory_growth(i, True)
+print(tf.config.get_visible_devices())
+
+if USE_MULTI_GPU:
+    # Create a MirroredStrategy.
+    strategy = tf.distribute.MirroredStrategy([p.name.split('/physical_device:')[-1] for p in physical_devices], cross_device_ops=tf.distribute.HierarchicalCopyAllReduce())
+    print("Number of distributed devices: {}".format(strategy.num_replicas_in_sync))
 
 
 ###================================================
@@ -358,9 +334,6 @@ for counter,(f,l) in enumerate(zip(files,label_files)):
 
 
 ###================================
-
-from doodleverse_utils.imports import *
-#---------------------------------------------------
 
 #-----------------------------------
 def load_npz(example):
@@ -640,8 +613,6 @@ for copy in tqdm(range(AUG_COPIES)):
             if FILTER_VALUE>1:
                 ##print("dilating labels with a radius of {}".format(FILTER_VALUE))
                 for kk in range(lstack.shape[-1]):
-                    # lab = remove_small_objects(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
-                    # lab = remove_small_holes(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
                     lab = dilation(lstack[:,:,kk].astype('uint8')>0, disk(FILTER_VALUE))
                     lstack[:,:,kk] = np.round(lab).astype(np.uint8)
                     del lab

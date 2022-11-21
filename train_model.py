@@ -23,7 +23,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import sys,os, time
+import sys,os
 import json
 from tkinter import filedialog
 from tkinter import *
@@ -205,10 +205,6 @@ def load_npz(example):
         image = standardize(image)
         label = data['arr_1'].astype('uint8')
 
-    # if image.shape[:2]!=[TARGET_SIZE[0],TARGET_SIZE[1]]:
-    #     image = tf.image.resize(image, TARGET_SIZE) 
-    #     label = tf.image.resize(label, TARGET_SIZE, method='nearest') 
-
     return image, label#, file
 
 
@@ -242,10 +238,7 @@ def plotcomp_n_metrics(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_b
                             '#66AA00','#B82E2E', '#316395','#0d0887', '#46039f', '#7201a8',
                             '#9c179e', '#bd3786', '#d8576b', '#ed7953', '#fb9f3a', '#fdca26', '#f0f921']
 
-    # if NCLASSES>1:
     class_label_colormap = class_label_colormap[:NCLASSES]
-    # else:
-    #     class_label_colormap = class_label_colormap[:NCLASSES+1]
 
     IOUc = []; Dc=[]; Kc = []
     OA = []; MIOU = []; FWIOU = []
@@ -265,9 +258,6 @@ def plotcomp_n_metrics(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_b
             imgPredict = np.argmax(est_label.squeeze(),axis=-1)
             label = np.argmax(tf.squeeze(lbl),axis=-1)
 
-            # if NCLASSES==1:
-            #     out = AllMetrics(NCLASSES+1, imgPredict, label)
-            # else:
             out = AllMetrics(NCLASSES, imgPredict, label)
 
             OA.append(out['OverallAccuracy'])
@@ -310,9 +300,7 @@ def plotcomp_n_metrics(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_b
                     plt.imshow(img[:,:,0], cmap='gray')
                 else:
                     plt.imshow(img)#, cmap='gray')
-                # if NCLASSES==1:
-                #     plt.imshow(color_label, alpha=0.1, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES)
-                # else:
+
                 plt.imshow(color_label, alpha=0.5)#, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES-1)
 
                 plt.axis('off')
@@ -322,9 +310,7 @@ def plotcomp_n_metrics(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_b
                     plt.imshow(img[:,:,0], cmap='gray')
                 else:
                     plt.imshow(img)#, cmap='gray')
-                # if NCLASSES==1:
-                # plt.imshow(color_estlabel, alpha=0.1, cmap=plt.cm.bwr)#, vmin=0, vmax=NCLASSES)
-                # else:
+
                 plt.imshow(color_estlabel, alpha=0.5)#, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES-1)
 
                 plt.axis('off')
@@ -456,13 +442,6 @@ val_ds = val_ds.repeat()
 val_ds = val_ds.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be needed on TPU
 val_ds = val_ds.prefetch(AUTO) #
 
-# ### find NCLASSES
-# for counter, (imgs,lbls) in enumerate(train_ds.take(1)):
-#     for count,(im,lab) in enumerate(zip(imgs, lbls)):
-#         NCLASSES = lab.shape[-1]
-# print('Number of classes = {}'.format(NCLASSES))
-
-
 ### the following code is for troubleshooting, when do_viz=True
 do_viz = False 
 # do_viz=True
@@ -473,10 +452,7 @@ if do_viz == True:
                             '#66AA00','#B82E2E', '#316395','#0d0887', '#46039f', '#7201a8',
                             '#9c179e', '#bd3786', '#d8576b', '#ed7953', '#fb9f3a', '#fdca26', '#f0f921']
 
-    # if NCLASSES>1:
     class_label_colormap = class_label_colormap[:NCLASSES]
-    # else:
-    #     class_label_colormap = class_label_colormap[:NCLASSES+1]
 
     for counter, (imgs,lbls) in enumerate(train_ds.take(10)):
         for count,(im,lab) in enumerate(zip(imgs, lbls)):
@@ -494,9 +470,6 @@ if do_viz == True:
                                             alpha=128, colormap=class_label_colormap,
                                             color_class_offset=0, do_alpha=False)
 
-            # if NCLASSES==1:
-            #     plt.imshow(color_label, alpha=0.75, vmin=0, vmax=NCLASSES)
-            # else:
             plt.imshow(color_label,  alpha=0.75, vmin=0, vmax=NCLASSES)
 
             plt.axis('off')
@@ -585,15 +558,6 @@ if USE_MULTI_GPU:
         else:
             print("Model must be one of 'unet', 'resunet', or 'satunet'")
             sys.exit(2)
-
-        # if LOSS=='hinge':
-        #     model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalHinge(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
-        # elif LOSS=='dice':
-        #     model.compile(optimizer = 'adam', loss =dice_coef_loss(NCLASSES), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
-        # elif LOSS.startswith('cat'):
-        #     model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalCrossentropy(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
-        # elif LOSS.startswith('k'):
-        #     model.compile(optimizer = 'adam', loss =tf.keras.losses.KLDivergence(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)]) #, steps_per_execution=2, jit_compile=True
 
 else:
 
@@ -690,9 +654,6 @@ if LOSS=='dice':
             class_weights = 1-(class_weights/np.sum(class_weights))
             print("Model compiled with class weights {}".format(class_weights)) 
         else:
-            # if NCLASSES==1:
-            #     class_weights = np.ones(NCLASSES+1)
-            # else:
             class_weights = np.ones(NCLASSES)
     
         model.compile(optimizer = 'adam', loss =weighted_dice_coef_loss(NCLASSES,class_weights), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
