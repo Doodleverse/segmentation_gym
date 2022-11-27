@@ -300,10 +300,6 @@ print('Using model for prediction on images ...')
 if not 'TESTTIMEAUG' in locals():
     print("TESTTIMEAUG not found in config file(s). Setting to False")
     TESTTIMEAUG = False
-#look for do_crf in config
-if not 'DO_CRF' in locals():
-    print("TESTTIMEAUG not found in config file(s). Setting to False")
-    DO_CRF = False
 if not 'WRITE_MODELMETADATA' in locals():
     print("WRITE_MODELMETADATA not found in config file(s). Setting to False")
     WRITE_MODELMETADATA = False
@@ -314,7 +310,7 @@ if not 'OTSU_THRESHOLD' in locals():
 # Import do_seg() from doodleverse_utils to perform the segmentation on the images
 for f in tqdm(sample_filenames):
     try:
-        do_seg(f, M, metadatadict, sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TESTTIMEAUG, WRITE_MODELMETADATA,DO_CRF,OTSU_THRESHOLD)
+        do_seg(f, M, metadatadict, sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TESTTIMEAUG, WRITE_MODELMETADATA,OTSU_THRESHOLD)
     except:
         print("{} failed. Check config file, and check the path provided contains valid imagery".format(f))
 
