@@ -713,13 +713,20 @@ callbacks = [model_checkpoint, earlystop, lr_callback]
 if DO_TRAIN:
 
     if 'HOT_START' in locals():
+        if 'INITIAL_EPOCH' not in locals():
+            print("if HOT_START is specified, INITIAL_EPOCH must also be specified in the config file. Exiting ...")
+            sys.exit(2)
         model.load_weights(HOT_START)
         print('transfering model weights for hot start ...')
+    else:
+        if 'INITIAL_EPOCH' not in locals():
+            INITIAL_EPOCH=0
+            print("INITIAL_EPOCH not specified in the config file. Setting to default of 0 ...")
 
     print('.....................................')
     print('Training model ...')
     history = model.fit(train_ds, steps_per_epoch=steps_per_epoch, epochs=MAX_EPOCHS,
-                        validation_data=val_ds, validation_steps=validation_steps,
+                        validation_data=val_ds, validation_steps=validation_steps, initial_epoch=INITIAL_EPOCH,
                         callbacks=callbacks)
 
     # Plot training history
