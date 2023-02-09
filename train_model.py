@@ -86,7 +86,7 @@ else:
     print('Warning: using CPU - model training will be slow')
 
 if len(SET_GPU.split(','))>1:
-    USE_MULTI_GPU = True 
+    USE_MULTI_GPU = True
     print('Using multiple GPUs')
 else:
     USE_MULTI_GPU = False
@@ -279,7 +279,7 @@ def plotcomp_n_metrics(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_b
             #one-hot encode
             nx,ny = est_label.shape
             lstack = np.zeros((nx,ny,NCLASSES))
-            lstack[:,:,:NCLASSES+1] = (np.arange(NCLASSES) == 1+est_label[...,None]-1).astype(int) 
+            lstack[:,:,:NCLASSES+1] = (np.arange(NCLASSES) == 1+est_label[...,None]-1).astype(int)
 
             #compute on one-hot encoded integer tensors
             kld = kl(tf.squeeze(lbl), lstack).numpy()
@@ -343,7 +343,7 @@ def plotcomp_n_metrics(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_b
     metrics_table['MatthewsCorrelationCoefficient'] = np.array(MCC)
 
     df_out1 = pd.DataFrame.from_dict(metrics_table)
-    df_out1.to_csv(test_samples_fig.replace('_val.png', '_model_metrics_per_sample.csv'))
+    df_out1.to_csv(test_samples_fig.replace('_val.png', '_model_metrics_per_sample_'+subset+'.csv'))
 
     metrics_per_class = {}
     for k in range(NCLASSES):
@@ -352,7 +352,7 @@ def plotcomp_n_metrics(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_b
         metrics_per_class['Precision_class{}'.format(k)] = np.array(P)[:,k]
 
     df_out2 = pd.DataFrame.from_dict(metrics_per_class)
-    df_out2.to_csv(test_samples_fig.replace('_val.png', '_model_metrics_per_sample_per_class.csv'))
+    df_out2.to_csv(test_samples_fig.replace('_val.png', '_model_metrics_per_sample_per_class_'+subset+'.csv'))
 
     return IOUc, Dc, Kc, OA, MIOU, FWIOU, MCC
 
@@ -443,7 +443,7 @@ val_ds = val_ds.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be 
 val_ds = val_ds.prefetch(AUTO) #
 
 ### the following code is for troubleshooting, when do_viz=True
-do_viz = False 
+do_viz = False
 # do_viz=True
 
 if do_viz == True:
@@ -637,7 +637,7 @@ if LOSS=='dice':
 
             print("Computing loss weights per class ...")
             N = []
-            # compute class-frequency distribution for 30 batches of training images 
+            # compute class-frequency distribution for 30 batches of training images
             for _,lbls in train_ds.take(30):
                 for _,lab in zip(_, lbls):
                     lab = np.argmax(lab.numpy().squeeze(),-1).flatten()
@@ -652,10 +652,10 @@ if LOSS=='dice':
             class_weights = np.array(LOSS_WEIGHTS)
             # inverse weighting
             class_weights = 1-(class_weights/np.sum(class_weights))
-            print("Model compiled with class weights {}".format(class_weights)) 
+            print("Model compiled with class weights {}".format(class_weights))
         else:
             class_weights = np.ones(NCLASSES)
-    
+
         model.compile(optimizer = 'adam', loss =weighted_dice_coef_loss(NCLASSES,class_weights), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
 
     else:
