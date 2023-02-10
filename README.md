@@ -107,8 +107,8 @@ conda activate gym
 ```
 conda create -n gym python=3.8
 conda activate gym
-conda install -c conda-forge scipy "numpy>=1.16.5, <=1.23.0" scikit-image cython ipython joblib tqdm pandas pip plotly natsort pydensecrf matplotlib
-pip install doodleverse_utils
+conda install -c conda-forge scipy "numpy>=1.16.5, <=1.23.0" scikit-image cython ipython joblib tqdm pandas pip plotly natsort pydensecrf matplotlib 
+pip install doodleverse_utils transformers
 ```
 
 Then run one of the following two commands:

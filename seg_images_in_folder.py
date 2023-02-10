@@ -3,7 +3,7 @@
 #
 # MIT License
 #
-# Copyright (c) 2020-22, Marda Science LLC
+# Copyright (c) 2021-23, Marda Science LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -145,7 +145,6 @@ for counter,weights in enumerate(W):
         ### mixed precision
         from tensorflow.keras import mixed_precision
         mixed_precision.set_global_policy('mixed_float16')
-        # tf.debugging.set_log_device_placement(True)
 
         for i in physical_devices:
             tf.config.experimental.set_memory_growth(i, True)
@@ -155,7 +154,6 @@ for counter,weights in enumerate(W):
             # Create a MirroredStrategy.
             strategy = tf.distribute.MirroredStrategy([p.name.split('/physical_device:')[-1] for p in physical_devices], cross_device_ops=tf.distribute.HierarchicalCopyAllReduce())
             print("Number of distributed devices: {}".format(strategy.num_replicas_in_sync))
-
 
     #from imports import *
     from doodleverse_utils.imports import *
@@ -172,6 +170,7 @@ for counter,weights in enumerate(W):
     # 5. satunet
     # 6. custom_resunet
     # 7. custom_satunet
+    # 8. segformer (pre-trained)
 
     # Get the selected model based on the weights file's MODEL key provided
     # create the model with the data loaded in from the weights file
@@ -245,28 +244,46 @@ for counter,weights in enumerate(W):
                     num_layers=4,
                     strides=(1,1))
 
+    elif MODEL=='segformer':
+        id2label = {}
+        for k in range(NCLASSES):
+            id2label[k]=str(k)
+        model = segformer(id2label,num_classes=NCLASSES)
+        model.compile(optimizer='adam')
+
     else:
-        print("Model must be one of 'unet', 'resunet', or 'satunet'")
+        print("Model must be one of 'unet', 'resunet', 'segformer', or 'satunet'")
         sys.exit(2)
 
-    try:
-        # Load in the model from the weights which is the location of the weights file        
-        model = tf.keras.models.load_model(weights)
+    if MODEL!='segformer':
+        try:
 
-        M.append(model)
-        C.append(configfile)
-        T.append(MODEL)
-        
-    except:
-        # Load the metrics mean_iou, dice_coef from doodleverse_utils
-        # Load in the custom loss function from doodleverse_utils        
-        model.compile(optimizer = 'adam', loss = dice_coef_loss(NCLASSES))#, metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
+            # Load in the model from the weights which is the location of the weights file        
+            model = tf.keras.models.load_model(weights)
 
-        model.load_weights(weights)
+            M.append(model)
+            C.append(configfile)
+            T.append(MODEL)
+            
+        except:
+            # Load the metrics mean_iou, dice_coef from doodleverse_utils
+            # Load in the custom loss function from doodleverse_utils        
+            model.compile(optimizer = 'adam', loss = dice_coef_loss(NCLASSES))#, metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
 
-        M.append(model)
-        C.append(configfile)
-        T.append(MODEL)
+            model.load_weights(weights)
+
+            M.append(model)
+            C.append(configfile)
+            T.append(MODEL)
+
+    else:
+            model.compile(optimizer = 'adam')
+
+            model.load_weights(weights)
+
+            M.append(model)
+            C.append(configfile)
+            T.append(MODEL)
 
 # metadatadict contains the model name (T) the config file(C) and the model weights(W)
 metadatadict = {}
