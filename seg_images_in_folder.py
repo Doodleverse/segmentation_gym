@@ -327,7 +327,7 @@ if not 'OTSU_THRESHOLD' in locals():
 # Import do_seg() from doodleverse_utils to perform the segmentation on the images
 for f in tqdm(sample_filenames):
     try:
-        do_seg(f, M, metadatadict, sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TESTTIMEAUG, WRITE_MODELMETADATA,OTSU_THRESHOLD)
+        do_seg(f, M, metadatadict, MODEL, sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TESTTIMEAUG, WRITE_MODELMETADATA,OTSU_THRESHOLD)
     except:
         print("{} failed. Check config file, and check the path provided contains valid imagery".format(f))
 
