@@ -247,6 +247,9 @@ def read_seg_dataset_multiclass_segformer(example):
     image, label = tf.py_function(func=load_npz, inp=[example], Tout=[tf.float32, tf.uint8])
 
     imdim = image.shape[0]
+    
+    if N_DATA_BANDS==1:
+        image = np.dstack((image, image, image))
 
     image = tf.transpose(image, (2, 0, 1))
     image.set_shape([N_DATA_BANDS, imdim, imdim])
