@@ -249,10 +249,14 @@ def read_seg_dataset_multiclass_segformer(example):
     imdim = image.shape[0]
     
     if N_DATA_BANDS==1:
-        image = np.dstack((image, image, image))
+        image = tf.concat([image, image, image], axis=2)
 
     image = tf.transpose(image, (2, 0, 1))
-    image.set_shape([N_DATA_BANDS, imdim, imdim])
+
+    if N_DATA_BANDS==1:
+        image.set_shape([3, imdim, imdim])
+    else:
+        image.set_shape([N_DATA_BANDS, imdim, imdim])
     
     label.set_shape([imdim, imdim])
 
