@@ -292,9 +292,16 @@ for counter, (configfile, weights, data_path) in enumerate(zip(C,W,D)):
         image, label = tf.py_function(func=load_npz, inp=[example], Tout=[tf.float32, tf.uint8])
 
         imdim = image.shape[0]
+        
+        if N_DATA_BANDS==1:
+            image = tf.concat([image, image, image], axis=2)
 
         image = tf.transpose(image, (2, 0, 1))
-        image.set_shape([N_DATA_BANDS, imdim, imdim])
+
+        if N_DATA_BANDS==1:
+            image.set_shape([3, imdim, imdim])
+        else:
+            image.set_shape([N_DATA_BANDS, imdim, imdim])
         
         label.set_shape([imdim, imdim])
 
