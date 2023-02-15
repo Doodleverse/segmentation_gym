@@ -86,7 +86,7 @@ else:
     print('Warning: using CPU - model training will be slow')
 
 if len(SET_GPU.split(','))>1:
-    USE_MULTI_GPU = True 
+    USE_MULTI_GPU = True
     print('Using multiple GPUs')
 else:
     USE_MULTI_GPU = False
@@ -303,6 +303,7 @@ def plotcomp_n_metrics(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,MODEL
                 imgPredict = tf.math.argmax(est_label, axis=1)[0]
 
                 out = AllMetrics(NCLASSES, imgPredict, lbl)
+
 
                 OA.append(out['OverallAccuracy'])
                 FWIOU.append(out['Frequency_Weighted_Intersection_over_Union'])
@@ -586,7 +587,7 @@ val_ds = val_ds.prefetch(AUTO) #
 
 
 ### the following code is for troubleshooting, when do_viz=True
-do_viz = False 
+do_viz = False
 # do_viz=True
 
 if do_viz == True:
@@ -841,7 +842,6 @@ if MODEL!='segformer':
                 class_weights = np.ones(NCLASSES)
 
                 model.compile(optimizer = 'adam', loss =weighted_dice_coef_loss(NCLASSES,class_weights), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
-
         else:
                 model.compile(optimizer = 'adam', loss =dice_coef_loss(NCLASSES), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
 
@@ -969,3 +969,4 @@ print('Mean of mean frequency weighted IoUs, confusion matrix (train subset)={me
 print('Mean of Matthews Correlation Coefficients (train subset)={mean_dice:0.3f}'.format(mean_dice=np.mean(MCC)))
 print('Mean of mean Dice scores (train subset)={mean_dice:0.3f}'.format(mean_dice=np.mean(Dc)))
 print('Mean of mean KLD scores (train subset)={mean_kld:0.3f}'.format(mean_kld=np.mean(Kc)))
+
