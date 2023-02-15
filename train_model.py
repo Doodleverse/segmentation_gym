@@ -3,7 +3,7 @@
 #
 # MIT License
 #
-# Copyright (c) 2021-22, Marda Science LLC
+# Copyright (c) 2021-23, Marda Science LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -29,6 +29,7 @@ from tkinter import filedialog
 from tkinter import *
 from random import shuffle
 import pandas as pd
+from skimage.transform import resize
 
 ###############################################################
 ## VARIABLES
@@ -63,7 +64,6 @@ with open(configfile) as f:
 for k in config.keys():
     exec(k+'=config["'+k+'"]')
 
-## NCLASSES>=2
 if NCLASSES>1:
     pass
 else:
@@ -124,14 +124,14 @@ else:
     physical_devices = tf.config.experimental.list_physical_devices('GPU')
     print(physical_devices)
 
-### mixed precision
-from tensorflow.keras import mixed_precision
-try:
-    mixed_precision.set_global_policy('mixed_float16')
-except:
-    mixed_precision.experimental.set_policy('mixed_float16')
+if MODEL!='segformer':
+    ### mixed precision
+    from tensorflow.keras import mixed_precision
+    try:
+        mixed_precision.set_global_policy('mixed_float16')
+    except:
+        mixed_precision.experimental.set_policy('mixed_float16')
 
-# tf.debugging.set_log_device_placement(True)
 
 for i in physical_devices:
     tf.config.experimental.set_memory_growth(i, True)
@@ -205,7 +205,7 @@ def load_npz(example):
         image = standardize(image)
         label = data['arr_1'].astype('uint8')
 
-    return image, label#, file
+    return image, label
 
 
 @tf.autograph.experimental.do_not_convert
@@ -222,7 +222,6 @@ def read_seg_dataset_multiclass(example):
         * image [tensor array]
         * class_label [tensor array]
     """
-    #image, label, file = tf.py_function(func=load_npz, inp=[example], Tout=[tf.float32, tf.uint8, tf.string])
     image, label = tf.py_function(func=load_npz, inp=[example], Tout=[tf.float32, tf.uint8])
 
     if NCLASSES==2:
@@ -231,8 +230,43 @@ def read_seg_dataset_multiclass(example):
     return image, label
 
 
+@tf.autograph.experimental.do_not_convert
 #-----------------------------------
-def plotcomp_n_metrics(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_batches=20):
+def read_seg_dataset_multiclass_segformer(example):
+    """
+    "read_seg_dataset_multiclass_segformer(example)"
+    This function reads an example from a npz file into a single image and label
+    INPUTS:
+        * dataset example object (filename of npz)
+    OPTIONAL INPUTS: None
+    GLOBAL INPUTS: N_DATA_BANDS
+    OUTPUTS:
+        * image [tensor array]
+        * class_label [tensor array]
+    """
+    image, label = tf.py_function(func=load_npz, inp=[example], Tout=[tf.float32, tf.uint8])
+
+    imdim = image.shape[0]
+    
+    if N_DATA_BANDS==1:
+        image = tf.concat([image, image, image], axis=2)
+
+    image = tf.transpose(image, (2, 0, 1))
+
+    if N_DATA_BANDS==1:
+        image.set_shape([3, imdim, imdim])
+    else:
+        image.set_shape([N_DATA_BANDS, imdim, imdim])
+    
+    label.set_shape([imdim, imdim])
+
+    label = tf.squeeze(tf.argmax(tf.squeeze(label),-1))
+
+    return {"pixel_values": image, "labels": label}
+
+
+#-----------------------------------
+def plotcomp_n_metrics(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,MODEL,num_batches=20):
 
     class_label_colormap = ['#3366CC','#DC3912','#FF9900','#109618','#990099','#0099C6','#DD4477',
                             '#66AA00','#B82E2E', '#316395','#0d0887', '#46039f', '#7201a8',
@@ -244,93 +278,195 @@ def plotcomp_n_metrics(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,num_b
     OA = []; MIOU = []; FWIOU = []
     F1 = []; P =[]; R = []; MCC=[]
     counter = 0
-    for i,l in ds.take(num_batches):
 
-        for img,lbl in zip(i,l):
+    if MODEL=='segformer':
 
-            img = standardize(img)
+        for samples in ds.take(num_batches):
 
-            try:
-                est_label = model.predict(tf.expand_dims(img, 0) , batch_size=1)
-            except:
-                est_label = model.predict(tf.expand_dims(img[:,:,0], 0) , batch_size=1)
+            for img,lbl in zip(samples["pixel_values"],samples["labels"]):
 
-            imgPredict = np.argmax(est_label.squeeze(),axis=-1)
-            label = np.argmax(tf.squeeze(lbl),axis=-1)
+                img = tf.transpose(img, (1, 2, 0))
 
-            out = AllMetrics(NCLASSES, imgPredict, label)
+                img = img.numpy() 
+                img = standardize(img)
 
-            OA.append(out['OverallAccuracy'])
-            FWIOU.append(out['Frequency_Weighted_Intersection_over_Union'])
-            MIOU.append(out['MeanIntersectionOverUnion'])
-            F1.append(out['F1Score'])
-            R.append(out['Recall'])
-            P.append(out['Precision'])
-            MCC.append(out['MatthewsCorrelationCoefficient'])
+                img = tf.transpose(img, (2, 0, 1))
+                img = np.expand_dims(img,axis=0)
 
-            iouscore = mean_iou_np(tf.expand_dims(tf.squeeze(lbl), 0), est_label, NCLASSES)
+                #We use the model to make a prediction on this image
+                est_label = model.predict(img).logits
 
-            dicescore = mean_dice_np(tf.expand_dims(tf.squeeze(lbl), 0), est_label, NCLASSES)
+                nR, nC = lbl.shape
+                # est_label = scale(est_label, nR, nC)
+                est_label = resize(est_label, (1, NCLASSES, nR,nC), preserve_range=True, clip=True)
 
-            kl = tf.keras.losses.KLDivergence() #initiate object
+                imgPredict = tf.math.argmax(est_label, axis=1)[0]
 
-            est_label = np.argmax(est_label.squeeze(),axis=-1) #argmax to flatten()
+                out = AllMetrics(NCLASSES, imgPredict, lbl)
 
-            #one-hot encode
-            nx,ny = est_label.shape
-            lstack = np.zeros((nx,ny,NCLASSES))
-            lstack[:,:,:NCLASSES+1] = (np.arange(NCLASSES) == 1+est_label[...,None]-1).astype(int)
 
-            #compute on one-hot encoded integer tensors
-            kld = kl(tf.squeeze(lbl), lstack).numpy()
+                OA.append(out['OverallAccuracy'])
+                FWIOU.append(out['Frequency_Weighted_Intersection_over_Union'])
+                MIOU.append(out['MeanIntersectionOverUnion'])
+                F1.append(out['F1Score'])
+                R.append(out['Recall'])
+                P.append(out['Precision'])
+                MCC.append(out['MatthewsCorrelationCoefficient'])
 
-            img = rescale_array(np.array(img), 0, 1) ##.numpy()
+                # #one-hot encode
+                lstack = np.zeros((nR,nC,NCLASSES))
+                lstack[:,:,:NCLASSES+1] = (np.arange(NCLASSES) == 1+imgPredict.numpy()[...,None]-1).astype(int) 
 
-            color_estlabel = label_to_colors(est_label, tf.cast(img[:,:,0]==0,tf.uint8),
-                                            alpha=128, colormap=class_label_colormap,
-                                             color_class_offset=0, do_alpha=False)
+                lstack_gt = np.zeros((nR,nC,NCLASSES))
+                lstack_gt[:,:,:NCLASSES+1] = (np.arange(NCLASSES) == 1+lbl.numpy()[...,None]-1).astype(int) 
 
-            color_label = label_to_colors(np.argmax(tf.squeeze(lbl).numpy(),axis=-1), tf.cast(img[:,:,0]==0,tf.uint8),
-                                            alpha=128, colormap=class_label_colormap,
-                                             color_class_offset=0, do_alpha=False)
+                iouscore = mean_iou_np(tf.expand_dims(tf.squeeze(lstack_gt), 0), tf.expand_dims(tf.squeeze(lstack), 0), NCLASSES)
 
-            if DOPLOT:
-                plt.subplot(221)
-                if np.ndim(img)>=3:
-                    plt.imshow(img[:,:,0], cmap='gray')
-                else:
-                    plt.imshow(img)#, cmap='gray')
+                dicescore = mean_dice_np(tf.expand_dims(tf.squeeze(lstack_gt), 0), tf.expand_dims(tf.squeeze(lstack), 0), NCLASSES)
 
-                plt.imshow(color_label, alpha=0.5)#, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES-1)
+                kl = tf.keras.losses.KLDivergence() #initiate object
+                #compute on one-hot encoded integer tensors
+                kld = kl(tf.squeeze(lstack_gt), lstack).numpy()
 
-                plt.axis('off')
-
-                plt.subplot(222)
-                if np.ndim(img)>=3:
-                    plt.imshow(img[:,:,0], cmap='gray')
-                else:
-                    plt.imshow(img)#, cmap='gray')
-
-                plt.imshow(color_estlabel, alpha=0.5)#, cmap=plt.cm.bwr, vmin=0, vmax=NCLASSES-1)
-
-                plt.axis('off')
-                plt.title('dice = '+str(dicescore)[:5]+', kl = '+str(kld)[:5], fontsize=6)
                 IOUc.append(iouscore)
                 Dc.append(dicescore)
                 Kc.append(kld)
 
+                img = rescale_array(np.array(img), 0, 1) ##.numpy()
+                img = np.squeeze(img)
+                img = tf.transpose(img, (1, 2, 0))
+
+                color_estlabel = label_to_colors(imgPredict, tf.cast(img[:,:,0]==0,tf.uint8),
+                                                alpha=128, colormap=class_label_colormap,
+                                                color_class_offset=0, do_alpha=False)
+
+                color_label = label_to_colors(lbl.numpy(), tf.cast(img[:,:,0]==0,tf.uint8),
+                                                alpha=128, colormap=class_label_colormap,
+                                                color_class_offset=0, do_alpha=False)
+
+                if DOPLOT:
+                    plt.subplot(221)
+                    if np.ndim(img)>=3:
+                        plt.imshow(img[:,:,0], cmap='gray')
+                    else:
+                        plt.imshow(img)
+
+                    plt.imshow(color_label, alpha=0.5)
+
+                    plt.axis('off')
+
+                    plt.subplot(222)
+                    if np.ndim(img)>=3:
+                        plt.imshow(img[:,:,0], cmap='gray')
+                    else:
+                        plt.imshow(img)
+
+                    plt.imshow(color_estlabel, alpha=0.5)
+
+                    plt.axis('off')
+                    plt.title('dice = '+str(dicescore)[:5]+', kl = '+str(kld)[:5], fontsize=6)
+
+                    if subset=='val':
+                        plt.savefig(test_samples_fig.replace('_val.png', '_val_'+str(counter)+'.png'),
+                                dpi=200, bbox_inches='tight')
+                    else:
+                        plt.savefig(test_samples_fig.replace('_val.png', '_train_'+str(counter)+'.png'),
+                                dpi=200, bbox_inches='tight')
+
+                    plt.close('all')
+                counter += 1
+                K.clear_session()
                 del iouscore, dicescore, kld
 
-                if subset=='val':
-                    plt.savefig(test_samples_fig.replace('_val.png', '_val_'+str(counter)+'.png'),
-                            dpi=200, bbox_inches='tight')
-                else:
-                    plt.savefig(test_samples_fig.replace('_val.png', '_train_'+str(counter)+'.png'),
-                            dpi=200, bbox_inches='tight')
+    else: # models other than segformer
 
-                plt.close('all')
-            counter += 1
-            K.clear_session()
+        for i,l in ds.take(num_batches):
+
+            for img,lbl in zip(i,l):
+
+                img = standardize(img)
+
+                try:
+                    est_label = model.predict(tf.expand_dims(img, 0) , batch_size=1)
+                except:
+                    est_label = model.predict(tf.expand_dims(img[:,:,0], 0) , batch_size=1)
+
+                imgPredict = np.argmax(est_label.squeeze(),axis=-1)
+                label = np.argmax(tf.squeeze(lbl),axis=-1)
+
+                out = AllMetrics(NCLASSES, imgPredict, label)
+
+                OA.append(out['OverallAccuracy'])
+                FWIOU.append(out['Frequency_Weighted_Intersection_over_Union'])
+                MIOU.append(out['MeanIntersectionOverUnion'])
+                F1.append(out['F1Score'])
+                R.append(out['Recall'])
+                P.append(out['Precision'])
+                MCC.append(out['MatthewsCorrelationCoefficient'])
+
+                iouscore = mean_iou_np(tf.expand_dims(tf.squeeze(lbl), 0), est_label, NCLASSES)
+
+                dicescore = mean_dice_np(tf.expand_dims(tf.squeeze(lbl), 0), est_label, NCLASSES)
+
+                kl = tf.keras.losses.KLDivergence() 
+
+                est_label = np.argmax(est_label.squeeze(),axis=-1) 
+
+                #one-hot encode
+                nx,ny = est_label.shape
+                lstack = np.zeros((nx,ny,NCLASSES))
+                lstack[:,:,:NCLASSES+1] = (np.arange(NCLASSES) == 1+est_label[...,None]-1).astype(int) 
+
+                #compute on one-hot encoded integer tensors
+                kld = kl(tf.squeeze(lbl), lstack).numpy()
+
+                img = rescale_array(np.array(img), 0, 1) 
+
+                color_estlabel = label_to_colors(est_label, tf.cast(img[:,:,0]==0,tf.uint8),
+                                                alpha=128, colormap=class_label_colormap,
+                                                color_class_offset=0, do_alpha=False)
+
+                color_label = label_to_colors(np.argmax(tf.squeeze(lbl).numpy(),axis=-1), tf.cast(img[:,:,0]==0,tf.uint8),
+                                                alpha=128, colormap=class_label_colormap,
+                                                color_class_offset=0, do_alpha=False)
+
+                if DOPLOT:
+                    plt.subplot(221)
+                    if np.ndim(img)>=3:
+                        plt.imshow(img[:,:,0], cmap='gray')
+                    else:
+                        plt.imshow(img)
+
+                    plt.imshow(color_label, alpha=0.5)
+
+                    plt.axis('off')
+
+                    plt.subplot(222)
+                    if np.ndim(img)>=3:
+                        plt.imshow(img[:,:,0], cmap='gray')
+                    else:
+                        plt.imshow(img)
+
+                    plt.imshow(color_estlabel, alpha=0.5)
+
+                    plt.axis('off')
+                    plt.title('dice = '+str(dicescore)[:5]+', kl = '+str(kld)[:5], fontsize=6)
+                    IOUc.append(iouscore)
+                    Dc.append(dicescore)
+                    Kc.append(kld)
+
+                    del iouscore, dicescore, kld
+
+                    if subset=='val':
+                        plt.savefig(test_samples_fig.replace('_val.png', '_val_'+str(counter)+'.png'),
+                                dpi=200, bbox_inches='tight')
+                    else:
+                        plt.savefig(test_samples_fig.replace('_val.png', '_train_'+str(counter)+'.png'),
+                                dpi=200, bbox_inches='tight')
+
+                    plt.close('all')
+                counter += 1
+                K.clear_session()
 
 
     metrics_table = np.vstack((OA,MIOU,FWIOU)).T
@@ -431,16 +567,24 @@ np.savetxt(weights.replace('.h5','_val_files.txt'), val_files, fmt='%s')
 #####################
 # Set `num_parallel_calls` so multiple images are loaded/processed in parallel.
 
-train_ds = train_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
+if MODEL=='segformer':
+    train_ds = train_ds.map(read_seg_dataset_multiclass_segformer, num_parallel_calls=AUTO)
+
+    val_ds = val_ds.map(read_seg_dataset_multiclass_segformer, num_parallel_calls=AUTO)
+
+else:
+    train_ds = train_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
+    val_ds = val_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
+
+
 train_ds = train_ds.repeat()
 train_ds = train_ds.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be needed on TPU (and possible with distributed gpus)
 train_ds = train_ds.prefetch(AUTO) #
 
-
-val_ds = val_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
 val_ds = val_ds.repeat()
 val_ds = val_ds.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be needed on TPU
 val_ds = val_ds.prefetch(AUTO) #
+
 
 ### the following code is for troubleshooting, when do_viz=True
 do_viz = False
@@ -454,18 +598,20 @@ if do_viz == True:
 
     class_label_colormap = class_label_colormap[:NCLASSES]
 
-    for counter, (imgs,lbls) in enumerate(train_ds.take(10)):
-        for count,(im,lab) in enumerate(zip(imgs, lbls)):
-            print(im.shape)
+    if MODEL=='segformer':
+
+        for counter, samples in enumerate(train_ds.take(10)):
+            sample_image, sample_mask = samples["pixel_values"][0], samples["labels"][0]
+            sample_image = tf.transpose(sample_image, (1, 2, 0))
+            sample_mask = tf.expand_dims(sample_mask, -1)
+
+            im = sample_image.numpy() #tf.keras.utils.array_to_img(sample_image)
+            lab = sample_mask.numpy() #tf.keras.utils.array_to_img(sample_mask)
+
             if im.shape[-1]>3:
                 plt.imshow(im[:,:,:3])
             else:
                 plt.imshow(im)
-
-            print(lab.shape)
-            lab = np.argmax(lab.numpy().squeeze(),-1)
-            print(np.unique(lab))
-
             color_label = label_to_colors(np.squeeze(lab), tf.cast(im[:,:,0]==0,tf.uint8),
                                             alpha=128, colormap=class_label_colormap,
                                             color_class_offset=0, do_alpha=False)
@@ -473,9 +619,33 @@ if do_viz == True:
             plt.imshow(color_label,  alpha=0.75, vmin=0, vmax=NCLASSES)
 
             plt.axis('off')
-            #plt.show()
-            plt.savefig('example-{}-{}.png'.format(counter,count), dpi=200)
+            plt.savefig('example-{}.png'.format(counter), dpi=300)
             plt.close()
+
+    else:
+
+        for counter, (imgs,lbls) in enumerate(train_ds.take(10)):
+            for count,(im,lab) in enumerate(zip(imgs, lbls)):
+                print(im.shape)
+                if im.shape[-1]>3:
+                    plt.imshow(im[:,:,:3])
+                else:
+                    plt.imshow(im)
+
+                print(lab.shape)
+                lab = np.argmax(lab.numpy().squeeze(),-1)
+                print(np.unique(lab))
+
+                color_label = label_to_colors(np.squeeze(lab), tf.cast(im[:,:,0]==0,tf.uint8),
+                                                alpha=128, colormap=class_label_colormap,
+                                                color_class_offset=0, do_alpha=False)
+
+                plt.imshow(color_label,  alpha=0.75, vmin=0, vmax=NCLASSES)
+
+                plt.axis('off')
+                #plt.show()
+                plt.savefig('example-{}-{}.png'.format(counter,count), dpi=200)
+                plt.close()
 
 
 ##===============================================
@@ -492,7 +662,7 @@ if USE_MULTI_GPU:
         if MODEL =='resunet':
             model =  custom_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                             FILTERS,
-                            nclasses=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                            nclasses=NCLASSES, 
                             kernel_size=(KERNEL,KERNEL),
                             strides=STRIDE,
                             dropout=DROPOUT,
@@ -503,7 +673,7 @@ if USE_MULTI_GPU:
         elif MODEL=='unet':
             model =  custom_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                             FILTERS,
-                            nclasses=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                            nclasses=NCLASSES, 
                             kernel_size=(KERNEL,KERNEL),
                             strides=STRIDE,
                             dropout=DROPOUT,
@@ -516,7 +686,7 @@ if USE_MULTI_GPU:
 
             model = simple_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                         kernel = (2, 2),
-                        num_classes=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                        num_classes=NCLASSES,
                         activation="relu",
                         use_batch_norm=True,
                         dropout=DROPOUT,
@@ -530,7 +700,7 @@ if USE_MULTI_GPU:
         elif MODEL=='simple_unet':
             model = simple_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                         kernel = (2, 2),
-                        num_classes=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                        num_classes=NCLASSES,
                         activation="relu",
                         use_batch_norm=True,
                         dropout=DROPOUT,
@@ -544,7 +714,7 @@ if USE_MULTI_GPU:
         elif MODEL=='satunet':
             model = custom_satunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                         kernel = (2, 2),
-                        num_classes=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                        num_classes=NCLASSES, 
                         activation="relu",
                         use_batch_norm=True,
                         dropout=DROPOUT,
@@ -555,40 +725,47 @@ if USE_MULTI_GPU:
                         num_layers=4,
                         strides=(1,1))
 
+        elif MODEL=='segformer':
+            id2label = {}
+            for k in range(NCLASSES):
+                id2label[k]=str(k)
+            model = segformer(id2label,num_classes=NCLASSES)
+            model.compile(optimizer='adam')
+
         else:
-            print("Model must be one of 'unet', 'resunet', or 'satunet'")
+            print("Model must be one of 'unet', 'resunet', 'segformer', or 'satunet'")
             sys.exit(2)
 
-else:
+else: ## single GPU
 
     if MODEL =='resunet':
         model =  custom_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                         FILTERS,
-                        nclasses=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                        nclasses=NCLASSES, 
                         kernel_size=(KERNEL,KERNEL),
                         strides=STRIDE,
-                        dropout=DROPOUT,#0.1,
-                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
-                        dropout_type=DROPOUT_TYPE,#"standard",
+                        dropout=DROPOUT,
+                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
+                        dropout_type=DROPOUT_TYPE,
                         use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING
                         )
     elif MODEL=='unet':
         model =  custom_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                         FILTERS,
-                        nclasses=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                        nclasses=NCLASSES, 
                         kernel_size=(KERNEL,KERNEL),
                         strides=STRIDE,
-                        dropout=DROPOUT,#0.1,
-                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
-                        dropout_type=DROPOUT_TYPE,#"standard",
-                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
+                        dropout=DROPOUT,
+                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
+                        dropout_type=DROPOUT_TYPE,
+                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
                         )
 
     elif MODEL =='simple_resunet':
 
         model = simple_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                     kernel = (2, 2),
-                    num_classes=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                    num_classes=NCLASSES, 
                     activation="relu",
                     use_batch_norm=True,
                     dropout=DROPOUT,
@@ -602,7 +779,7 @@ else:
     elif MODEL=='simple_unet':
         model = simple_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                     kernel = (2, 2),
-                    num_classes=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                    num_classes=NCLASSES, 
                     activation="relu",
                     use_batch_norm=True,
                     dropout=DROPOUT,
@@ -616,7 +793,7 @@ else:
     elif MODEL=='satunet':
         model = custom_satunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                     kernel = (2, 2),
-                    num_classes=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                    num_classes=NCLASSES, 
                     activation="relu",
                     use_batch_norm=True,
                     dropout=DROPOUT,
@@ -627,49 +804,54 @@ else:
                     num_layers=4,
                     strides=(1,1))
 
+    elif MODEL=='segformer':
+        id2label = {}
+        for k in range(NCLASSES):
+            id2label[k]=str(k)
+        model = segformer(id2label,num_classes=NCLASSES)
+        model.compile(optimizer='adam')
+
     else:
-        print("Model must be one of 'unet', 'resunet', or 'satunet'")
+        print("Model must be one of 'unet', 'resunet', 'segformer', or 'satunet'")
         sys.exit(2)
 
-if LOSS=='dice':
-    if 'LOSS_WEIGHTS' in locals():
-        if LOSS_WEIGHTS is True:
+if MODEL!='segformer':
+    if LOSS=='dice':
+        if 'LOSS_WEIGHTS' in locals():
+            if LOSS_WEIGHTS is True:
 
-            print("Computing loss weights per class ...")
-            N = []
-            # compute class-frequency distribution for 30 batches of training images
-            for _,lbls in train_ds.take(30):
-                for _,lab in zip(_, lbls):
-                    lab = np.argmax(lab.numpy().squeeze(),-1).flatten()
-                    # make sure bincount is same length as number of classes
-                    N.append(np.bincount(lab,minlength=NCLASSES)) #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0]))
-            # mean of class-frequencies
-            class_weights = np.mean(np.vstack(N),axis=0)
-            # inverse weighting
-            class_weights = 1-(class_weights/np.sum(class_weights))
+                    print("Computing loss weights per class ...")
+                    N = []
+                    # compute class-frequency distribution for 30 batches of training images 
+                    for _,lbls in train_ds.take(30):
+                        for _,lab in zip(_, lbls):
+                            lab = np.argmax(lab.numpy().squeeze(),-1).flatten()
+                            # make sure bincount is same length as number of classes
+                            N.append(np.bincount(lab,minlength=NCLASSES)) #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0]))
+                    # mean of class-frequencies
+                    class_weights = np.mean(np.vstack(N),axis=0)
+                    # inverse weighting
+                    class_weights = 1-(class_weights/np.sum(class_weights))
 
-        elif type(LOSS_WEIGHTS) is list:
-            class_weights = np.array(LOSS_WEIGHTS)
-            # inverse weighting
-            class_weights = 1-(class_weights/np.sum(class_weights))
-            print("Model compiled with class weights {}".format(class_weights))
+            elif type(LOSS_WEIGHTS) is list:
+                    class_weights = np.array(LOSS_WEIGHTS)
+                    # inverse weighting
+                    class_weights = 1-(class_weights/np.sum(class_weights))
+                    print("Model compiled with class weights {}".format(class_weights)) 
+            else:
+                class_weights = np.ones(NCLASSES)
+
+                model.compile(optimizer = 'adam', loss =weighted_dice_coef_loss(NCLASSES,class_weights), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
         else:
-            class_weights = np.ones(NCLASSES)
-
-        model.compile(optimizer = 'adam', loss =weighted_dice_coef_loss(NCLASSES,class_weights), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
+                model.compile(optimizer = 'adam', loss =dice_coef_loss(NCLASSES), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
 
     else:
-
-        model.compile(optimizer = 'adam', loss =dice_coef_loss(NCLASSES), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
-
-else:
-
-    if LOSS=='hinge':
-        model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalHinge(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)]) #, steps_per_execution=2, jit_compile=True
-    elif LOSS.startswith('cat'):
-        model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalCrossentropy(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
-    elif LOSS.startswith('k'):
-        model.compile(optimizer = 'adam', loss =tf.keras.losses.KLDivergence(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
+            if LOSS=='hinge':
+                model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalHinge(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)]) #, steps_per_execution=2, jit_compile=True
+            elif LOSS.startswith('cat'):
+                model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalCrossentropy(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
+            elif LOSS.startswith('k'):
+                model.compile(optimizer = 'adam', loss =tf.keras.losses.KLDivergence(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
 
 #----------------------------------------------------------
 
@@ -692,6 +874,7 @@ elif MODEL=='unet':
         tf.keras.utils.plot_model(model,to_file="unet_test.png",dpi=200)
     except:
         pass
+
 earlystop = EarlyStopping(monitor="val_loss",
                             mode="min", patience=PATIENCE)
 
@@ -730,20 +913,26 @@ if DO_TRAIN:
                         callbacks=callbacks)
 
     # Plot training history
-    plot_seg_history_iou(history, hist_fig)
+    plot_seg_history_iou(history, hist_fig, MODEL)
 
     plt.close('all')
     K.clear_session()
 
-    model.save(weights.replace('.h5','_fullmodel.h5'))
+    if MODEL=='segformer':
+        model.save_weights(weights.replace('.h5','_fullmodel.h5'))
+    else:
+        model.save(weights.replace('.h5','_fullmodel.h5'))
 
     np.savez_compressed(weights.replace('.h5','_model_history.npz'),**history.history)
 
 else:
-    try:
-        model = tf.keras.models.load_model(weights.replace('.h5','_fullmodel.h5'))
-    except:
-        model.load_weights(weights)
+    if MODEL!='segformer':
+        try:
+            model = tf.keras.models.load_model(weights.replace('.h5','_fullmodel.h5'))
+        except:
+            model.load_weights(weights)
+    else:
+            model.load_weights(weights)
 
 
 # # ##########################################################
@@ -756,11 +945,14 @@ print('Evaluating model on entire validation set ...')
 # # testing
 scores = model.evaluate(val_ds, steps=validation_steps)
 
-print('loss={loss:0.4f}, Mean IOU={mean_iou:0.4f}, Mean Dice={mean_dice:0.4f}'.format(loss=scores[0], mean_iou=scores[1], mean_dice=scores[2]))
+if MODEL!='segformer':
+    print('loss={loss:0.4f}, Mean IOU={mean_iou:0.4f}, Mean Dice={mean_dice:0.4f}'.format(loss=scores[0], mean_iou=scores[1], mean_dice=scores[2]))
+else:
+    print('loss={loss:0.4f}'.format(loss=scores))
 
 # # # ##########################################################
 IOUc, Dc, Kc, OA, MIOU, FWIOU, MCC = plotcomp_n_metrics(
-                                val_ds,model,NCLASSES,DOPLOT,test_samples_fig,'val')
+                                val_ds,model,NCLASSES,DOPLOT,test_samples_fig,'val', MODEL)
 print('Mean of mean IoUs (validation subset)={mean_iou:0.3f}'.format(mean_iou=np.mean(IOUc)))
 print('Mean of mean IoUs, confusion matrix (validation subset)={mean_iou:0.3f}'.format(mean_iou=np.mean(MIOU)))
 print('Mean of mean frequency weighted IoUs, confusion matrix (validation subset)={mean_iou:0.3f}'.format(mean_iou=np.mean(FWIOU)))
@@ -770,7 +962,7 @@ print('Mean of mean KLD scores (validation subset)={mean_kld:0.3f}'.format(mean_
 
 
 IOUc, Dc, Kc, OA, MIOU, FWIOU, MCC = plotcomp_n_metrics(
-                                train_ds,model,NCLASSES,DOPLOT,test_samples_fig,'train')
+                                train_ds,model,NCLASSES,DOPLOT,test_samples_fig,'train', MODEL)
 print('Mean of mean IoUs (train subset)={mean_iou:0.3f}'.format(mean_iou=np.mean(IOUc)))
 print('Mean of mean IoUs, confusion matrix (train subset)={mean_iou:0.3f}'.format(mean_iou=np.mean(MIOU)))
 print('Mean of mean frequency weighted IoUs, confusion matrix (train subset)={mean_iou:0.3f}'.format(mean_iou=np.mean(FWIOU)))
@@ -778,28 +970,3 @@ print('Mean of Matthews Correlation Coefficients (train subset)={mean_dice:0.3f}
 print('Mean of mean Dice scores (train subset)={mean_dice:0.3f}'.format(mean_dice=np.mean(Dc)))
 print('Mean of mean KLD scores (train subset)={mean_kld:0.3f}'.format(mean_kld=np.mean(Kc)))
 
-## uncomment to see comparison plot of validation metrics
-
-# plt.figure(figsize=(10,10))
-# plt.subplots_adjust(hspace=0.3, wspace=0.3)
-# plt.subplot(321)
-# plt.plot(IOUc,MIOU,'.')
-# plt.xlabel('mean IOU'); plt.ylabel('mean IOU (Confusion Matrix)')
-
-# plt.subplot(322)
-# plt.plot(IOUc,FWIOU,'.')
-# plt.xlabel('mean IOU'); plt.ylabel('mean Frequency-weighted IOU (Confusion Matrix)')
-
-# plt.subplot(323)
-# plt.plot(IOUc,MCC,'.')
-# plt.xlabel('mean IOU'); plt.ylabel('Matthews Correlation Coefficient (Confusion Matrix)')
-
-# plt.subplot(324)
-# plt.plot(IOUc,Dc,'.')
-# plt.xlabel('mean IOU'); plt.ylabel('mean Dice')
-
-# plt.subplot(325)
-# plt.plot(IOUc,Kc,'.')
-# plt.xlabel('mean IOU'); plt.ylabel('mean K-L divergence')
-
-# plt.savefig('tmp2.png', dpi=200); plt.close()

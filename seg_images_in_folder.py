@@ -3,7 +3,7 @@
 #
 # MIT License
 #
-# Copyright (c) 2020-22, Marda Science LLC
+# Copyright (c) 2021-23, Marda Science LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -27,6 +27,7 @@ import sys,os, json
 from tqdm import tqdm
 from tkinter import filedialog, messagebox
 from tkinter import *
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 #####################################
 #### session variables
@@ -93,71 +94,22 @@ for counter,weights in enumerate(W):
 
 
     if counter==0:
-        #####################################
-        #### hardware
-        ####################################
 
-        SET_GPU = str(SET_GPU)
+        from doodleverse_utils.prediction_imports import *
+        from tensorflow.python.client import device_lib
+        physical_devices = tf.config.experimental.list_physical_devices('CPU')
+        print(physical_devices)
 
-        if SET_GPU != '-1':
-            USE_GPU = True
-            print('Using GPU')
-        else:
-            USE_GPU = False
-            print('Using CPU')
-
-        if len(SET_GPU.split(','))>1:
-            USE_MULTI_GPU = True 
-            print('Using multiple GPUs')
-        else:
-            USE_MULTI_GPU = False
-            if USE_GPU:
-                print('Using single GPU device')
-            else:
-                print('Using single CPU device')
-
-        #suppress tensorflow warnings
-        os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-
-        if USE_GPU == True:
-            os.environ['CUDA_VISIBLE_DEVICES'] = SET_GPU
-
-            from doodleverse_utils.prediction_imports import *
-            from tensorflow.python.client import device_lib
-            physical_devices = tf.config.experimental.list_physical_devices('GPU')
-            print(physical_devices)
-
-            if physical_devices:
-                # Restrict TensorFlow to only use the first GPU
-                try:
-                    tf.config.experimental.set_visible_devices(physical_devices, 'GPU')
-                except RuntimeError as e:
-                    # Visible devices must be set at program startup
-                    print(e)
-        else:
-            os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-
-            from doodleverse_utils.prediction_imports import *
-            from tensorflow.python.client import device_lib
-            physical_devices = tf.config.experimental.list_physical_devices('GPU')
-            print(physical_devices)
-
-        ### mixed precision
-        from tensorflow.keras import mixed_precision
-        mixed_precision.set_global_policy('mixed_float16')
-        # tf.debugging.set_log_device_placement(True)
+        if MODEL!='segformer':
+            ### mixed precision
+            from tensorflow.keras import mixed_precision
+            mixed_precision.set_global_policy('mixed_float16')
 
         for i in physical_devices:
             tf.config.experimental.set_memory_growth(i, True)
         print(tf.config.get_visible_devices())
 
-        if USE_MULTI_GPU:
-            # Create a MirroredStrategy.
-            strategy = tf.distribute.MirroredStrategy([p.name.split('/physical_device:')[-1] for p in physical_devices], cross_device_ops=tf.distribute.HierarchicalCopyAllReduce())
-            print("Number of distributed devices: {}".format(strategy.num_replicas_in_sync))
 
-
-    #from imports import *
     from doodleverse_utils.imports import *
     from doodleverse_utils.model_imports import *
 
@@ -172,6 +124,7 @@ for counter,weights in enumerate(W):
     # 5. satunet
     # 6. custom_resunet
     # 7. custom_satunet
+    # 8. segformer (pre-trained)
 
     # Get the selected model based on the weights file's MODEL key provided
     # create the model with the data loaded in from the weights file
@@ -245,28 +198,46 @@ for counter,weights in enumerate(W):
                     num_layers=4,
                     strides=(1,1))
 
+    elif MODEL=='segformer':
+        id2label = {}
+        for k in range(NCLASSES):
+            id2label[k]=str(k)
+        model = segformer(id2label,num_classes=NCLASSES)
+        model.compile(optimizer='adam')
+
     else:
-        print("Model must be one of 'unet', 'resunet', or 'satunet'")
+        print("Model must be one of 'unet', 'resunet', 'segformer', or 'satunet'")
         sys.exit(2)
 
-    try:
-        # Load in the model from the weights which is the location of the weights file        
-        model = tf.keras.models.load_model(weights)
+    if MODEL!='segformer':
+        try:
 
-        M.append(model)
-        C.append(configfile)
-        T.append(MODEL)
-        
-    except:
-        # Load the metrics mean_iou, dice_coef from doodleverse_utils
-        # Load in the custom loss function from doodleverse_utils        
-        model.compile(optimizer = 'adam', loss = dice_coef_loss(NCLASSES))#, metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
+            # Load in the model from the weights which is the location of the weights file        
+            model = tf.keras.models.load_model(weights)
 
-        model.load_weights(weights)
+            M.append(model)
+            C.append(configfile)
+            T.append(MODEL)
+            
+        except:
+            # Load the metrics mean_iou, dice_coef from doodleverse_utils
+            # Load in the custom loss function from doodleverse_utils        
+            model.compile(optimizer = 'adam', loss = dice_coef_loss(NCLASSES))#, metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
 
-        M.append(model)
-        C.append(configfile)
-        T.append(MODEL)
+            model.load_weights(weights)
+
+            M.append(model)
+            C.append(configfile)
+            T.append(MODEL)
+
+    else:
+            model.compile(optimizer = 'adam')
+
+            model.load_weights(weights)
+
+            M.append(model)
+            C.append(configfile)
+            T.append(MODEL)
 
 # metadatadict contains the model name (T) the config file(C) and the model weights(W)
 metadatadict = {}
@@ -310,7 +281,7 @@ if not 'OTSU_THRESHOLD' in locals():
 # Import do_seg() from doodleverse_utils to perform the segmentation on the images
 for f in tqdm(sample_filenames):
     try:
-        do_seg(f, M, metadatadict, sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TESTTIMEAUG, WRITE_MODELMETADATA,OTSU_THRESHOLD)
+        do_seg(f, M, metadatadict, MODEL, sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TESTTIMEAUG, WRITE_MODELMETADATA,OTSU_THRESHOLD)
     except:
         print("{} failed. Check config file, and check the path provided contains valid imagery".format(f))
 
