@@ -27,7 +27,7 @@ import sys,os, json
 from tqdm import tqdm
 from tkinter import filedialog, messagebox
 from tkinter import *
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 #####################################
 #### session variables
@@ -95,15 +95,78 @@ for counter,weights in enumerate(W):
 
     if counter==0:
 
-        from doodleverse_utils.prediction_imports import *
-        from tensorflow.python.client import device_lib
-        physical_devices = tf.config.experimental.list_physical_devices('CPU')
-        print(physical_devices)
+        # from doodleverse_utils.prediction_imports import *
+        # from tensorflow.python.client import device_lib
+        # physical_devices = tf.config.experimental.list_physical_devices('CPU')
+        # print(physical_devices)
+
+        # if MODEL!='segformer':
+        #     ### mixed precision
+        #     from tensorflow.keras import mixed_precision
+        #     mixed_precision.set_global_policy('mixed_float16')
+
+        # for i in physical_devices:
+        #     tf.config.experimental.set_memory_growth(i, True)
+        # print(tf.config.get_visible_devices())
+
+        if 'SET_PCI_BUS_ID' not in locals():
+            SET_PCI_BUS_ID = False
+
+        SET_GPU = str(SET_GPU)
+
+        if SET_GPU != '-1':
+            USE_GPU = True
+            print('Using GPU')
+        else:
+            USE_GPU = False
+            print('Warning: using CPU - model training will be slow')
+
+        if len(SET_GPU.split(','))>1:
+            USE_MULTI_GPU = True
+            print('Using multiple GPUs')
+        else:
+            USE_MULTI_GPU = False
+            if USE_GPU:
+                print('Using single GPU device')
+            else:
+                print('Using single CPU device')
+
+        if USE_GPU == True:
+
+            ## this could be a bad idea - at least on windows, it reorders the gpus in a way you dont want
+            if SET_PCI_BUS_ID:
+                os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+
+            os.environ['CUDA_VISIBLE_DEVICES'] = SET_GPU
+
+            from doodleverse_utils.imports import *
+            from tensorflow.python.client import device_lib
+            physical_devices = tf.config.experimental.list_physical_devices('GPU')
+            print(physical_devices)
+
+            if physical_devices:
+                # Restrict TensorFlow to only use the first GPU
+                try:
+                    tf.config.experimental.set_visible_devices(physical_devices, 'GPU')
+                except RuntimeError as e:
+                    # Visible devices must be set at program startup
+                    print(e)
+        else:
+            os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+
+            from doodleverse_utils.imports import *
+            from tensorflow.python.client import device_lib
+            physical_devices = tf.config.experimental.list_physical_devices('GPU')
+            print(physical_devices)
 
         if MODEL!='segformer':
             ### mixed precision
             from tensorflow.keras import mixed_precision
-            mixed_precision.set_global_policy('mixed_float16')
+            try:
+                mixed_precision.set_global_policy('mixed_float16')
+            except:
+                mixed_precision.experimental.set_policy('mixed_float16')
+
 
         for i in physical_devices:
             tf.config.experimental.set_memory_growth(i, True)
@@ -112,6 +175,7 @@ for counter,weights in enumerate(W):
 
     from doodleverse_utils.imports import *
     from doodleverse_utils.model_imports import *
+    from doodleverse_utils.prediction_imports import *
 
     #---------------------------------------------------
 

@@ -372,7 +372,7 @@ def read_seg_dataset_multiclass(example):
 ##========================================================
 
 # to deal with non-resized imaegry
-BATCH_SIZE = 1
+# BATCH_SIZE = 1
 
 filenames = tf.io.gfile.glob(output_data_path+os.sep+ROOT_STRING+'_noaug*.npz')
 dataset = tf.data.Dataset.list_files(filenames, shuffle=False)
@@ -613,7 +613,10 @@ for copy in tqdm(range(AUG_COPIES)):
             if FILTER_VALUE>1:
                 ##print("dilating labels with a radius of {}".format(FILTER_VALUE))
                 for kk in range(lstack.shape[-1]):
-                    lab = dilation(lstack[:,:,kk].astype('uint8')>0, disk(FILTER_VALUE))
+                    if FILTER_VALUE<0:
+                        lab = dilation(lstack[:,:,kk].astype('uint8')<1, disk(np.abs(FILTER_VALUE)))
+                    else:
+                        lab = dilation(lstack[:,:,kk].astype('uint8')>0, disk(FILTER_VALUE))
                     lstack[:,:,kk] = np.round(lab).astype(np.uint8)
                     del lab
 
@@ -659,7 +662,7 @@ print('.....................................')
 print('Printing examples to file ...')
 
 counter=0
-for imgs,lbls,files in dataset.take(100):
+for imgs,lbls,files in dataset.take(10):
 
   for count,(im,lab, file) in enumerate(zip(imgs, lbls, files)):
 
