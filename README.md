@@ -20,6 +20,9 @@ DOI](https://img.shields.io/badge/%F0%9F%8C%8D%F0%9F%8C%8F%F0%9F%8C%8E%20EarthAr
 
  Buscombe, D., & Goldstein, E. B. (2022). A reproducible and reusable pipeline for segmentation of geoscientific imagery. Earth and Space Science, 9, e2022EA002332. https://doi.org/10.1029/2022EA002332 
 
+## New in February 2023
+* As long as a family of UNets, we now offer a Transformer model option, using the SegFormer model architecture from HuggingFace, and the mit-b0 set of weights that are fine-tuned on a new dataset
+* This is a "tranfer-learning" option, and imagery can be any size
 
 ## 🌟 Highlights
 
