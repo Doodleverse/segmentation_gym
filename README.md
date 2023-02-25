@@ -76,7 +76,7 @@ We recommend a 6 part workflow:
 
 ## ⬇️ Installation
 
-We advise creating a new conda environment to run the program.
+We advise creating a new conda environment to run the program. We recommend [miniconda](https://docs.conda.io/en/latest/miniconda.html)
 
 1. Clone the repo:
 
@@ -91,57 +91,31 @@ git clone --depth 1 https://github.com/Doodleverse/segmentation_gym.git
 First, and optionally, you may want to do some conda housekeeping (recommended)
 
 ```
-conda update conda
+conda update -n base conda
 conda clean --all
 ```
 
 Then:
 
 ```
-conda env create --file install/gym.yml
-conda activate gym
-```
-
-[ADVANCED] Alternatively, you could install using  the following conda recipe (see https://github.com/Doodleverse/segmentation_gym/issues/78)
-
-```
 conda create -n gym python=3.8
 conda activate gym
-conda install -c conda-forge scipy "numpy>=1.16.5, <=1.23.0" scikit-image cython ipython joblib tqdm pandas pip plotly natsort pydensecrf matplotlib 
+conda install -c conda-forge scipy "numpy>=1.16.5, <=1.23.0" scikit-image cython ipython joblib tqdm pandas pip plotly natsort matplotlib 
 pip install doodleverse_utils transformers
 ```
 
-Then run one of the following two commands:
+Then install tensorflow:
 
 ```
-    conda install -c conda-forge tensorflow-gpu 
-```
-
-if you have a CUDA-enabled GPU, or
-
-```    
-    conda install -c conda-forge tensorflow 
-```
-
-if you have a CPU
-
-
-### Troubleshooting GPUs
-
-Run this command to see if your Tensorflow can see your GPUs
-
-`python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"`
-
-If not, try:
-
-```
-conda remove tensorflow-gpu 
 conda install -c conda-forge cudatoolkit=11.2 cudnn=8.1.0
-python -m pip install tensorflow
+python -m pip install "tensorflow<2.11"
 ```
 
-If all else fails, you should check you have the correct NVIDIA drivers installed for your GPU and operating system
+Verify install:
 
+```
+python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
+```
 
 ### Other Troubleshooting
 If you get errors associated with loading the model weights you may need to:
