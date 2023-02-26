@@ -108,6 +108,13 @@ conda config --set solver libmamba
 Then:
 
 ```
+conda env create --file .\install\gym.yml
+```
+
+
+Or:
+
+```
 conda create -n gym python=3.8
 conda activate gym
 conda install -c conda-forge scipy "numpy>=1.16.5, <=1.23.0" scikit-image cython ipython joblib tqdm pandas pip plotly natsort matplotlib 
