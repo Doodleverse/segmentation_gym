@@ -91,11 +91,12 @@ git clone --depth 1 https://github.com/Doodleverse/segmentation_gym.git
 
 2. Create a conda environment called `gym`
 
-[OPTIONAL] First you may want to do some conda housekeeping (recommended)
+[OPTIONAL] First you may want to do some conda and pip housekeeping (recommended)
 
 ```
 conda update -n base conda
 conda clean --all
+pip install --upgrade pip
 ```
 
 [OPTIONAL] Set mamba to the default installer:
@@ -105,26 +106,79 @@ conda install -n base conda-libmamba-solver
 conda config --set solver libmamba
 ```
 
-Then:
+### Windows:
+
+Try:
 
 ```
 conda env create --file .\install\gym.yml
 ```
 
-
-Or:
+If the above fails, use:
 
 ```
 conda create -n gym python=3.8
 conda activate gym
-conda install -c conda-forge scipy "numpy>=1.16.5, <=1.23.0" scikit-image cython ipython joblib tqdm pandas pip plotly natsort matplotlib 
+conda install -c conda-forge scipy "numpy>=1.16.5, <=1.23.0" scikit-image cython ipython joblib tqdm pandas pip plotly natsort matplotlib -y
 pip install doodleverse_utils transformers
 conda install -c conda-forge cudatoolkit=11.2 cudnn=8.1.0
 python -m pip install "tensorflow-gpu<2.11"
 conda install cuda -c nvidia
 ```
 
-Verify install:
+### Ubuntu:
+
+```
+conda create --name gym python=3.9 -y
+conda activate gym
+conda install -c conda-forge cudatoolkit=11.2.2 cudnn=8.1.0 -y
+```
+
+[OPTIONAL] Configure the system paths. 
+
+```
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
+mkdir -p $CONDA_PREFIX/etc/conda/activate.d
+echo 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/' > $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
+```
+
+```
+pip install tensorflow==2.11.*
+conda install -c conda-forge scipy "numpy>=1.16.5, <=1.23.0" scikit-image cython ipython joblib tqdm pandas pip plotly natsort matplotlib -y
+pip install doodleverse_utils transformers
+```
+
+From [here](https://www.tensorflow.org/install/pip), in Ubuntu 22.04, you may encounter the following error:
+
+```
+Can't find libdevice directory ${CUDA_DIR}/nvvm/libdevice.
+...
+Couldn't invoke ptxas --version
+...
+InternalError: libdevice not found at ./libdevice.10.bc [Op:__some_op]
+```
+
+To fix this error, you will need to run the following commands:
+
+```
+# Install NVCC
+conda install -c nvidia cuda-nvcc=11.3.58
+# Configure the XLA cuda directory
+mkdir -p $CONDA_PREFIX/etc/conda/activate.d
+printf 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/\nexport XLA_FLAGS=--xla_gpu_cuda_data_dir=$CONDA_PREFIX/lib/\n' > $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
+source $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
+# Copy libdevice file to the required path
+mkdir -p $CONDA_PREFIX/lib/nvvm/libdevice
+cp $CONDA_PREFIX/lib/libdevice.10.bc $CONDA_PREFIX/lib/nvvm/libdevice/
+```
+
+In my case, I also had to link
+
+```
+ln -sf /usr/lib/x86_64-linux-gnu/libstdc++.so.6 ~/miniconda3/envs/gym39/bin/../lib/libstdc++.so.6
+```
+
+### Verify install (any operating system):
 
 ```
 python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
