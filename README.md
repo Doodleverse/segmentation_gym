@@ -172,10 +172,10 @@ mkdir -p $CONDA_PREFIX/lib/nvvm/libdevice
 cp $CONDA_PREFIX/lib/libdevice.10.bc $CONDA_PREFIX/lib/nvvm/libdevice/
 ```
 
-In my case, I also had to link
+In my case, I also had to link the path to the lib folder in anaconda to `LD_LIBRARY_PATH`:
 
 ```
-ln -sf /usr/lib/x86_64-linux-gnu/libstdc++.so.6 ~/miniconda3/envs/gym39/bin/../lib/libstdc++.so.6
+ln -sf /usr/lib/x86_64-linux-gnu/libstdc++.so.6 ~/miniconda3/envs/gym/bin/../lib/libstdc++.so.6
 ```
 
 ### Verify install (any operating system):
