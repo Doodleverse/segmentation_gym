@@ -119,11 +119,6 @@ conda create -n gym python=3.8
 conda activate gym
 conda install -c conda-forge scipy "numpy>=1.16.5, <=1.23.0" scikit-image cython ipython joblib tqdm pandas pip plotly natsort matplotlib 
 pip install doodleverse_utils transformers
-```
-
-Then install tensorflow:
-
-```
 conda install -c conda-forge cudatoolkit=11.2 cudnn=8.1.0
 python -m pip install "tensorflow-gpu<2.11"
 conda install cuda -c nvidia
