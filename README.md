@@ -91,11 +91,18 @@ git clone --depth 1 https://github.com/Doodleverse/segmentation_gym.git
 
 2. Create a conda environment called `gym`
 
-First, and optionally, you may want to do some conda housekeeping (recommended)
+[OPTIONAL] First you may want to do some conda housekeeping (recommended)
 
 ```
 conda update -n base conda
 conda clean --all
+```
+
+[OPTIONAL] Set mamba to the default installer:
+
+```
+conda install -n base conda-libmamba-solver
+conda config --set solver libmamba
 ```
 
 Then:
