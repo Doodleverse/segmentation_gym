@@ -111,7 +111,7 @@ Then install tensorflow:
 
 ```
 conda install -c conda-forge cudatoolkit=11.2 cudnn=8.1.0
-python -m pip install "tensorflow<2.11"
+python -m pip install "tensorflow-gpu<2.11"
 conda install cuda -c nvidia
 ```
 
