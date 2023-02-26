@@ -151,7 +151,7 @@ Check out the [wiki](https://github.com/dbuscombe-usgs/segmentation_gym/wiki) fo
 
 ## Test Dataset
 
-A test data set, including a set of images/labels, model config files, and a dataset and models created with Gym, are available [here](https://zenodo.org/record/7036025/files/my_segmentation_gym_datasets.zip?download=1) and [described on the zenodo page](https://zenodo.org/record/7036025#.YxAQsWzMJhE)
+A test data set, including a set of images/labels, model config files, and a dataset and models created with Gym, are available [here](https://zenodo.org/record/7677961/files/my_segmentation_gym_datasets.zip?download=1) and [described on the zenodo page](https://zenodo.org/record/7677961)
 
 
 ## 💭 Feedback and Contributing
