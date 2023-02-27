@@ -1,14 +1,17 @@
 name: gym
 channels:
   - conda-forge
+  - nvidia
   - defaults
 dependencies:
- - python
+ - python=3.8
  - scipy
  - numpy
  - scikit-image
  - cython
- - tensorflow-gpu
+ - cuda
+ - cudatoolkit=11.2 
+ - cudnn=8.1.0
  - ipython
  - jupyter
  - joblib
@@ -21,4 +24,4 @@ dependencies:
  - pip:
     - doodleverse_utils
     - transformers
-
+    - "tensorflow-gpu<2.11"

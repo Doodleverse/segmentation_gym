@@ -20,6 +20,9 @@ DOI](https://img.shields.io/badge/%F0%9F%8C%8D%F0%9F%8C%8F%F0%9F%8C%8E%20EarthAr
 
  Buscombe, D., & Goldstein, E. B. (2022). A reproducible and reusable pipeline for segmentation of geoscientific imagery. Earth and Space Science, 9, e2022EA002332. https://doi.org/10.1029/2022EA002332 
 
+## New in February 2023
+* As long as a family of UNets, we now offer a Transformer model option, using the SegFormer model architecture from HuggingFace, and the mit-b0 set of weights that are fine-tuned on a new dataset
+* This is a "tranfer-learning" option, and imagery can be any size
 
 ## 🌟 Highlights
 
@@ -76,7 +79,7 @@ We recommend a 6 part workflow:
 
 ## ⬇️ Installation
 
-We advise creating a new conda environment to run the program.
+We advise creating a new conda environment to run the program. We recommend [miniconda](https://docs.conda.io/en/latest/miniconda.html)
 
 1. Clone the repo:
 
@@ -88,60 +91,98 @@ git clone --depth 1 https://github.com/Doodleverse/segmentation_gym.git
 
 2. Create a conda environment called `gym`
 
-First, and optionally, you may want to do some conda housekeeping (recommended)
+[OPTIONAL] First you may want to do some conda and pip housekeeping (recommended)
 
 ```
-conda update conda
+conda update -n base conda
 conda clean --all
+pip install --upgrade pip
 ```
 
-Then:
+[OPTIONAL] Set mamba to the default installer:
 
 ```
-conda env create --file install/gym.yml
-conda activate gym
+conda install -n base conda-libmamba-solver
+conda config --set solver libmamba
 ```
 
-[ADVANCED] Alternatively, you could install using  the following conda recipe (see https://github.com/Doodleverse/segmentation_gym/issues/78)
+### Windows:
+
+Try:
+
+```
+conda env create --file .\install\gym.yml
+```
+
+If the above fails, use:
 
 ```
 conda create -n gym python=3.8
 conda activate gym
-conda install -c conda-forge scipy "numpy>=1.16.5, <=1.23.0" scikit-image cython ipython joblib tqdm pandas pip plotly natsort pydensecrf matplotlib 
+conda install -c conda-forge scipy "numpy>=1.16.5, <=1.23.0" scikit-image cython ipython joblib tqdm pandas pip plotly natsort matplotlib -y
+pip install doodleverse_utils transformers
+conda install -c conda-forge cudatoolkit=11.2 cudnn=8.1.0
+python -m pip install "tensorflow-gpu<2.11"
+conda install cuda -c nvidia
+```
+
+### Ubuntu:
+
+```
+conda create --name gym python=3.9 -y
+conda activate gym
+conda install -c conda-forge cudatoolkit=11.2.2 cudnn=8.1.0 -y
+```
+
+[OPTIONAL] Configure the system paths. 
+
+```
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
+mkdir -p $CONDA_PREFIX/etc/conda/activate.d
+echo 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/' > $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
+```
+
+```
+pip install tensorflow==2.11.*
+conda install -c conda-forge scipy "numpy>=1.16.5, <=1.23.0" scikit-image cython ipython joblib tqdm pandas pip plotly natsort matplotlib -y
 pip install doodleverse_utils transformers
 ```
 
-Then run one of the following two commands:
+From [here](https://www.tensorflow.org/install/pip), in Ubuntu 22.04, you may encounter the following error:
 
 ```
-    conda install -c conda-forge tensorflow-gpu 
+Can't find libdevice directory ${CUDA_DIR}/nvvm/libdevice.
+...
+Couldn't invoke ptxas --version
+...
+InternalError: libdevice not found at ./libdevice.10.bc [Op:__some_op]
 ```
 
-if you have a CUDA-enabled GPU, or
-
-```    
-    conda install -c conda-forge tensorflow 
-```
-
-if you have a CPU
-
-
-### Troubleshooting GPUs
-
-Run this command to see if your Tensorflow can see your GPUs
-
-`python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"`
-
-If not, try:
+To fix this error, you will need to run the following commands:
 
 ```
-conda remove tensorflow-gpu 
-conda install -c conda-forge cudatoolkit=11.2 cudnn=8.1.0
-python -m pip install tensorflow
+# Install NVCC
+conda install -c nvidia cuda-nvcc=11.3.58
+# Configure the XLA cuda directory
+mkdir -p $CONDA_PREFIX/etc/conda/activate.d
+printf 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/\nexport XLA_FLAGS=--xla_gpu_cuda_data_dir=$CONDA_PREFIX/lib/\n' > $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
+source $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
+# Copy libdevice file to the required path
+mkdir -p $CONDA_PREFIX/lib/nvvm/libdevice
+cp $CONDA_PREFIX/lib/libdevice.10.bc $CONDA_PREFIX/lib/nvvm/libdevice/
 ```
 
-If all else fails, you should check you have the correct NVIDIA drivers installed for your GPU and operating system
+In my case, I also had to link the path to the lib folder in anaconda to `LD_LIBRARY_PATH`:
 
+```
+ln -sf /usr/lib/x86_64-linux-gnu/libstdc++.so.6 ~/miniconda3/envs/gym/bin/../lib/libstdc++.so.6
+```
+
+### Verify install (any operating system):
+
+```
+python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
+```
 
 ### Other Troubleshooting
 If you get errors associated with loading the model weights you may need to:
@@ -164,7 +205,7 @@ Check out the [wiki](https://github.com/dbuscombe-usgs/segmentation_gym/wiki) fo
 
 ## Test Dataset
 
-A test data set, including a set of images/labels, model config files, and a dataset and models created with Gym, are available [here](https://zenodo.org/record/7036025/files/my_segmentation_gym_datasets.zip?download=1) and [described on the zenodo page](https://zenodo.org/record/7036025#.YxAQsWzMJhE)
+A test data set, including a set of images/labels, model config files, and a dataset and models created with Gym, are available [here](https://zenodo.org/record/7677961/files/my_segmentation_gym_datasets.zip?download=1) and [described on the zenodo page](https://zenodo.org/record/7677961)
 
 
 ## 💭 Feedback and Contributing

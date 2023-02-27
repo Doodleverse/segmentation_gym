@@ -24,7 +24,7 @@
 # SOFTWARE.
 
 import sys,os
-import json
+import json, gc
 from tkinter import filedialog
 from tkinter import *
 from random import shuffle
@@ -105,9 +105,11 @@ if USE_GPU == True:
     os.environ['CUDA_VISIBLE_DEVICES'] = SET_GPU
 
     from doodleverse_utils.imports import *
-    from tensorflow.python.client import device_lib
+    # from tensorflow.python.client import device_lib
+    from tensorflow.keras.callbacks import Callback
     physical_devices = tf.config.experimental.list_physical_devices('GPU')
     print(physical_devices)
+    # tf.config.LogicalDeviceConfiguration(memory_limit=12288)
 
     if physical_devices:
         # Restrict TensorFlow to only use the first GPU
@@ -120,7 +122,8 @@ else:
     os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
     from doodleverse_utils.imports import *
-    from tensorflow.python.client import device_lib
+    # from tensorflow.python.client import device_lib
+    from tensorflow.keras.callbacks import Callback
     physical_devices = tf.config.experimental.list_physical_devices('GPU')
     print(physical_devices)
 
@@ -174,6 +177,13 @@ test_samples_fig =  weights.replace('.h5','_val.png').replace('weights', 'modelO
 ##########################################
 ##### set up defs
 #######################################
+
+#--------------------------------------------------
+
+class ClearMemory(Callback):
+    def on_epoch_end(self, epoch, logs=None):
+        gc.collect()
+        K.clear_session()
 
 #---------------------------------------------------
 # learning rate function
@@ -567,6 +577,7 @@ np.savetxt(weights.replace('.h5','_val_files.txt'), val_files, fmt='%s')
 #####################
 # Set `num_parallel_calls` so multiple images are loaded/processed in parallel.
 
+# with tf.device("CPU"):
 if MODEL=='segformer':
     train_ds = train_ds.map(read_seg_dataset_multiclass_segformer, num_parallel_calls=AUTO)
 
@@ -730,7 +741,7 @@ if USE_MULTI_GPU:
             for k in range(NCLASSES):
                 id2label[k]=str(k)
             model = segformer(id2label,num_classes=NCLASSES)
-            model.compile(optimizer='adam')
+            model.compile(optimizer='adam', run_eagerly=True)
 
         else:
             print("Model must be one of 'unet', 'resunet', 'segformer', or 'satunet'")
@@ -809,7 +820,7 @@ else: ## single GPU
         for k in range(NCLASSES):
             id2label[k]=str(k)
         model = segformer(id2label,num_classes=NCLASSES)
-        model.compile(optimizer='adam')
+        model.compile(optimizer='adam', run_eagerly=True)
 
     else:
         print("Model must be one of 'unet', 'resunet', 'segformer', or 'satunet'")
@@ -841,17 +852,17 @@ if MODEL!='segformer':
             else:
                 class_weights = np.ones(NCLASSES)
 
-                model.compile(optimizer = 'adam', loss =weighted_dice_coef_loss(NCLASSES,class_weights), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
+                model.compile(optimizer = 'adam', loss =weighted_dice_coef_loss(NCLASSES,class_weights), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)], run_eagerly=True)
         else:
-                model.compile(optimizer = 'adam', loss =dice_coef_loss(NCLASSES), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
+                model.compile(optimizer = 'adam', loss =dice_coef_loss(NCLASSES), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)], run_eagerly=True)
 
     else:
             if LOSS=='hinge':
-                model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalHinge(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)]) #, steps_per_execution=2, jit_compile=True
+                model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalHinge(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)], run_eagerly=True) 
             elif LOSS.startswith('cat'):
-                model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalCrossentropy(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
+                model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalCrossentropy(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)], run_eagerly=True)
             elif LOSS.startswith('k'):
-                model.compile(optimizer = 'adam', loss =tf.keras.losses.KLDivergence(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
+                model.compile(optimizer = 'adam', loss =tf.keras.losses.KLDivergence(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)], run_eagerly=True)
 
 #----------------------------------------------------------
 
@@ -883,10 +894,18 @@ model_checkpoint = ModelCheckpoint(weights, monitor='val_loss',
                                 verbose=0, save_best_only=True, mode='min',
                                 save_weights_only = True)
 
+# checkpoint_path = weights.replace('.h5','-{epoch:04d}.ckpt')
+# checkpoint_dir = os.path.dirname(checkpoint_path)
+
+# model_checkpoint = ModelCheckpoint(filepath=checkpoint_path, monitor='val_loss',
+#                                 verbose=0, save_best_only=True, mode='min',
+#                                 save_weights_only = True)
+
 # models are sensitive to specification of learning rate. How do you decide? Answer: you don't. Use a learning rate scheduler
 lr_callback = tf.keras.callbacks.LearningRateScheduler(lambda epoch: lrfn(epoch), verbose=True)
 
-callbacks = [model_checkpoint, earlystop, lr_callback]
+
+callbacks = [model_checkpoint, earlystop, lr_callback, ClearMemory()]
 
 #----------------------------------------------------------
 ##########################################
