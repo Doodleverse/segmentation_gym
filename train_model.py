@@ -180,11 +180,6 @@ test_samples_fig =  weights.replace('.h5','_val.png').replace('weights', 'modelO
 
 #--------------------------------------------------
 
-class ClearMemory(Callback):
-    def on_epoch_end(self, epoch, logs=None):
-        gc.collect()
-        K.clear_session()
-
 #---------------------------------------------------
 # learning rate function
 def lrfn(epoch):
@@ -502,6 +497,87 @@ def plotcomp_n_metrics(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,MODEL
 
     return IOUc, Dc, Kc, OA, MIOU, FWIOU, MCC
 
+#-----------------------------------
+def get_model():
+    if MODEL =='resunet':
+        model =  custom_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                        FILTERS,
+                        nclasses=NCLASSES, 
+                        kernel_size=(KERNEL,KERNEL),
+                        strides=STRIDE,
+                        dropout=DROPOUT,
+                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
+                        dropout_type=DROPOUT_TYPE,
+                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING
+                        )
+    elif MODEL=='unet':
+        model =  custom_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                        FILTERS,
+                        nclasses=NCLASSES, 
+                        kernel_size=(KERNEL,KERNEL),
+                        strides=STRIDE,
+                        dropout=DROPOUT,
+                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
+                        dropout_type=DROPOUT_TYPE,
+                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
+                        )
+
+    elif MODEL =='simple_resunet':
+
+        model = simple_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                    kernel = (2, 2),
+                    num_classes=NCLASSES,
+                    activation="relu",
+                    use_batch_norm=True,
+                    dropout=DROPOUT,
+                    dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
+                    dropout_type=DROPOUT_TYPE,
+                    use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
+                    filters=FILTERS,
+                    num_layers=4,
+                    strides=(1,1))
+
+    elif MODEL=='simple_unet':
+        model = simple_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                    kernel = (2, 2),
+                    num_classes=NCLASSES,
+                    activation="relu",
+                    use_batch_norm=True,
+                    dropout=DROPOUT,
+                    dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
+                    dropout_type=DROPOUT_TYPE,
+                    use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
+                    filters=FILTERS,
+                    num_layers=4,
+                    strides=(1,1))
+
+    elif MODEL=='satunet':
+        model = custom_satunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                    kernel = (2, 2),
+                    num_classes=NCLASSES, 
+                    activation="relu",
+                    use_batch_norm=True,
+                    dropout=DROPOUT,
+                    dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
+                    dropout_type=DROPOUT_TYPE,
+                    use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
+                    filters=FILTERS,
+                    num_layers=4,
+                    strides=(1,1))
+
+    elif MODEL=='segformer':
+        id2label = {}
+        for k in range(NCLASSES):
+            id2label[k]=str(k)
+        model = segformer(id2label,num_classes=NCLASSES)
+        model.compile(optimizer='adam')
+
+    else:
+        print("Model must be one of 'unet', 'resunet', 'segformer', or 'satunet'")
+        sys.exit(2)
+
+    return model
+        
 ###==========================================================
 #-------------------------------------------------
 
@@ -577,15 +653,29 @@ np.savetxt(weights.replace('.h5','_val_files.txt'), val_files, fmt='%s')
 #####################
 # Set `num_parallel_calls` so multiple images are loaded/processed in parallel.
 
-# with tf.device("CPU"):
-if MODEL=='segformer':
-    train_ds = train_ds.map(read_seg_dataset_multiclass_segformer, num_parallel_calls=AUTO)
+if 'LOAD_DATA_WITH_CPU' not in locals():
+    LOAD_DATA_WITH_CPU = False #default
+    print('LOAD_DATA_WITH_CPU not specified in config file. Setting to "False"')
 
-    val_ds = val_ds.map(read_seg_dataset_multiclass_segformer, num_parallel_calls=AUTO)
+if LOAD_DATA_WITH_CPU:
+    with tf.device("CPU"):
+        if MODEL=='segformer':
+            train_ds = train_ds.map(read_seg_dataset_multiclass_segformer, num_parallel_calls=AUTO)
 
+            val_ds = val_ds.map(read_seg_dataset_multiclass_segformer, num_parallel_calls=AUTO)
+
+        else:
+            train_ds = train_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
+            val_ds = val_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
 else:
-    train_ds = train_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
-    val_ds = val_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
+    if MODEL=='segformer':
+        train_ds = train_ds.map(read_seg_dataset_multiclass_segformer, num_parallel_calls=AUTO)
+
+        val_ds = val_ds.map(read_seg_dataset_multiclass_segformer, num_parallel_calls=AUTO)
+
+    else:
+        train_ds = train_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
+        val_ds = val_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
 
 
 train_ds = train_ds.repeat()
@@ -669,162 +759,10 @@ print('.....................................')
 print('Creating and compiling model ...')
 if USE_MULTI_GPU:
     with strategy.scope():
-
-        if MODEL =='resunet':
-            model =  custom_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-                            FILTERS,
-                            nclasses=NCLASSES, 
-                            kernel_size=(KERNEL,KERNEL),
-                            strides=STRIDE,
-                            dropout=DROPOUT,
-                            dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
-                            dropout_type=DROPOUT_TYPE,
-                            use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING
-                            )
-        elif MODEL=='unet':
-            model =  custom_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-                            FILTERS,
-                            nclasses=NCLASSES, 
-                            kernel_size=(KERNEL,KERNEL),
-                            strides=STRIDE,
-                            dropout=DROPOUT,
-                            dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
-                            dropout_type=DROPOUT_TYPE,
-                            use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
-                            )
-
-        elif MODEL =='simple_resunet':
-
-            model = simple_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-                        kernel = (2, 2),
-                        num_classes=NCLASSES,
-                        activation="relu",
-                        use_batch_norm=True,
-                        dropout=DROPOUT,
-                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
-                        dropout_type=DROPOUT_TYPE,
-                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
-                        filters=FILTERS,
-                        num_layers=4,
-                        strides=(1,1))
-
-        elif MODEL=='simple_unet':
-            model = simple_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-                        kernel = (2, 2),
-                        num_classes=NCLASSES,
-                        activation="relu",
-                        use_batch_norm=True,
-                        dropout=DROPOUT,
-                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
-                        dropout_type=DROPOUT_TYPE,
-                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
-                        filters=FILTERS,
-                        num_layers=4,
-                        strides=(1,1))
-
-        elif MODEL=='satunet':
-            model = custom_satunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-                        kernel = (2, 2),
-                        num_classes=NCLASSES, 
-                        activation="relu",
-                        use_batch_norm=True,
-                        dropout=DROPOUT,
-                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
-                        dropout_type=DROPOUT_TYPE,
-                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
-                        filters=FILTERS,
-                        num_layers=4,
-                        strides=(1,1))
-
-        elif MODEL=='segformer':
-            id2label = {}
-            for k in range(NCLASSES):
-                id2label[k]=str(k)
-            model = segformer(id2label,num_classes=NCLASSES)
-            model.compile(optimizer='adam', run_eagerly=True)
-
-        else:
-            print("Model must be one of 'unet', 'resunet', 'segformer', or 'satunet'")
-            sys.exit(2)
+        model = get_model()
 
 else: ## single GPU
-
-    if MODEL =='resunet':
-        model =  custom_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-                        FILTERS,
-                        nclasses=NCLASSES, 
-                        kernel_size=(KERNEL,KERNEL),
-                        strides=STRIDE,
-                        dropout=DROPOUT,
-                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
-                        dropout_type=DROPOUT_TYPE,
-                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING
-                        )
-    elif MODEL=='unet':
-        model =  custom_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-                        FILTERS,
-                        nclasses=NCLASSES, 
-                        kernel_size=(KERNEL,KERNEL),
-                        strides=STRIDE,
-                        dropout=DROPOUT,
-                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
-                        dropout_type=DROPOUT_TYPE,
-                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
-                        )
-
-    elif MODEL =='simple_resunet':
-
-        model = simple_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-                    kernel = (2, 2),
-                    num_classes=NCLASSES, 
-                    activation="relu",
-                    use_batch_norm=True,
-                    dropout=DROPOUT,
-                    dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
-                    dropout_type=DROPOUT_TYPE,
-                    use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
-                    filters=FILTERS,
-                    num_layers=4,
-                    strides=(1,1))
-
-    elif MODEL=='simple_unet':
-        model = simple_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-                    kernel = (2, 2),
-                    num_classes=NCLASSES, 
-                    activation="relu",
-                    use_batch_norm=True,
-                    dropout=DROPOUT,
-                    dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#
-                    dropout_type=DROPOUT_TYPE,
-                    use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
-                    filters=FILTERS,
-                    num_layers=4,
-                    strides=(1,1))
-
-    elif MODEL=='satunet':
-        model = custom_satunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-                    kernel = (2, 2),
-                    num_classes=NCLASSES, 
-                    activation="relu",
-                    use_batch_norm=True,
-                    dropout=DROPOUT,
-                    dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
-                    dropout_type=DROPOUT_TYPE,
-                    use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
-                    filters=FILTERS,
-                    num_layers=4,
-                    strides=(1,1))
-
-    elif MODEL=='segformer':
-        id2label = {}
-        for k in range(NCLASSES):
-            id2label[k]=str(k)
-        model = segformer(id2label,num_classes=NCLASSES)
-        model.compile(optimizer='adam', run_eagerly=True)
-
-    else:
-        print("Model must be one of 'unet', 'resunet', 'segformer', or 'satunet'")
-        sys.exit(2)
+    model = get_model()
 
 if MODEL!='segformer':
     if LOSS=='dice':
@@ -894,18 +832,26 @@ model_checkpoint = ModelCheckpoint(weights, monitor='val_loss',
                                 verbose=0, save_best_only=True, mode='min',
                                 save_weights_only = True)
 
-# checkpoint_path = weights.replace('.h5','-{epoch:04d}.ckpt')
-# checkpoint_dir = os.path.dirname(checkpoint_path)
-
-# model_checkpoint = ModelCheckpoint(filepath=checkpoint_path, monitor='val_loss',
-#                                 verbose=0, save_best_only=True, mode='min',
-#                                 save_weights_only = True)
 
 # models are sensitive to specification of learning rate. How do you decide? Answer: you don't. Use a learning rate scheduler
 lr_callback = tf.keras.callbacks.LearningRateScheduler(lambda epoch: lrfn(epoch), verbose=True)
 
+if 'CLEAR_MEMORY' not in locals():
+    CLEAR_MEMORY = False
 
-callbacks = [model_checkpoint, earlystop, lr_callback, ClearMemory()]
+if CLEAR_MEMORY:
+
+    class ClearMemory(Callback):
+        def on_epoch_end(self, epoch, logs=None):
+            gc.collect()
+            K.clear_session()
+
+    print("Garbage collection will be perfomed")
+    callbacks = [model_checkpoint, earlystop, lr_callback, ClearMemory()]
+else:
+    print("Garbage collection will NOT be perfomed. To change this behaviour, set CLEAR_MEMORY=True in the config file")
+    callbacks = [model_checkpoint, earlystop, lr_callback]
+
 
 #----------------------------------------------------------
 ##########################################
