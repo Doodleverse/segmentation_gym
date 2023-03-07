@@ -884,11 +884,20 @@ if DO_TRAIN:
     K.clear_session()
 
     if MODEL=='segformer':
-        model.save_weights(weights.replace('.h5','_fullmodel.h5'))
+        try:
+            model.save_weights(weights.replace('.h5','_fullmodel.h5'))
+        except:
+            print("fullmodel weights could not be saved")
     else:
-        model.save(weights.replace('.h5','_fullmodel.h5'))
+        try:
+            model.save(weights.replace('.h5','_fullmodel.h5'))
+        except:
+            print("fullmodel weights could not be saved")
 
-    np.savez_compressed(weights.replace('.h5','_model_history.npz'),**history.history)
+    try:    
+        np.savez_compressed(weights.replace('.h5','_model_history.npz'),**history.history)
+    except: 
+        print("model training history could not be saved")
 
 else:
     if MODEL!='segformer':

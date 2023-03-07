@@ -28,6 +28,10 @@ from tqdm import tqdm
 from tkinter import filedialog, messagebox
 from tkinter import *
 
+profile = 'meta' # meta + predseg
+# profile = 'minimal' # predseg
+# profile = 'full' # meta + predseg + overlay + probs
+
 do_parallel = True 
 # do_parallel = False
 
@@ -353,12 +357,12 @@ if __name__ == "__main__":
 
         from joblib import Parallel, delayed
 
-        w = Parallel(n_jobs=-1, verbose=1)(delayed(do_seg(f, M, metadatadict, MODEL, sample_direc, NCLASSES, N_DATA_BANDS, TARGET_SIZE, TESTTIMEAUG, WRITE_MODELMETADATA, OTSU_THRESHOLD)) for f in sample_filenames)
+        w = Parallel(n_jobs=-1, verbose=1)(delayed(do_seg(f, M, metadatadict, MODEL, sample_direc, NCLASSES, N_DATA_BANDS, TARGET_SIZE, TESTTIMEAUG, WRITE_MODELMETADATA, OTSU_THRESHOLD,profile)) for f in sample_filenames)
 
     else:
         ## # Import do_seg() from doodleverse_utils to perform the segmentation on the images
         for f in tqdm(sample_filenames):
             try:
-                do_seg(f, M, metadatadict, MODEL, sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TESTTIMEAUG, WRITE_MODELMETADATA,OTSU_THRESHOLD)
+                do_seg(f, M, metadatadict, MODEL, sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TESTTIMEAUG, WRITE_MODELMETADATA,OTSU_THRESHOLD, profile)
             except:
                 print("{} failed. Check config file, and check the path provided contains valid imagery".format(f))
