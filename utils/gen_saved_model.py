@@ -26,8 +26,8 @@
 import sys,os, time
 from tqdm import tqdm
 
-USE_GPU = True
-SET_GPU = '0'
+USE_GPU = False #True
+SET_GPU = '-1'
 
 ## to store interim model outputs and metadata, use True
 WRITE_MODELMETADATA = False 
@@ -146,15 +146,30 @@ elif MODEL=='satunet':
                 num_layers=4,
                 strides=(1,1))
 
+elif MODEL=='segformer':
+    id2label = {}
+    for k in range(NCLASSES):
+        id2label[k]=str(k)
+    model = segformer(id2label,num_classes=NCLASSES)
+    # model.compile(optimizer='adam')
+
 else:
-    print("Model must be one of 'unet', 'resunet', or 'satunet'")
+    print("Model must be one of 'unet', 'resunet', 'segformer', or 'satunet'")
     sys.exit(2)
 
 
-model.compile(optimizer = 'adam', loss = 'categorical_crossentropy')
+try:
+    model.compile(optimizer = 'adam', loss = 'categorical_crossentropy')
 
-model.load_weights(weights)
+    model.load_weights(weights)
 
-saved_model_location = str(weights.replace('.h5','_model'))
+    saved_model_location = str(weights.replace('.h5','_model'))
 
-model.save(saved_model_location)
+    model.save(saved_model_location)
+
+except:
+    print("Plan A failed ... attempting plan B")
+    model = tf.keras.models.load_model(weights)
+    saved_model_location = str(weights.replace('.h5','_model'))
+
+    model.save(saved_model_location)
