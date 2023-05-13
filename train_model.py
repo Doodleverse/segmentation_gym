@@ -498,7 +498,7 @@ def plotcomp_n_metrics(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,MODEL
     return IOUc, Dc, Kc, OA, MIOU, FWIOU, MCC
 
 #-----------------------------------
-def get_model():
+def get_model(for_model_save=False):
     if MODEL =='resunet':
         model =  custom_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
                         FILTERS,
@@ -570,8 +570,8 @@ def get_model():
         for k in range(NCLASSES):
             id2label[k]=str(k)
         model = segformer(id2label,num_classes=NCLASSES)
-        model.compile(optimizer='adam')
-
+        if not for_model_save: # if model_save is False (default), model is compiled
+            model.compile(optimizer='adam')
     else:
         print("Model must be one of 'unet', 'resunet', 'segformer', or 'satunet'")
         sys.exit(2)
@@ -584,6 +584,8 @@ def get_model():
 ##########################################
 ##### set up dataset
 #######################################
+
+##################### remove below #################
 
 if 'MODE' not in locals():
     MODE = 'all'
@@ -619,6 +621,9 @@ shuffle(filenames) ##shuffle here
 
 list_ds = tf.data.Dataset.list_files(filenames, shuffle=False) ##dont shuffle here
 
+##################### remove above #################
+
+
 val_size = int(len(filenames) * VALIDATION_SPLIT)
 
 validation_steps = val_size // BATCH_SIZE
@@ -627,6 +632,15 @@ steps_per_epoch =  int(len(filenames) * 1-VALIDATION_SPLIT) // BATCH_SIZE
 print(steps_per_epoch)
 print(validation_steps)
 
+# -train_ds is made from train folder
+# -val_ds is made from val folder
+
+# train_ds = 
+
+# val_ds = 
+
+
+##################### remove below #################
 train_ds = list_ds.skip(val_size)
 val_ds = list_ds.take(val_size)
 
@@ -647,6 +661,9 @@ except:
 
 
 np.savetxt(weights.replace('.h5','_val_files.txt'), val_files, fmt='%s')
+
+##################### remove above #################
+
 
 ######################
 #### set up data throughput pipeline
@@ -759,10 +776,10 @@ print('.....................................')
 print('Creating and compiling model ...')
 if USE_MULTI_GPU:
     with strategy.scope():
-        model = get_model()
+        model = get_model(for_model_save=False)
 
 else: ## single GPU
-    model = get_model()
+    model = get_model(for_model_save=False)
 
 if MODEL!='segformer':
     if LOSS=='dice':
@@ -908,6 +925,22 @@ else:
     else:
             model.load_weights(weights)
 
+if DO_TRAIN:
+    try:
+        model = get_model(for_model_save=True)
+        model.compile(optimizer = 'adam', loss = 'categorical_crossentropy')
+        model.load_weights(weights)
+
+        ## save model to folder with same root name
+        saved_model_location = str(weights.replace('.h5','_model'))
+        model.save(saved_model_location)
+
+    except:
+        print("Plan A failed ... attempting plan B")
+        model = tf.keras.models.load_model(weights)
+        saved_model_location = str(weights.replace('.h5','_model'))
+        model.compile(optimizer = 'adam', loss = 'categorical_crossentropy')
+        model.save(saved_model_location)
 
 # # ##########################################################
 ##########################################

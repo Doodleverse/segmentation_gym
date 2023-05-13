@@ -81,15 +81,8 @@ We recommend a 6 part workflow:
 
 We advise creating a new conda environment to run the program. We recommend [miniconda](https://docs.conda.io/en/latest/miniconda.html)
 
-1. Clone the repo:
 
-```
-git clone --depth 1 https://github.com/Doodleverse/segmentation_gym.git
-```
-
-(`--depth 1` means "give me only the present code, not the whole history of git commits" - this saves disk space, and time)
-
-2. Create a conda environment called `gym`
+1. Create a conda environment called `gym`
 
 [OPTIONAL] First you may want to do some conda and pip housekeeping (recommended)
 
@@ -117,19 +110,21 @@ conda env create --file .\install\gym.yml
 If the above fails, use:
 
 ```
-conda create -n gym python=3.8
+conda create -n gym python=3.10
 conda activate gym
-conda install -c conda-forge scipy "numpy>=1.16.5, <=1.23.0" scikit-image cython ipython joblib tqdm pandas pip plotly natsort matplotlib -y
-pip install doodleverse_utils transformers
+conda install -c conda-forge scipy "numpy>=1.16.5, <=1.23.0" scikit-image cython ipython joblib tqdm pandas pip plotly natsort matplotlib transformers -y
+pip install torch doodleverse_utils
 conda install -c conda-forge cudatoolkit=11.2 cudnn=8.1.0
 python -m pip install "tensorflow-gpu<2.11"
 conda install cuda -c nvidia
 ```
 
+If you don't have `git` installed, `conda install git`
+
 ### Ubuntu:
 
 ```
-conda create --name gym python=3.9 -y
+conda create --name gym python=3.9
 conda activate gym
 conda install -c conda-forge cudatoolkit=11.2.2 cudnn=8.1.0 -y
 ```
@@ -144,8 +139,8 @@ echo 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/' > $CONDA_PREFI
 
 ```
 pip install tensorflow==2.11.*
-conda install -c conda-forge scipy "numpy>=1.16.5, <=1.23.0" scikit-image cython ipython joblib tqdm pandas pip plotly natsort matplotlib -y
-pip install doodleverse_utils transformers
+conda install -c conda-forge scipy "numpy>=1.16.5, <=1.23.0" scikit-image cython ipython joblib tqdm pandas pip plotly natsort matplotlib transformers -y
+pip install torch doodleverse_utils
 ```
 
 From [here](https://www.tensorflow.org/install/pip), in Ubuntu 22.04, you may encounter the following error:
@@ -178,11 +173,20 @@ In my case, I also had to link the path to the lib folder in anaconda to `LD_LIB
 ln -sf /usr/lib/x86_64-linux-gnu/libstdc++.so.6 ~/miniconda3/envs/gym/bin/../lib/libstdc++.so.6
 ```
 
-### Verify install (any operating system):
+2. Verify install (any operating system):
 
 ```
 python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
 ```
+
+3. Clone the repo:
+
+```
+git clone --depth 1 https://github.com/Doodleverse/segmentation_gym.git
+```
+
+(`--depth 1` means "give me only the present code, not the whole history of git commits" - this saves disk space, and time)
+
 
 ### Other Troubleshooting
 If you get errors associated with loading the model weights you may need to:

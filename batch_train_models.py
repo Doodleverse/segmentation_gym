@@ -3,7 +3,7 @@
 #
 # MIT License
 #
-# Copyright (c) 2021-22, Marda Science LLC
+# Copyright (c) 2021-23, Marda Science LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -219,6 +219,8 @@ for counter, (configfile, weights, data_path) in enumerate(zip(C,W,D)):
     ##### set up defs
     #######################################
 
+    #--------------------------------------------------
+
     #---------------------------------------------------
     # learning rate function
     def lrfn(epoch):
@@ -249,7 +251,7 @@ for counter, (configfile, weights, data_path) in enumerate(zip(C,W,D)):
             image = standardize(image)
             label = data['arr_1'].astype('uint8')
 
-        return image, label#, file
+        return image, label
 
 
     @tf.autograph.experimental.do_not_convert
@@ -266,7 +268,6 @@ for counter, (configfile, weights, data_path) in enumerate(zip(C,W,D)):
             * image [tensor array]
             * class_label [tensor array]
         """
-        #image, label, file = tf.py_function(func=load_npz, inp=[example], Tout=[tf.float32, tf.uint8, tf.string])
         image, label = tf.py_function(func=load_npz, inp=[example], Tout=[tf.float32, tf.uint8])
 
         if NCLASSES==2:
@@ -309,6 +310,7 @@ for counter, (configfile, weights, data_path) in enumerate(zip(C,W,D)):
 
         return {"pixel_values": image, "labels": label}
 
+
     #-----------------------------------
     def plotcomp_n_metrics(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,MODEL,num_batches=20):
 
@@ -347,6 +349,7 @@ for counter, (configfile, weights, data_path) in enumerate(zip(C,W,D)):
                     imgPredict = tf.math.argmax(est_label, axis=1)[0]
 
                     out = AllMetrics(NCLASSES, imgPredict, lbl)
+
 
                     OA.append(out['OverallAccuracy'])
                     FWIOU.append(out['Frequency_Weighted_Intersection_over_Union'])
@@ -535,6 +538,89 @@ for counter, (configfile, weights, data_path) in enumerate(zip(C,W,D)):
 
         return IOUc, Dc, Kc, OA, MIOU, FWIOU, MCC
 
+    #-----------------------------------
+    def get_model(for_model_save=False):
+        if MODEL =='resunet':
+            model =  custom_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                            FILTERS,
+                            nclasses=NCLASSES, 
+                            kernel_size=(KERNEL,KERNEL),
+                            strides=STRIDE,
+                            dropout=DROPOUT,
+                            dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
+                            dropout_type=DROPOUT_TYPE,
+                            use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING
+                            )
+        elif MODEL=='unet':
+            model =  custom_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                            FILTERS,
+                            nclasses=NCLASSES, 
+                            kernel_size=(KERNEL,KERNEL),
+                            strides=STRIDE,
+                            dropout=DROPOUT,
+                            dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
+                            dropout_type=DROPOUT_TYPE,
+                            use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
+                            )
+
+        elif MODEL =='simple_resunet':
+
+            model = simple_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                        kernel = (2, 2),
+                        num_classes=NCLASSES,
+                        activation="relu",
+                        use_batch_norm=True,
+                        dropout=DROPOUT,
+                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
+                        dropout_type=DROPOUT_TYPE,
+                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
+                        filters=FILTERS,
+                        num_layers=4,
+                        strides=(1,1))
+
+        elif MODEL=='simple_unet':
+            model = simple_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                        kernel = (2, 2),
+                        num_classes=NCLASSES,
+                        activation="relu",
+                        use_batch_norm=True,
+                        dropout=DROPOUT,
+                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
+                        dropout_type=DROPOUT_TYPE,
+                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
+                        filters=FILTERS,
+                        num_layers=4,
+                        strides=(1,1))
+
+        elif MODEL=='satunet':
+            model = custom_satunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                        kernel = (2, 2),
+                        num_classes=NCLASSES, 
+                        activation="relu",
+                        use_batch_norm=True,
+                        dropout=DROPOUT,
+                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
+                        dropout_type=DROPOUT_TYPE,
+                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
+                        filters=FILTERS,
+                        num_layers=4,
+                        strides=(1,1))
+
+        elif MODEL=='segformer':
+            id2label = {}
+            for k in range(NCLASSES):
+                id2label[k]=str(k)
+            model = segformer(id2label,num_classes=NCLASSES)
+            if not for_model_save: # if model_save is False (default), model is compiled
+                model.compile(optimizer='adam')
+
+        else:
+            print("Model must be one of 'unet', 'resunet', 'segformer', or 'satunet'")
+            sys.exit(2)
+
+        return model
+            
+
     ###==========================================================
     #-------------------------------------------------
 
@@ -572,9 +658,13 @@ for counter, (configfile, weights, data_path) in enumerate(zip(C,W,D)):
 
     #----------------------------------------------------------
 
+
     shuffle(filenames) ##shuffle here
 
     list_ds = tf.data.Dataset.list_files(filenames, shuffle=False) ##dont shuffle here
+
+    ##################### remove above #################
+
 
     val_size = int(len(filenames) * VALIDATION_SPLIT)
 
@@ -584,6 +674,15 @@ for counter, (configfile, weights, data_path) in enumerate(zip(C,W,D)):
     print(steps_per_epoch)
     print(validation_steps)
 
+    # -train_ds is made from train folder
+    # -val_ds is made from val folder
+
+    # train_ds = 
+
+    # val_ds = 
+
+
+    ##################### remove below #################
     train_ds = list_ds.skip(val_size)
     val_ds = list_ds.take(val_size)
 
@@ -609,15 +708,29 @@ for counter, (configfile, weights, data_path) in enumerate(zip(C,W,D)):
     #### set up data throughput pipeline
     #####################
     # Set `num_parallel_calls` so multiple images are loaded/processed in parallel.
+    if 'LOAD_DATA_WITH_CPU' not in locals():
+        LOAD_DATA_WITH_CPU = False #default
+        print('LOAD_DATA_WITH_CPU not specified in config file. Setting to "False"')
 
-    if MODEL=='segformer':
-        train_ds = train_ds.map(read_seg_dataset_multiclass_segformer, num_parallel_calls=AUTO)
+    if LOAD_DATA_WITH_CPU:
+        with tf.device("CPU"):
+            if MODEL=='segformer':
+                train_ds = train_ds.map(read_seg_dataset_multiclass_segformer, num_parallel_calls=AUTO)
 
-        val_ds = val_ds.map(read_seg_dataset_multiclass_segformer, num_parallel_calls=AUTO)
+                val_ds = val_ds.map(read_seg_dataset_multiclass_segformer, num_parallel_calls=AUTO)
 
+            else:
+                train_ds = train_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
+                val_ds = val_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
     else:
-        train_ds = train_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
-        val_ds = val_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
+        if MODEL=='segformer':
+            train_ds = train_ds.map(read_seg_dataset_multiclass_segformer, num_parallel_calls=AUTO)
+
+            val_ds = val_ds.map(read_seg_dataset_multiclass_segformer, num_parallel_calls=AUTO)
+
+        else:
+            train_ds = train_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
+            val_ds = val_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
 
 
     train_ds = train_ds.repeat()
@@ -628,9 +741,8 @@ for counter, (configfile, weights, data_path) in enumerate(zip(C,W,D)):
     val_ds = val_ds.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be needed on TPU
     val_ds = val_ds.prefetch(AUTO) #
 
-
     ### the following code is for troubleshooting, when do_viz=True
-    do_viz = False 
+    do_viz = False
     # do_viz=True
 
     if do_viz == True:
@@ -690,7 +802,6 @@ for counter, (configfile, weights, data_path) in enumerate(zip(C,W,D)):
                     plt.savefig('example-{}-{}.png'.format(counter,count), dpi=200)
                     plt.close()
 
-
     ##===============================================
 
     ##########################################
@@ -701,205 +812,49 @@ for counter, (configfile, weights, data_path) in enumerate(zip(C,W,D)):
     print('Creating and compiling model ...')
     if USE_MULTI_GPU:
         with strategy.scope():
+            model = get_model(for_model_save=False)
 
-            if MODEL =='resunet':
-                model =  custom_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-                                FILTERS,
-                                nclasses=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
-                                kernel_size=(KERNEL,KERNEL),
-                                strides=STRIDE,
-                                dropout=DROPOUT,
-                                dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
-                                dropout_type=DROPOUT_TYPE,
-                                use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING
-                                )
-            elif MODEL=='unet':
-                model =  custom_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-                                FILTERS,
-                                nclasses=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
-                                kernel_size=(KERNEL,KERNEL),
-                                strides=STRIDE,
-                                dropout=DROPOUT,
-                                dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
-                                dropout_type=DROPOUT_TYPE,
-                                use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
-                                )
-
-            elif MODEL =='simple_resunet':
-
-                model = simple_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-                            kernel = (2, 2),
-                            num_classes=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
-                            activation="relu",
-                            use_batch_norm=True,
-                            dropout=DROPOUT,
-                            dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
-                            dropout_type=DROPOUT_TYPE,
-                            use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
-                            filters=FILTERS,
-                            num_layers=4,
-                            strides=(1,1))
-
-            elif MODEL=='simple_unet':
-                model = simple_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-                            kernel = (2, 2),
-                            num_classes=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
-                            activation="relu",
-                            use_batch_norm=True,
-                            dropout=DROPOUT,
-                            dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
-                            dropout_type=DROPOUT_TYPE,
-                            use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
-                            filters=FILTERS,
-                            num_layers=4,
-                            strides=(1,1))
-
-            elif MODEL=='satunet':
-                model = custom_satunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-                            kernel = (2, 2),
-                            num_classes=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
-                            activation="relu",
-                            use_batch_norm=True,
-                            dropout=DROPOUT,
-                            dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
-                            dropout_type=DROPOUT_TYPE,
-                            use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
-                            filters=FILTERS,
-                            num_layers=4,
-                            strides=(1,1))
-
-            elif MODEL=='segformer':
-                id2label = {}
-                for k in range(NCLASSES):
-                    id2label[k]=str(k)
-                model = segformer(id2label,num_classes=NCLASSES)
-                model.compile(optimizer='adam')
-
-            else:
-                print("Model must be one of 'unet', 'resunet', 'segformer', or 'satunet'")
-                sys.exit(2)
-
-    else:
-
-        if MODEL =='resunet':
-            model =  custom_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-                            FILTERS,
-                            nclasses=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
-                            kernel_size=(KERNEL,KERNEL),
-                            strides=STRIDE,
-                            dropout=DROPOUT,#0.1,
-                            dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
-                            dropout_type=DROPOUT_TYPE,#"standard",
-                            use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING
-                            )
-        elif MODEL=='unet':
-            model =  custom_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-                            FILTERS,
-                            nclasses=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
-                            kernel_size=(KERNEL,KERNEL),
-                            strides=STRIDE,
-                            dropout=DROPOUT,#0.1,
-                            dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#0.0,
-                            dropout_type=DROPOUT_TYPE,#"standard",
-                            use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,#False,
-                            )
-
-        elif MODEL =='simple_resunet':
-
-            model = simple_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-                        kernel = (2, 2),
-                        num_classes=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
-                        activation="relu",
-                        use_batch_norm=True,
-                        dropout=DROPOUT,
-                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
-                        dropout_type=DROPOUT_TYPE,
-                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
-                        filters=FILTERS,
-                        num_layers=4,
-                        strides=(1,1))
-
-        elif MODEL=='simple_unet':
-            model = simple_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-                        kernel = (2, 2),
-                        num_classes=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
-                        activation="relu",
-                        use_batch_norm=True,
-                        dropout=DROPOUT,
-                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,#
-                        dropout_type=DROPOUT_TYPE,
-                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
-                        filters=FILTERS,
-                        num_layers=4,
-                        strides=(1,1))
-
-        elif MODEL=='satunet':
-            model = custom_satunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-                        kernel = (2, 2),
-                        num_classes=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
-                        activation="relu",
-                        use_batch_norm=True,
-                        dropout=DROPOUT,
-                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
-                        dropout_type=DROPOUT_TYPE,
-                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
-                        filters=FILTERS,
-                        num_layers=4,
-                        strides=(1,1))
-
-        elif MODEL=='segformer':
-            id2label = {}
-            for k in range(NCLASSES):
-                id2label[k]=str(k)
-            model = segformer(id2label,num_classes=NCLASSES)
-            model.compile(optimizer='adam')
-
-        else:
-            print("Model must be one of 'unet', 'resunet', 'segformer', or 'satunet'")
-            sys.exit(2)
+    else: ## single GPU
+        model = get_model(for_model_save=False)
 
     if MODEL!='segformer':
         if LOSS=='dice':
             if 'LOSS_WEIGHTS' in locals():
                 if LOSS_WEIGHTS is True:
 
-                    print("Computing loss weights per class ...")
-                    N = []
-                    # compute class-frequency distribution for 30 batches of training images 
-                    for _,lbls in train_ds.take(30):
-                        for _,lab in zip(_, lbls):
-                            lab = np.argmax(lab.numpy().squeeze(),-1).flatten()
-                            # make sure bincount is same length as number of classes
-                            N.append(np.bincount(lab,minlength=NCLASSES)) #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0]))
-                    # mean of class-frequencies
-                    class_weights = np.mean(np.vstack(N),axis=0)
-                    # inverse weighting
-                    class_weights = 1-(class_weights/np.sum(class_weights))
+                        print("Computing loss weights per class ...")
+                        N = []
+                        # compute class-frequency distribution for 30 batches of training images 
+                        for _,lbls in train_ds.take(30):
+                            for _,lab in zip(_, lbls):
+                                lab = np.argmax(lab.numpy().squeeze(),-1).flatten()
+                                # make sure bincount is same length as number of classes
+                                N.append(np.bincount(lab,minlength=NCLASSES)) #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0]))
+                        # mean of class-frequencies
+                        class_weights = np.mean(np.vstack(N),axis=0)
+                        # inverse weighting
+                        class_weights = 1-(class_weights/np.sum(class_weights))
 
                 elif type(LOSS_WEIGHTS) is list:
-                    class_weights = np.array(LOSS_WEIGHTS)
-                    # inverse weighting
-                    class_weights = 1-(class_weights/np.sum(class_weights))
-                    print("Model compiled with class weights {}".format(class_weights)) 
+                        class_weights = np.array(LOSS_WEIGHTS)
+                        # inverse weighting
+                        class_weights = 1-(class_weights/np.sum(class_weights))
+                        print("Model compiled with class weights {}".format(class_weights)) 
                 else:
                     class_weights = np.ones(NCLASSES)
-            
-                model.compile(optimizer = 'adam', loss =weighted_dice_coef_loss(NCLASSES,class_weights), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
 
+                    model.compile(optimizer = 'adam', loss =weighted_dice_coef_loss(NCLASSES,class_weights), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)], run_eagerly=True)
             else:
-
-                model.compile(optimizer = 'adam', loss =dice_coef_loss(NCLASSES), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
+                    model.compile(optimizer = 'adam', loss =dice_coef_loss(NCLASSES), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)], run_eagerly=True)
 
         else:
+                if LOSS=='hinge':
+                    model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalHinge(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)], run_eagerly=True) 
+                elif LOSS.startswith('cat'):
+                    model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalCrossentropy(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)], run_eagerly=True)
+                elif LOSS.startswith('k'):
+                    model.compile(optimizer = 'adam', loss =tf.keras.losses.KLDivergence(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)], run_eagerly=True)
 
-            if LOSS=='hinge':
-                model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalHinge(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)]) #, steps_per_execution=2, jit_compile=True
-            elif LOSS.startswith('cat'):
-                model.compile(optimizer = 'adam', loss =tf.keras.losses.CategoricalCrossentropy(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
-            elif LOSS.startswith('k'):
-                model.compile(optimizer = 'adam', loss =tf.keras.losses.KLDivergence(), metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
-
-    #----------------------------------------------------------
 
     ##########################################
     ##### set up callbacks
@@ -920,6 +875,7 @@ for counter, (configfile, weights, data_path) in enumerate(zip(C,W,D)):
             tf.keras.utils.plot_model(model,to_file="unet_test.png",dpi=200)
         except:
             pass
+
     earlystop = EarlyStopping(monitor="val_loss",
                                 mode="min", patience=PATIENCE)
 
@@ -928,10 +884,25 @@ for counter, (configfile, weights, data_path) in enumerate(zip(C,W,D)):
                                     verbose=0, save_best_only=True, mode='min',
                                     save_weights_only = True)
 
+
     # models are sensitive to specification of learning rate. How do you decide? Answer: you don't. Use a learning rate scheduler
     lr_callback = tf.keras.callbacks.LearningRateScheduler(lambda epoch: lrfn(epoch), verbose=True)
 
-    callbacks = [model_checkpoint, earlystop, lr_callback]
+    if 'CLEAR_MEMORY' not in locals():
+        CLEAR_MEMORY = False
+
+    if CLEAR_MEMORY:
+
+        class ClearMemory(Callback):
+            def on_epoch_end(self, epoch, logs=None):
+                gc.collect()
+                K.clear_session()
+
+        print("Garbage collection will be perfomed")
+        callbacks = [model_checkpoint, earlystop, lr_callback, ClearMemory()]
+    else:
+        print("Garbage collection will NOT be perfomed. To change this behaviour, set CLEAR_MEMORY=True in the config file")
+        callbacks = [model_checkpoint, earlystop, lr_callback]
 
     #----------------------------------------------------------
     ##########################################
@@ -941,13 +912,20 @@ for counter, (configfile, weights, data_path) in enumerate(zip(C,W,D)):
     if DO_TRAIN:
 
         if 'HOT_START' in locals():
+            if 'INITIAL_EPOCH' not in locals():
+                print("if HOT_START is specified, INITIAL_EPOCH must also be specified in the config file. Exiting ...")
+                sys.exit(2)
             model.load_weights(HOT_START)
             print('transfering model weights for hot start ...')
+        else:
+            if 'INITIAL_EPOCH' not in locals():
+                INITIAL_EPOCH=0
+                print("INITIAL_EPOCH not specified in the config file. Setting to default of 0 ...")
 
         print('.....................................')
         print('Training model ...')
         history = model.fit(train_ds, steps_per_epoch=steps_per_epoch, epochs=MAX_EPOCHS,
-                            validation_data=val_ds, validation_steps=validation_steps,
+                            validation_data=val_ds, validation_steps=validation_steps, initial_epoch=INITIAL_EPOCH,
                             callbacks=callbacks)
 
         # Plot training history
@@ -957,11 +935,20 @@ for counter, (configfile, weights, data_path) in enumerate(zip(C,W,D)):
         K.clear_session()
 
         if MODEL=='segformer':
-            model.save_weights(weights.replace('.h5','_fullmodel.h5'))
+            try:
+                model.save_weights(weights.replace('.h5','_fullmodel.h5'))
+            except:
+                print("fullmodel weights could not be saved")
         else:
-            model.save(weights.replace('.h5','_fullmodel.h5'))
+            try:
+                model.save(weights.replace('.h5','_fullmodel.h5'))
+            except:
+                print("fullmodel weights could not be saved")
 
-        np.savez_compressed(weights.replace('.h5','_model_history.npz'),**history.history)
+        try:    
+            np.savez_compressed(weights.replace('.h5','_model_history.npz'),**history.history)
+        except: 
+            print("model training history could not be saved")
 
     else:
         if MODEL!='segformer':
@@ -972,6 +959,23 @@ for counter, (configfile, weights, data_path) in enumerate(zip(C,W,D)):
         else:
                 model.load_weights(weights)
 
+
+    if DO_TRAIN:
+        try:
+            model = get_model(for_model_save=True)
+            model.compile(optimizer = 'adam', loss = 'categorical_crossentropy')
+            model.load_weights(weights)
+
+            ## save model to folder with same root name
+            saved_model_location = str(weights.replace('.h5','_model'))
+            model.save(saved_model_location)
+
+        except:
+            print("Plan A failed ... attempting plan B")
+            model = tf.keras.models.load_model(weights)
+            saved_model_location = str(weights.replace('.h5','_model'))
+            model.compile(optimizer = 'adam', loss = 'categorical_crossentropy')
+            model.save(saved_model_location)
 
     # # ##########################################################
     ##########################################
@@ -1007,3 +1011,4 @@ for counter, (configfile, weights, data_path) in enumerate(zip(C,W,D)):
     print('Mean of Matthews Correlation Coefficients (train subset)={mean_dice:0.3f}'.format(mean_dice=np.mean(MCC)))
     print('Mean of mean Dice scores (train subset)={mean_dice:0.3f}'.format(mean_dice=np.mean(Dc)))
     print('Mean of mean KLD scores (train subset)={mean_kld:0.3f}'.format(mean_kld=np.mean(Kc)))
+
