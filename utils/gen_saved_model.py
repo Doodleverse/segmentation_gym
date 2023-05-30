@@ -3,7 +3,7 @@
 #
 # MIT License
 #
-# Copyright (c) 2020-22, Marda Science LLC
+# Copyright (c) 2020-23, Marda Science LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -49,127 +49,127 @@ from doodleverse_utils.prediction_imports import *
 
 
 root = Tk()
-root.filename =  filedialog.askopenfilename(initialdir = "/weights", title = "Select weights file",filetypes = (("weights file","*.h5"),("all files","*.*")))
-weights = root.filename
-print(weights)
+root.filename =  filedialog.askopenfilename(initialdir = "/weights", title = "Select weights file(s)",filetypes = (("weights file","*.h5"),("all files","*.*")), multiple=True)
+w = root.filename
+print(w)
 root.withdraw()
 
+for weights in w:
+    try:
+        configfile = weights.replace('_fullmodel.h5','.json').replace('weights', 'config')
+        with open(configfile) as f:
+            config = json.load(f)
+    except:
+        configfile = weights.replace('.h5','.json').replace('weights', 'config')
+        with open(configfile) as f:
+            config = json.load(f)
 
-try:
-    configfile = weights.replace('_fullmodel.h5','.json').replace('weights', 'config')
-    with open(configfile) as f:
-        config = json.load(f)
-except:
-    configfile = weights.replace('.h5','.json').replace('weights', 'config')
-    with open(configfile) as f:
-        config = json.load(f)
-
-for k in config.keys():
-    exec(k+'=config["'+k+'"]')
+    for k in config.keys():
+        exec(k+'=config["'+k+'"]')
 
 
-#from imports import *
-from doodleverse_utils.imports import *
-#---------------------------------------------------
+    #from imports import *
+    from doodleverse_utils.imports import *
+    #---------------------------------------------------
 
-#=======================================================
+    #=======================================================
 
-# Get the selected model based on the weights file's MODEL key provided
-# create the model with the data loaded in from the weights file
-print('.....................................')
-print('Creating and compiling model')
+    # Get the selected model based on the weights file's MODEL key provided
+    # create the model with the data loaded in from the weights file
+    print('.....................................')
+    print('Creating and compiling model')
 
-if MODEL =='resunet':
-    model =  custom_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-                    FILTERS,
-                    nclasses=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
-                    kernel_size=(KERNEL,KERNEL),
-                    strides=STRIDE,
+    if MODEL =='resunet':
+        model =  custom_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                        FILTERS,
+                        nclasses=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                        kernel_size=(KERNEL,KERNEL),
+                        strides=STRIDE,
+                        dropout=DROPOUT,
+                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
+                        dropout_type=DROPOUT_TYPE,
+                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
+                        )
+    elif MODEL=='unet':
+        model =  custom_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                        FILTERS,
+                        nclasses=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                        kernel_size=(KERNEL,KERNEL),
+                        strides=STRIDE,
+                        dropout=DROPOUT,
+                        dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
+                        dropout_type=DROPOUT_TYPE,
+                        use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
+                        )
+
+    elif MODEL =='simple_resunet':
+
+        model = simple_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                    kernel = (2, 2),
+                    num_classes=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                    activation="relu",
+                    use_batch_norm=True,
                     dropout=DROPOUT,
                     dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
                     dropout_type=DROPOUT_TYPE,
                     use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
-                    )
-elif MODEL=='unet':
-    model =  custom_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-                    FILTERS,
-                    nclasses=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
-                    kernel_size=(KERNEL,KERNEL),
-                    strides=STRIDE,
+                    filters=FILTERS,
+                    num_layers=4,
+                    strides=(1,1))
+
+    elif MODEL=='simple_unet':
+        model = simple_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                    kernel = (2, 2),
+                    num_classes=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                    activation="relu",
+                    use_batch_norm=True,
                     dropout=DROPOUT,
                     dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
                     dropout_type=DROPOUT_TYPE,
                     use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
-                    )
+                    filters=FILTERS,
+                    num_layers=4,
+                    strides=(1,1))
 
-elif MODEL =='simple_resunet':
+    elif MODEL=='satunet':
 
-    model = simple_resunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-                kernel = (2, 2),
-                num_classes=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
-                activation="relu",
-                use_batch_norm=True,
-                dropout=DROPOUT,
-                dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
-                dropout_type=DROPOUT_TYPE,
-                use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
-                filters=FILTERS,
-                num_layers=4,
-                strides=(1,1))
+        model = custom_satunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
+                    kernel = (2, 2),
+                    num_classes=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
+                    activation="relu",
+                    use_batch_norm=True,
+                    dropout=DROPOUT,
+                    dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
+                    dropout_type=DROPOUT_TYPE,
+                    use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
+                    filters=FILTERS,
+                    num_layers=4,
+                    strides=(1,1))
 
-elif MODEL=='simple_unet':
-    model = simple_unet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-                kernel = (2, 2),
-                num_classes=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
-                activation="relu",
-                use_batch_norm=True,
-                dropout=DROPOUT,
-                dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
-                dropout_type=DROPOUT_TYPE,
-                use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
-                filters=FILTERS,
-                num_layers=4,
-                strides=(1,1))
+    elif MODEL=='segformer':
+        id2label = {}
+        for k in range(NCLASSES):
+            id2label[k]=str(k)
+        model = segformer(id2label,num_classes=NCLASSES)
+        # model.compile(optimizer='adam')
 
-elif MODEL=='satunet':
-
-    model = custom_satunet((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS),
-                kernel = (2, 2),
-                num_classes=NCLASSES, #[NCLASSES+1 if NCLASSES==1 else NCLASSES][0],
-                activation="relu",
-                use_batch_norm=True,
-                dropout=DROPOUT,
-                dropout_change_per_layer=DROPOUT_CHANGE_PER_LAYER,
-                dropout_type=DROPOUT_TYPE,
-                use_dropout_on_upsampling=USE_DROPOUT_ON_UPSAMPLING,
-                filters=FILTERS,
-                num_layers=4,
-                strides=(1,1))
-
-elif MODEL=='segformer':
-    id2label = {}
-    for k in range(NCLASSES):
-        id2label[k]=str(k)
-    model = segformer(id2label,num_classes=NCLASSES)
-    # model.compile(optimizer='adam')
-
-else:
-    print("Model must be one of 'unet', 'resunet', 'segformer', or 'satunet'")
-    sys.exit(2)
+    else:
+        print("Model must be one of 'unet', 'resunet', 'segformer', or 'satunet'")
+        sys.exit(2)
 
 
-try:
-    model.compile(optimizer = 'adam', loss = 'categorical_crossentropy')
+    try:
+        model.compile(optimizer = 'adam', loss = 'categorical_crossentropy')
 
-    model.load_weights(weights)
+        model.load_weights(weights)
 
-    saved_model_location = str(weights.replace('.h5','_model'))
+        saved_model_location = str(weights.replace('.h5','_model.keras'))
 
-    model.save(saved_model_location)
+        model.save(saved_model_location, save_format="keras_v3")
 
-except:
-    print("Plan A failed ... attempting plan B")
-    model = tf.keras.models.load_model(weights)
-    saved_model_location = str(weights.replace('.h5','_model'))
+    except:
+        print("Plan A failed ... attempting plan B")
+        model = tf.keras.models.load_model(weights)
+        saved_model_location = str(weights.replace('.h5','_model.keras'))
 
-    model.save(saved_model_location)
+        model.save(saved_model_location, save_format="keras_v3")

@@ -36,9 +36,15 @@ from skimage.transform import resize
 ###############################################################
 
 root = Tk()
-root.filename =  filedialog.askdirectory(initialdir = "./",title = "Select directory of data files")
+root.filename =  filedialog.askdirectory(initialdir = "./",title = "Select directory of TRAIN data files")
 data_path = root.filename
 print(data_path)
+root.withdraw()
+
+root = Tk()
+root.filename =  filedialog.askdirectory(initialdir = data_path,title = "Select directory of VALIDATION data files")
+val_data_path = root.filename
+print(val_data_path)
 root.withdraw()
 
 root = Tk()
@@ -95,7 +101,6 @@ else:
     else:
         print('Using single CPU device')
 
-
 if USE_GPU == True:
 
     ## this could be a bad idea - at least on windows, it reorders the gpus in a way you dont want
@@ -150,7 +155,6 @@ if USE_MULTI_GPU:
 ### main
 ###############################################################
 
-
 ##########################################
 ##### set up output variables
 #######################################
@@ -169,16 +173,6 @@ except:
 
 test_samples_fig =  weights.replace('.h5','_val.png').replace('weights', 'modelOut')
 
-
-###############################################################
-### main
-###############################################################
-
-##########################################
-##### set up defs
-#######################################
-
-#--------------------------------------------------
 
 #---------------------------------------------------
 # learning rate function
@@ -585,71 +579,29 @@ def get_model(for_model_save=False):
 ##### set up dataset
 #######################################
 
-##################### remove below #################
+train_filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'*.npz')
 
-if 'MODE' not in locals():
-    MODE = 'all'
-    print('MODE not specified in config file. Setting to "all" files')
-
-if MODE=='all':
-    print('MODE "all": using all augmented and non-augmented files')
-    #  use all files instead
-    filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'*.npz')
-
-elif MODE=='noaug':
-    print('MODE "noaug": using non-augmented files')
-    # use non-augmented files instead
-    filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'*noaug*.npz')
-    if len(filenames)==0:
-        filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'*_noaug*.npz')
-
-else:
-    print('MODE "aug": using augmented files')
-    filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'*aug*.npz')
-    if len(filenames)==0:
-        filenames = tf.io.gfile.glob(data_path+os.sep+ROOT_STRING+'*_aug*.npz')
-
-try:
-    dir_path = os.path.dirname(os.getcwd())
-    os.mkdir(dir_path+os.sep+'weights')
-except:
-    pass # weights direc already exists
+val_filenames = tf.io.gfile.glob(val_data_path+os.sep+ROOT_STRING+'*.npz')
 
 #----------------------------------------------------------
 
-shuffle(filenames) ##shuffle here
+shuffle(train_filenames) ##shuffle here
+shuffle(val_filenames) ##shuffle here
 
-list_ds = tf.data.Dataset.list_files(filenames, shuffle=False) ##dont shuffle here
+list_ds = tf.data.Dataset.list_files(train_filenames, shuffle=False) ##dont shuffle here
 
-##################### remove above #################
-
-
-val_size = int(len(filenames) * VALIDATION_SPLIT)
-
-validation_steps = val_size // BATCH_SIZE
-steps_per_epoch =  int(len(filenames) * 1-VALIDATION_SPLIT) // BATCH_SIZE
-
-print(steps_per_epoch)
-print(validation_steps)
-
-# -train_ds is made from train folder
-# -val_ds is made from val folder
-
-# train_ds = 
-
-# val_ds = 
+val_list_ds = tf.data.Dataset.list_files(val_filenames, shuffle=False) ##dont shuffle here
 
 
-##################### remove below #################
-train_ds = list_ds.skip(val_size)
-val_ds = list_ds.take(val_size)
+validation_steps = len(val_filenames) // BATCH_SIZE
+steps_per_epoch =  len(train_filenames) // BATCH_SIZE
 
 train_files = []
-for i in train_ds:
+for i in list_ds:
     train_files.append(i.numpy().decode().split(os.sep)[-1])
 
 val_files = []
-for i in val_ds:
+for i in val_list_ds:
     val_files.append(i.numpy().decode().split(os.sep)[-1])
 
 try:
@@ -661,9 +613,6 @@ except:
 
 
 np.savetxt(weights.replace('.h5','_val_files.txt'), val_files, fmt='%s')
-
-##################### remove above #################
-
 
 ######################
 #### set up data throughput pipeline
@@ -677,22 +626,22 @@ if 'LOAD_DATA_WITH_CPU' not in locals():
 if LOAD_DATA_WITH_CPU:
     with tf.device("CPU"):
         if MODEL=='segformer':
-            train_ds = train_ds.map(read_seg_dataset_multiclass_segformer, num_parallel_calls=AUTO)
+            train_ds = list_ds.map(read_seg_dataset_multiclass_segformer, num_parallel_calls=AUTO)
 
-            val_ds = val_ds.map(read_seg_dataset_multiclass_segformer, num_parallel_calls=AUTO)
+            val_ds = val_list_ds.map(read_seg_dataset_multiclass_segformer, num_parallel_calls=AUTO)
 
         else:
-            train_ds = train_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
-            val_ds = val_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
+            train_ds = list_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
+            val_ds = val_list_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
 else:
     if MODEL=='segformer':
-        train_ds = train_ds.map(read_seg_dataset_multiclass_segformer, num_parallel_calls=AUTO)
+        train_ds = list_ds.map(read_seg_dataset_multiclass_segformer, num_parallel_calls=AUTO)
 
-        val_ds = val_ds.map(read_seg_dataset_multiclass_segformer, num_parallel_calls=AUTO)
+        val_ds = val_list_ds.map(read_seg_dataset_multiclass_segformer, num_parallel_calls=AUTO)
 
     else:
-        train_ds = train_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
-        val_ds = val_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
+        train_ds = list_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
+        val_ds = val_list_ds.map(read_seg_dataset_multiclass, num_parallel_calls=AUTO)
 
 
 train_ds = train_ds.repeat()
@@ -702,7 +651,6 @@ train_ds = train_ds.prefetch(AUTO) #
 val_ds = val_ds.repeat()
 val_ds = val_ds.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be needed on TPU
 val_ds = val_ds.prefetch(AUTO) #
-
 
 ### the following code is for troubleshooting, when do_viz=True
 do_viz = False
@@ -900,47 +848,41 @@ if DO_TRAIN:
     plt.close('all')
     K.clear_session()
 
-    if MODEL=='segformer':
-        try:
-            model.save_weights(weights.replace('.h5','_fullmodel.h5'))
-        except:
-            print("fullmodel weights could not be saved")
-    else:
-        try:
-            model.save(weights.replace('.h5','_fullmodel.h5'))
-        except:
-            print("fullmodel weights could not be saved")
-
     try:    
         np.savez_compressed(weights.replace('.h5','_model_history.npz'),**history.history)
     except: 
         print("model training history could not be saved")
 
-else:
-    if MODEL!='segformer':
-        try:
-            model = tf.keras.models.load_model(weights.replace('.h5','_fullmodel.h5'))
-        except:
-            model.load_weights(weights)
-    else:
-            model.load_weights(weights)
-
-if DO_TRAIN:
+    # if MODEL=='segformer':
     try:
-        model = get_model(for_model_save=True)
-        model.compile(optimizer = 'adam', loss = 'categorical_crossentropy')
-        model.load_weights(weights)
-
-        ## save model to folder with same root name
-        saved_model_location = str(weights.replace('.h5','_model'))
-        model.save(saved_model_location)
-
+        model.save_weights(weights.replace('.h5','_fullmodel.h5'))
     except:
-        print("Plan A failed ... attempting plan B")
-        model = tf.keras.models.load_model(weights)
-        saved_model_location = str(weights.replace('.h5','_model'))
-        model.compile(optimizer = 'adam', loss = 'categorical_crossentropy')
-        model.save(saved_model_location)
+        print("fullmodel weights could not be saved")
+
+    try:
+        model.save(weights.replace('.h5','_model.keras'), save_format="keras_v3")
+    except:
+        print("keras format could not be saved")
+
+else:
+    # if MODEL!='segformer':
+    #     try:
+    #         model = tf.keras.models.load_model(weights.replace('.h5','_model.keras'))
+    #     except:
+    #         model.load_weights(weights)
+    # else:
+    #     try:
+    #         model = tf.keras.models.load_model(weights.replace('.h5','_model.keras'))
+    #     except:
+    #         model.load_weights(weights)
+    # if os.path.exists(weights.replace('.h5','_model.keras')):
+    #     model = tf.keras.models.load_model(weights.replace('.h5','_model.keras'))
+    #     model.compile('adam',None)
+
+    # if 'h5' in weights:
+    model2 = get_model()
+    model2.load_weights(weights)
+        
 
 # # ##########################################################
 ##########################################

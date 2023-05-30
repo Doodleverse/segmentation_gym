@@ -20,9 +20,12 @@ DOI](https://img.shields.io/badge/%F0%9F%8C%8D%F0%9F%8C%8F%F0%9F%8C%8E%20EarthAr
 
  Buscombe, D., & Goldstein, E. B. (2022). A reproducible and reusable pipeline for segmentation of geoscientific imagery. Earth and Space Science, 9, e2022EA002332. https://doi.org/10.1029/2022EA002332 
 
-## New in February 2023
-* As long as a family of UNets, we now offer a Transformer model option, using the SegFormer model architecture from HuggingFace, and the mit-b0 set of weights that are fine-tuned on a new dataset
-* This is a "tranfer-learning" option, and imagery can be any size
+
+## New in May 2023
+`make_datasets` (as well as `doodleverse_utils\make_mndwi_dataset` and `doodleverse_utils\make_ndwi_dataset`) now works in a new way. Before, all files were read in, shuffled, split into train and val sets, then non-augmented and augmented npz files were created for each set. This causes a potential data leak between train and validation subsets, and validation was carried out on augmented imagery. We introduced a clunky 'mode' config parameter to try to control the degree of use of augmentation.
+
+From May 29, 2023, `make_datasets` will create `train_data` and `val_data` subfolders, then copies splits of train and validation labels and images over (multiple bands of images if necessary). It makes non-augmented npzs for each, then makes augmented npzs for the training set only. This removes the potential data leak, and validation is carried out on non-augmented imagery, which is a better reflection of deployment. Like before, `make_datasets` does not make a test dataset. The test dataset is a domain/task specific problem: please make an independent test set for your problem.
+
 
 ## 🌟 Highlights
 
@@ -33,6 +36,8 @@ DOI](https://img.shields.io/badge/%F0%9F%8C%8D%F0%9F%8C%8F%F0%9F%8C%8E%20EarthAr
 - It would also work on any imagery in jpg or png format that has corresponding 2d greyscale integer label images (jpg or png), however acquired.
 - Gym implements models based on the U-Net. Despite being one of the "original" deep learning segmentation models (dating to [2016](https://arxiv.org/abs/1505.04597)), UNets have proven themselves enormously flexible for a wide range of image segmentation tasks and spatial regression tasks in the natural sciences. So, we expect these models, and, perhaps more importantly, the training and implementation of those models in an end-to-end pipeline, to work for a very wide variety of cases. Additional models may be added later.
 - You can read more about the models [here](https://github.com/Doodleverse/segmentation_gym/wiki/Models-in-Zoo) but be warned! We at Doodleverse HQ have discovered - often the hard way - that success is more about the data than the model. Gym helps you wrangle and tame your data, and makes your data work hard for you (nothing fancy, we just use augmentation)
+* As well as a family of UNets, we offer a Transformer model option, using the SegFormer model architecture from HuggingFace, and the mit-b0 set of weights that are fine-tuned on a new dataset
+* This is a "tranfer-learning" option, and imagery can be any size
 
 ## ℹ️ Overview
 
@@ -107,7 +112,46 @@ Try:
 conda env create --file .\install\gym.yml
 ```
 
-If the above fails, use:
+If the above fails, and 
+
+
+1) you wish to use GPU for model training and the latest Tensorflow version, you now must use WSL2 and refer to the [official Tensorflow instructions](https://www.tensorflow.org/install/pip#windows-native_1): 
+
+```
+conda create -n gym python -y
+conda activate gym
+conda install -c conda-forge cudatoolkit=11.8.0
+python3 -m pip install nvidia-cudnn-cu11==8.6.0.163 tensorflow==2.12.*
+```
+
+```
+mkdir -p $CONDA_PREFIX/etc/conda/activate.d
+echo 'CUDNN_PATH=$(dirname $(python -c "import nvidia.cudnn;print(nvidia.cudnn.__file__)"))' >> $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
+echo 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/:$CUDNN_PATH/lib' >> $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
+source $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
+```
+
+Verify install:
+```
+python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
+```
+
+2) you do not need to use GPU for model training, use:
+
+```
+conda create -n gym python -y
+conda activate gym
+python -m pip install tensorflow==2.12.*
+```
+
+Then: 
+```
+conda install -c conda-forge scikit-image ipython tqdm pandas natsort matplotlib transformers -y
+python -m pip install doodleverse_utils 
+```
+
+
+If the above fails, try:
 
 ```
 conda create -n gym python=3.10
@@ -121,29 +165,55 @@ conda install cuda -c nvidia
 
 If you don't have `git` installed, `conda install git`
 
-### Ubuntu:
+
+### Linux/Ubuntu:
+
+Try:
 
 ```
-conda create --name gym python=3.9
+conda env create --file ./install/gym.yml
+```
+
+If the above fails, and 
+
+
+1) you wish to use GPU for model training, use:
+
+```
+conda create -n gym python -y
 conda activate gym
-conda install -c conda-forge cudatoolkit=11.2.2 cudnn=8.1.0 -y
+conda install -c conda-forge cudatoolkit=11.8.0 -y
+python -m pip install nvidia-cudnn-cu11==8.6.0.163 tensorflow==2.12.*
 ```
 
-[OPTIONAL] Configure the system paths. 
-
+Configure the system paths, as per the [official Tensorflow instructions](https://www.tensorflow.org/install/pip#linux_1): 
 ```
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/
 mkdir -p $CONDA_PREFIX/etc/conda/activate.d
-echo 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/' > $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
+echo 'CUDNN_PATH=$(dirname $(python -c "import nvidia.cudnn;print(nvidia.cudnn.__file__)"))' >> $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
+echo 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/:$CUDNN_PATH/lib' >> $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
+source $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
 ```
 
+Verify install:
 ```
-pip install tensorflow==2.11.*
-conda install -c conda-forge scipy "numpy>=1.16.5, <=1.23.0" scikit-image cython ipython joblib tqdm pandas pip plotly natsort matplotlib transformers -y
-pip install torch doodleverse_utils
+python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
 ```
 
-From [here](https://www.tensorflow.org/install/pip), in Ubuntu 22.04, you may encounter the following error:
+2) you do not need to use GPU for model training, use:
+
+```
+conda create -n gym python -y
+conda activate gym
+python -m pip install tensorflow==2.12.*
+```
+
+Then: 
+```
+conda install -c conda-forge scikit-image ipython tqdm pandas natsort matplotlib transformers -y
+python -m pip install doodleverse_utils 
+```
+
+From [here](https://www.tensorflow.org/install/pip), you may encounter the following error:
 
 ```
 Can't find libdevice directory ${CUDA_DIR}/nvvm/libdevice.
@@ -157,7 +227,7 @@ To fix this error, you will need to run the following commands:
 
 ```
 # Install NVCC
-conda install -c nvidia cuda-nvcc=11.3.58
+conda install -c nvidia cuda-nvcc=11.3.58 -y
 # Configure the XLA cuda directory
 mkdir -p $CONDA_PREFIX/etc/conda/activate.d
 printf 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/\nexport XLA_FLAGS=--xla_gpu_cuda_data_dir=$CONDA_PREFIX/lib/\n' > $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
@@ -205,7 +275,7 @@ Check out the [wiki](https://github.com/dbuscombe-usgs/segmentation_gym/wiki) fo
 2. Create a configuration file according to [this guide](https://github.com/Doodleverse/segmentation_gym/wiki/4_Creation-of-%60config%60-file)
 3. Create a model-ready dataset from your pairs of images and labels. We hope you find [this guide](https://github.com/Doodleverse/segmentation_gym/wiki/Create-a-model-ready-dataset) helpful
 4. Train and evaluate an image segmentation model according to [this guide](https://github.com/Doodleverse/segmentation_gym/wiki/Train-an-image-segmentation-model)
-5. Deploy / evaluate model on unseen sample imagery  *more detail coming soon*
+5. Deploying / evaluate model on unseen sample imagery tends to be task specific. We offer basic implementation examples [here](https://github.com/Doodleverse/segmentation_gym/blob/main/seg_images_in_folder.py) as well as in Segmentation Zoo [here](https://github.com/Doodleverse/segmentation_zoo/tree/main/scripts) and [here](https://github.com/Doodleverse/segmentation_zoo/tree/main/notebooks)
 
 ## Test Dataset
 
@@ -219,3 +289,4 @@ Please read our [code of conduct](https://github.com/Doodleverse/segmentation_gy
 Please contribute to the [Discussions tab](https://github.com/Doodleverse/segmentation_gym/discussions) - we welcome your ideas and feedback.
 
 We also invite all to open issues for bugs/feature requests using the [Issues tab](https://github.com/Doodleverse/segmentation_gym/issues)
+
