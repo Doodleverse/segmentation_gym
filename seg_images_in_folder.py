@@ -145,7 +145,9 @@ if __name__ == "__main__":
     # Request the folder containing the model weights
     # weights: full path to the weights file location
     root = Tk()
-    root.filename =  filedialog.askopenfilename(initialdir = sample_direc, title = "Select FIRST model (.keras) or weights (.h5) file",filetypes = (("keras model file","*.keras"),("h5 files","*.h5*")))
+    # root.filename =  filedialog.askopenfilename(initialdir = sample_direc, title = "Select FIRST model (.keras) or weights (.h5) file",filetypes = (("keras model file","*.keras"),("h5 files","*.h5*")))
+    root.filename =  filedialog.askopenfilename(initialdir = sample_direc, title = "Select FIRST model weights (.h5) file",filetypes = (("h5 weights file","*.h5"),("all files","*.**")))
+
     weights = root.filename
     print(weights)
     root.withdraw()
@@ -164,7 +166,10 @@ if __name__ == "__main__":
         result = messagebox.askquestion("More Weights files?", "More Weights files?", icon='warning')
         if result == 'yes':
             root = Tk()
-            root.filename =  filedialog.askopenfilename(title = "Select model (.keras) or weights (.h5) file",filetypes = (("keras model file","*.keras"),("h5 files","*.h5*")))
+            # root.filename =  filedialog.askopenfilename(title = "Select model (.keras) or weights (.h5) file",filetypes = (("keras model file","*.keras"),("h5 files","*.h5*")))
+            # root.filename =  filedialog.askopenfilename(title = "Select model weights (.h5) file",filetypes = (("h5 files","*.h5*")))
+            root.filename =  filedialog.askopenfilename(initialdir = os.path.dirname(weights), title = "Select NEXT model weights (.h5) file",filetypes = (("h5 weights file","*.h5"),("all files","*.**")))
+
             weights = root.filename
             root.withdraw()
             W.append(weights)
@@ -286,7 +291,10 @@ if __name__ == "__main__":
 
         # if 'h5' in weights:
         model = get_model()
-        model.load_weights(weights)
+        try:
+            model.load_weights(weights.replace('.h5','_fullmodel.h5'))
+        except:
+            model.load_weights(weights)
         # else:
         #     model = tf.keras.models.load_model(weights)
 
@@ -340,47 +348,3 @@ if __name__ == "__main__":
             do_seg(f, M, metadatadict, MODEL, sample_direc,NCLASSES,N_DATA_BANDS,TARGET_SIZE,TESTTIMEAUG, WRITE_MODELMETADATA,OTSU_THRESHOLD, profile)
         except:
             print("{} failed. Check config file, and check the path provided contains valid imagery".format(f))
-
-    # else:
-
-            # from doodleverse_utils.prediction_imports import *
-            # from tensorflow.python.client import device_lib
-            # physical_devices = tf.config.experimental.list_physical_devices('CPU')
-            # print(physical_devices)
-
-            # if MODEL!='segformer':
-            #     ### mixed precision
-            #     from tensorflow.keras import mixed_precision
-            #     mixed_precision.set_global_policy('mixed_float16')
-
-            # for i in physical_devices:
-            #     tf.config.experimental.set_memory_growth(i, True)
-            # print(tf.config.get_visible_devices())
-
-
-
-        # if MODEL!='segformer':
-            # try:
-
-            #     # Load in the model from the weights which is the location of the weights file        
-            #     # model = tf.keras.models.load_model(weights)
-
-            #     M.append(model)
-            #     C.append(configfile)
-            #     T.append(MODEL)
-                
-            # except:
-                # Load the metrics mean_iou, dice_coef from doodleverse_utils
-                # Load in the custom loss function from doodleverse_utils        
-                # model.compile(optimizer = 'adam', loss = dice_coef_loss(NCLASSES))#, metrics = [iou_multi(NCLASSES), dice_multi(NCLASSES)])
-
-                # model.load_weights(weights)
-
-        #         M.append(model)
-        #         C.append(configfile)
-        #         T.append(MODEL)
-
-        # else:
-        #         # model.compile(optimizer = 'adam')
-
-        #         # model.load_weights(weights)

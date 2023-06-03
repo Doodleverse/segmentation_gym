@@ -859,10 +859,10 @@ if DO_TRAIN:
     except:
         print("fullmodel weights could not be saved")
 
-    try:
-        model.save(weights.replace('.h5','_model.keras'), save_format="keras_v3")
-    except:
-        print("keras format could not be saved")
+    # try:
+    #     model.save(weights.replace('.h5','_model.keras'), save_format="keras_v3")
+    # except:
+    #     print("keras format could not be saved")
 
 else:
     # if MODEL!='segformer':
@@ -880,9 +880,12 @@ else:
     #     model.compile('adam',None)
 
     # if 'h5' in weights:
-    model2 = get_model()
-    model2.load_weights(weights)
-        
+    model = get_model()
+    try:
+        model.load_weights(weights.replace('.h5','_fullmodel.h5'))
+    except:
+        model.load_weights(weights)
+
 
 # # ##########################################################
 ##########################################

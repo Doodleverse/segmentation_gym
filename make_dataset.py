@@ -169,20 +169,20 @@ while result == 'yes':
 if len(W)>1:
     files = []
     for data_path in W:
-        f = natsorted(glob(data_path+os.sep+'*.jpg'))
+        f = natsorted(glob(data_path+os.sep+'*.jpg')) + natsorted(glob(data_path+os.sep+'*.png'))
         if len(f)<1:
-            f = natsorted(glob(data_path+os.sep+'images'+os.sep+'*.jpg'))
+            f = natsorted(glob(data_path+os.sep+'images'+os.sep+'*.jpg')) + natsorted(glob(data_path+os.sep+'images'+os.sep+'*.png'))
         files.append(f)
     # number of bands x number of samples
     files = np.vstack(files).T
 else:
-    files = natsorted(glob(data_path+os.sep+'*.jpg'))
+    files = natsorted(glob(data_path+os.sep+'*.jpg')) + natsorted(glob(data_path+os.sep+'*.png'))
     if len(files)<1:
-        files = natsorted(glob(data_path+os.sep+'images'+os.sep+'*.jpg'))    
+        files = natsorted(glob(data_path+os.sep+'images'+os.sep+'*.jpg')) + natsorted(glob(data_path+os.sep+'images'+os.sep+'*.png'))    
 
-label_files = natsorted(glob(label_data_path+os.sep+'*.jpg'))
+label_files = natsorted(glob(label_data_path+os.sep+'*.jpg')) + natsorted(glob(label_data_path+os.sep+'*.png'))
 if len(label_files)<1:
-    label_files = natsorted(glob(label_data_path+os.sep+'labels'+os.sep+'*.jpg'))
+    label_files = natsorted(glob(label_data_path+os.sep+'labels'+os.sep+'*.jpg')) + natsorted(glob(label_data_path+os.sep+'labels'+os.sep+'*.png'))
 
 
 print("Found {} image and {} label files".format(len(files), len(label_files)))

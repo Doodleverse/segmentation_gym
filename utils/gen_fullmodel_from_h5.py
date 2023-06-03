@@ -131,8 +131,19 @@ for weights in weights_files:
                     filters=FILTERS,#8,
                     num_layers=4,
                     strides=(1,1))
+    elif MODEL=='segformer':
+        id2label = {}
+        for k in range(NCLASSES):
+            id2label[k]=str(k)
+        model = segformer(id2label,num_classes=NCLASSES)
+        # model.compile(optimizer='adam')
 
-    model.compile(optimizer = 'adam', loss = tf.keras.losses.CategoricalCrossentropy())
+    else:
+        print("Model must be one of 'unet', 'resunet', 'segformer', or 'satunet'")
+        sys.exit(2)
+
+    # if MODEL!='segformer':    
+    #     model.compile(optimizer = 'adam', loss = tf.keras.losses.CategoricalCrossentropy())
 
     model.load_weights(weights)
 
