@@ -38,6 +38,8 @@ from natsort import natsorted
 import matplotlib.pyplot as plt
 
 from doodleverse_utils.imports import *
+import random
+random.seed(0)
 
 ##========================================================
 ## USER INPUTS
@@ -169,20 +171,20 @@ while result == 'yes':
 if len(W)>1:
     files = []
     for data_path in W:
-        f = natsorted(glob(data_path+os.sep+'*.jpg')) + natsorted(glob(data_path+os.sep+'*.png'))
+        f = natsorted(glob(data_path+os.sep+'*.jpg')) + natsorted(glob(data_path+os.sep+'*.png')) + natsorted(glob(data_path+os.sep+'*.tif'))
         if len(f)<1:
-            f = natsorted(glob(data_path+os.sep+'images'+os.sep+'*.jpg')) + natsorted(glob(data_path+os.sep+'images'+os.sep+'*.png'))
+            f = natsorted(glob(data_path+os.sep+'images'+os.sep+'*.jpg')) + natsorted(glob(data_path+os.sep+'images'+os.sep+'*.png')) + natsorted(glob(data_path+os.sep+'images'+os.sep+'*.tif'))
         files.append(f)
     # number of bands x number of samples
     files = np.vstack(files).T
 else:
-    files = natsorted(glob(data_path+os.sep+'*.jpg')) + natsorted(glob(data_path+os.sep+'*.png'))
+    files = natsorted(glob(data_path+os.sep+'*.jpg')) + natsorted(glob(data_path+os.sep+'*.png'))  + natsorted(glob(data_path+os.sep+'*.tif'))
     if len(files)<1:
-        files = natsorted(glob(data_path+os.sep+'images'+os.sep+'*.jpg')) + natsorted(glob(data_path+os.sep+'images'+os.sep+'*.png'))    
+        files = natsorted(glob(data_path+os.sep+'images'+os.sep+'*.jpg')) + natsorted(glob(data_path+os.sep+'images'+os.sep+'*.png')) + natsorted(glob(data_path+os.sep+'images'+os.sep+'*.tif'))       
 
-label_files = natsorted(glob(label_data_path+os.sep+'*.jpg')) + natsorted(glob(label_data_path+os.sep+'*.png'))
+label_files = natsorted(glob(label_data_path+os.sep+'*.jpg')) + natsorted(glob(label_data_path+os.sep+'*.png')) + natsorted(glob(label_data_path+os.sep+'*.tif'))
 if len(label_files)<1:
-    label_files = natsorted(glob(label_data_path+os.sep+'labels'+os.sep+'*.jpg')) + natsorted(glob(label_data_path+os.sep+'labels'+os.sep+'*.png'))
+    label_files = natsorted(glob(label_data_path+os.sep+'labels'+os.sep+'*.jpg')) + natsorted(glob(label_data_path+os.sep+'labels'+os.sep+'*.png')) + natsorted(glob(label_data_path+os.sep+'labels'+os.sep+'*.tif'))
 
 
 print("Found {} image and {} label files".format(len(files), len(label_files)))
@@ -241,9 +243,9 @@ else:
 ## write padded labels to file
 label_data_path = newdireclabels 
 
-label_files = natsorted(glob(label_data_path+os.sep+'*.png'))
+label_files = natsorted(glob(label_data_path+os.sep+'*.png')) + natsorted(glob(label_data_path+os.sep+'*.tif'))
 if len(label_files)<1:
-    label_files = natsorted(glob(label_data_path+os.sep+'images'+os.sep+'*.png'))
+    label_files = natsorted(glob(label_data_path+os.sep+'images'+os.sep+'*.png')) +  natsorted(glob(label_data_path+os.sep+'images'+os.sep+'*.tif'))
 print("{} label files".format(len(label_files)))
 
 W2 = []
@@ -256,15 +258,57 @@ del W2
 
 files = []
 for data_path in W:
-    f = natsorted(glob(os.path.normpath(data_path)+os.sep+'*.png'))
+    f = natsorted(glob(os.path.normpath(data_path)+os.sep+'*.png')) + natsorted(glob(os.path.normpath(data_path)+os.sep+'*.tif'))
     if len(f)<1:
-        f = natsorted(glob(os.path.normpath(data_path)+os.sep+'images'+os.sep+'*.png'))
+        f = natsorted(glob(os.path.normpath(data_path)+os.sep+'images'+os.sep+'*.png')) + natsorted(glob(os.path.normpath(data_path)+os.sep+'images'+os.sep+'*.tif'))
     files.append(f)
 
 # number of bands x number of samples
 files = np.vstack(files).T
 print("{} sets of {} image files".format(len(W),len(files)))
 
+files = [f[0] for f in files]
+
+## if files are not in an 'images subfolder, move them now
+if not os.path.dirname(files[0]).endswith(os.sep+'images'):
+
+    try:
+        os.mkdir(data_path+os.sep+'images')
+        for file in glob(data_path+os.sep+'*.jpg')+glob(data_path+os.sep+'*.png')+glob(data_path+os.sep+'*.tif'):
+            try:
+                shutil.move(file,data_path+os.sep+'images')
+            except:
+                pass  
+        data_path = data_path+os.sep+'images'
+    except:
+        pass
+
+    try:
+        os.mkdir(label_data_path+os.sep+'images')
+        for file in glob(label_data_path+os.sep+'*.png')+glob(label_data_path+os.sep+'*.tif'):
+            try:
+                shutil.move(file,label_data_path+os.sep+'images')
+            except:
+                pass    
+        label_data_path = label_data_path+os.sep+'images'
+    except:
+        pass
+
+    label_files = natsorted(glob(label_data_path+os.sep+'*.png')) + natsorted(glob(label_data_path+os.sep+'*.tif'))
+    if len(label_files)<1:
+        label_files = natsorted(glob(label_data_path+os.sep+'images'+os.sep+'*.png')) +  natsorted(glob(label_data_path+os.sep+'images'+os.sep+'*.tif'))
+    print("{} label files".format(len(label_files)))
+
+    files = []
+    for data_path in W:
+        f = natsorted(glob(os.path.normpath(data_path)+os.sep+'*.png')) + natsorted(glob(os.path.normpath(data_path)+os.sep+'*.tif'))
+        if len(f)<1:
+            f = natsorted(glob(os.path.normpath(data_path)+os.sep+'images'+os.sep+'*.png')) + natsorted(glob(os.path.normpath(data_path)+os.sep+'images'+os.sep+'*.tif'))
+        files.append(f)
+
+    # number of bands x number of samples
+    files = np.vstack(files).T
+    print("{} sets of {} image files".format(len(W),len(files)))
 
 ###================================================
 #----------------------------------------------------------
@@ -287,11 +331,14 @@ except:
     pass
 
 
-# label_files = [f[0] for f in label_files]
-files = [f[0] for f in files]
+## shuffle
+temp = list(zip(files, label_files))
+random.shuffle(temp)
+files, label_files = zip(*temp)
+files, label_files = list(files), list(label_files)
 
-list_ds_images = tf.data.Dataset.list_files(files, shuffle=False) ##dont shuffle here
-list_ds_labels = tf.data.Dataset.list_files(label_files, shuffle=False) ##dont shuffle here
+list_ds_images = tf.data.Dataset.list_files(files, shuffle=False) 
+list_ds_labels = tf.data.Dataset.list_files(label_files, shuffle=False) 
 
 val_size = int(len(files) * VALIDATION_SPLIT)
 train_ds = list_ds_images.skip(val_size)
@@ -329,11 +376,18 @@ for i in val_ds:
 
 for i in train_label_files:
     ii = i.split(os.sep)[-1]
-    shutil.copyfile(os.path.normpath(label_data_path)+os.sep+'images'+os.sep+i,output_data_path+os.sep+'train_data'+os.sep+'train_labels'+os.sep+ii)
+    try:
+        shutil.copyfile(os.path.normpath(label_data_path)+os.sep+'images'+os.sep+i,output_data_path+os.sep+'train_data'+os.sep+'train_labels'+os.sep+ii)
+    except:
+        shutil.copyfile(os.path.normpath(label_data_path)+os.sep+i,output_data_path+os.sep+'train_data'+os.sep+'train_labels'+os.sep+ii)
 
 for i in val_label_files:
     ii = i.split(os.sep)[-1]
-    shutil.copyfile(os.path.normpath(label_data_path)+os.sep+'images'+os.sep+i,output_data_path+os.sep+'val_data'+os.sep+'val_labels'+os.sep+ii)
+    try:
+        shutil.copyfile(os.path.normpath(label_data_path)+os.sep+'images'+os.sep+i,output_data_path+os.sep+'val_data'+os.sep+'val_labels'+os.sep+ii)
+    except:
+        shutil.copyfile(os.path.normpath(label_data_path)+os.sep+i,output_data_path+os.sep+'val_data'+os.sep+'val_labels'+os.sep+ii)
+
 
 ###================================================
 
@@ -391,12 +445,31 @@ for counter,(f,l) in enumerate(zip(train_files,train_label_files)):
 
     if FILTER_VALUE>1:
         #print("dilating labels with a radius of {}".format(FILTER_VALUE))
+        initial_sum = np.sum(np.argmax(lstack,-1))
+        lstack_copy = lstack.copy()
         for kk in range(lstack.shape[-1]):
-            # lab = remove_small_objects(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
-            # lab = remove_small_holes(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
             lab = dilation(lstack[:,:,kk].astype('uint8')>0, disk(FILTER_VALUE))
-            lstack[:,:,kk] = np.round(lab).astype(np.uint8)
+            lstack_copy[:,:,kk] = np.ceil(lab).astype(np.uint8)
             del lab
+        final_sum = np.sum(np.argmax(lstack_copy,-1))
+        if final_sum < initial_sum: ### this ambiguity can happen in 0/1 masks (NCLASSES=2)
+            lstack_copy = lstack.copy()
+                
+            for kk in range(lstack.shape[-1]):
+                lab = dilation(lstack[:,:,kk].astype('uint8')==0, disk(FILTER_VALUE))
+                lstack_copy[:,:,kk] = np.round(lab).astype(np.uint8)
+                del lab
+
+            lab = ~np.argmax(lstack_copy,-1)
+            if lab.min()<0:
+                lab -= lab.min()
+        else:
+            lab = np.argmax(lstack_copy,-1)
+            if lab.min()<0:
+                lab -= lab.min()
+
+        lstack = np.zeros((nx,ny,NCLASSES))
+        lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+lab[...,None]-1).astype(int) #one-hot encode       
 
     datadict['arr_1'] = np.squeeze(lstack).astype(np.uint8)
 
@@ -449,6 +522,12 @@ for counter,(f,l) in enumerate(zip(val_files,val_label_files)):
     else:
         lab[lab>NCLASSES]=NCLASSES
 
+    if do_viz == True:
+            plt.imshow(im)
+            plt.imshow(lab, alpha=0.3); plt.axis('off')
+            plt.savefig('ex{}.png'.format(counter),dpi=200)
+
+
     if len(np.unique(lab))==1: 
         nx,ny = lab.shape
         lstack = np.zeros((nx,ny,NCLASSES))
@@ -464,12 +543,31 @@ for counter,(f,l) in enumerate(zip(val_files,val_label_files)):
 
     if FILTER_VALUE>1:
         #print("dilating labels with a radius of {}".format(FILTER_VALUE))
+        initial_sum = np.sum(np.argmax(lstack,-1))
+        lstack_copy = lstack.copy()
         for kk in range(lstack.shape[-1]):
-            # lab = remove_small_objects(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
-            # lab = remove_small_holes(lstack[:,:,kk].astype('uint8')>0, np.pi*(FILTER_VALUE**2))
             lab = dilation(lstack[:,:,kk].astype('uint8')>0, disk(FILTER_VALUE))
-            lstack[:,:,kk] = np.round(lab).astype(np.uint8)
+            lstack_copy[:,:,kk] = np.ceil(lab).astype(np.uint8)
             del lab
+        final_sum = np.sum(np.argmax(lstack_copy,-1))
+        if final_sum < initial_sum: ### this ambiguity can happen in 0/1 masks (NCLASSES=2)
+            lstack_copy = lstack.copy()
+                
+            for kk in range(lstack.shape[-1]):
+                lab = dilation(lstack[:,:,kk].astype('uint8')==0, disk(FILTER_VALUE))
+                lstack_copy[:,:,kk] = np.round(lab).astype(np.uint8)
+                del lab
+
+            lab = ~np.argmax(lstack_copy,-1)
+            if lab.min()<0:
+                lab -= lab.min()
+        else:
+            lab = np.argmax(lstack_copy,-1)
+            if lab.min()<0:
+                lab -= lab.min()
+
+        lstack = np.zeros((nx,ny,NCLASSES))
+        lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+lab[...,None]-1).astype(int) #one-hot encode    
 
     datadict['arr_1'] = np.squeeze(lstack).astype(np.uint8)
 
