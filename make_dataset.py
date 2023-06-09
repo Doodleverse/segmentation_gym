@@ -86,7 +86,7 @@ else:
     print('Warning: using CPU - data making may be slower than GPU')
 
 if len(SET_GPU.split(','))>1:
-    USE_MULTI_GPU = True 
+    USE_MULTI_GPU = True
     print('Using multiple GPUs')
 else:
     USE_MULTI_GPU = False
@@ -180,7 +180,7 @@ if len(W)>1:
 else:
     files = natsorted(glob(data_path+os.sep+'*.jpg')) + natsorted(glob(data_path+os.sep+'*.png'))  + natsorted(glob(data_path+os.sep+'*.tif'))
     if len(files)<1:
-        files = natsorted(glob(data_path+os.sep+'images'+os.sep+'*.jpg')) + natsorted(glob(data_path+os.sep+'images'+os.sep+'*.png')) + natsorted(glob(data_path+os.sep+'images'+os.sep+'*.tif'))       
+        files = natsorted(glob(data_path+os.sep+'images'+os.sep+'*.jpg')) + natsorted(glob(data_path+os.sep+'images'+os.sep+'*.png')) + natsorted(glob(data_path+os.sep+'images'+os.sep+'*.tif'))
 
 label_files = natsorted(glob(label_data_path+os.sep+'*.jpg')) + natsorted(glob(label_data_path+os.sep+'*.png')) + natsorted(glob(label_data_path+os.sep+'*.tif'))
 if len(label_files)<1:
@@ -241,7 +241,7 @@ else:
 
 
 ## write padded labels to file
-label_data_path = newdireclabels 
+label_data_path = newdireclabels
 
 label_files = natsorted(glob(label_data_path+os.sep+'*.png')) + natsorted(glob(label_data_path+os.sep+'*.tif'))
 if len(label_files)<1:
@@ -278,7 +278,7 @@ if not os.path.dirname(files[0]).endswith(os.sep+'images'):
             try:
                 shutil.move(file,data_path+os.sep+'images')
             except:
-                pass  
+                pass
         data_path = data_path+os.sep+'images'
     except:
         pass
@@ -289,7 +289,7 @@ if not os.path.dirname(files[0]).endswith(os.sep+'images'):
             try:
                 shutil.move(file,label_data_path+os.sep+'images')
             except:
-                pass    
+                pass
         label_data_path = label_data_path+os.sep+'images'
     except:
         pass
@@ -309,6 +309,8 @@ if not os.path.dirname(files[0]).endswith(os.sep+'images'):
     # number of bands x number of samples
     files = np.vstack(files).T
     print("{} sets of {} image files".format(len(W),len(files)))
+
+    files = [f[0] for f in files]
 
 ###================================================
 #----------------------------------------------------------
@@ -337,8 +339,8 @@ random.shuffle(temp)
 files, label_files = zip(*temp)
 files, label_files = list(files), list(label_files)
 
-list_ds_images = tf.data.Dataset.list_files(files, shuffle=False) 
-list_ds_labels = tf.data.Dataset.list_files(label_files, shuffle=False) 
+list_ds_images = tf.data.Dataset.list_files(files, shuffle=False)
+list_ds_labels = tf.data.Dataset.list_files(label_files, shuffle=False)
 
 val_size = int(len(files) * VALIDATION_SPLIT)
 train_ds = list_ds_images.skip(val_size)
@@ -430,7 +432,7 @@ for counter,(f,l) in enumerate(zip(train_files,train_label_files)):
     else:
         lab[lab>NCLASSES]=NCLASSES
 
-    if len(np.unique(lab))==1: 
+    if len(np.unique(lab))==1:
         nx,ny = lab.shape
         lstack = np.zeros((nx,ny,NCLASSES))
         try:
@@ -452,9 +454,9 @@ for counter,(f,l) in enumerate(zip(train_files,train_label_files)):
             lstack_copy[:,:,kk] = np.ceil(lab).astype(np.uint8)
             del lab
         final_sum = np.sum(np.argmax(lstack_copy,-1))
-        if final_sum < initial_sum: ### this ambiguity can happen in 0/1 masks (NCLASSES=2)
+        if (final_sum < initial_sum) and (NCLASSES==2): ### this ambiguity can happen in 0/1 masks (NCLASSES=2)
             lstack_copy = lstack.copy()
-                
+
             for kk in range(lstack.shape[-1]):
                 lab = dilation(lstack[:,:,kk].astype('uint8')==0, disk(FILTER_VALUE))
                 lstack_copy[:,:,kk] = np.round(lab).astype(np.uint8)
@@ -469,7 +471,7 @@ for counter,(f,l) in enumerate(zip(train_files,train_label_files)):
                 lab -= lab.min()
 
         lstack = np.zeros((nx,ny,NCLASSES))
-        lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+lab[...,None]-1).astype(int) #one-hot encode       
+        lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+lab[...,None]-1).astype(int) #one-hot encode
 
     datadict['arr_1'] = np.squeeze(lstack).astype(np.uint8)
 
@@ -528,7 +530,7 @@ for counter,(f,l) in enumerate(zip(val_files,val_label_files)):
             plt.savefig('ex{}.png'.format(counter),dpi=200)
 
 
-    if len(np.unique(lab))==1: 
+    if len(np.unique(lab))==1:
         nx,ny = lab.shape
         lstack = np.zeros((nx,ny,NCLASSES))
         try:
@@ -550,9 +552,9 @@ for counter,(f,l) in enumerate(zip(val_files,val_label_files)):
             lstack_copy[:,:,kk] = np.ceil(lab).astype(np.uint8)
             del lab
         final_sum = np.sum(np.argmax(lstack_copy,-1))
-        if final_sum < initial_sum: ### this ambiguity can happen in 0/1 masks (NCLASSES=2)
+        if (final_sum < initial_sum) and (NCLASSES==2): ### this ambiguity can happen in 0/1 masks (NCLASSES=2)
             lstack_copy = lstack.copy()
-                
+
             for kk in range(lstack.shape[-1]):
                 lab = dilation(lstack[:,:,kk].astype('uint8')==0, disk(FILTER_VALUE))
                 lstack_copy[:,:,kk] = np.round(lab).astype(np.uint8)
@@ -567,7 +569,7 @@ for counter,(f,l) in enumerate(zip(val_files,val_label_files)):
                 lab -= lab.min()
 
         lstack = np.zeros((nx,ny,NCLASSES))
-        lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+lab[...,None]-1).astype(int) #one-hot encode    
+        lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+lab[...,None]-1).astype(int) #one-hot encode
 
     datadict['arr_1'] = np.squeeze(lstack).astype(np.uint8)
 
@@ -745,7 +747,7 @@ for counter,w in enumerate(W):
     n_im = len(glob(w+os.sep+'images'+os.sep+'*.*'))
 
 
-label_data_path = output_data_path+os.sep+'train_data'+os.sep+'train_labels' 
+label_data_path = output_data_path+os.sep+'train_data'+os.sep+'train_labels'
 
 ## put label images in subfolders
 n_im = len(glob(label_data_path+os.sep+'*.png')+glob(label_data_path+os.sep+'*.jpg'))
@@ -759,12 +761,12 @@ for file in glob(label_data_path+os.sep+'*.jpg'):
     try:
         shutil.move(file,label_data_path+os.sep+'images')
     except:
-        pass   
+        pass
 for file in glob(label_data_path+os.sep+'*.png'):
     try:
         shutil.move(file,label_data_path+os.sep+'images')
     except:
-        pass    
+        pass
 n_im = len(glob(label_data_path+os.sep+'images'+os.sep+'*.*'))
 
 
