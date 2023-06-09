@@ -454,7 +454,7 @@ for counter,(f,l) in enumerate(zip(train_files,train_label_files)):
             lstack_copy[:,:,kk] = np.ceil(lab).astype(np.uint8)
             del lab
         final_sum = np.sum(np.argmax(lstack_copy,-1))
-        if final_sum < initial_sum: ### this ambiguity can happen in 0/1 masks (NCLASSES=2)
+        if (final_sum < initial_sum) and (NCLASSES==2): ### this ambiguity can happen in 0/1 masks (NCLASSES=2)
             lstack_copy = lstack.copy()
 
             for kk in range(lstack.shape[-1]):
@@ -552,7 +552,7 @@ for counter,(f,l) in enumerate(zip(val_files,val_label_files)):
             lstack_copy[:,:,kk] = np.ceil(lab).astype(np.uint8)
             del lab
         final_sum = np.sum(np.argmax(lstack_copy,-1))
-        if final_sum < initial_sum: ### this ambiguity can happen in 0/1 masks (NCLASSES=2)
+        if (final_sum < initial_sum) and (NCLASSES==2): ### this ambiguity can happen in 0/1 masks (NCLASSES=2)
             lstack_copy = lstack.copy()
 
             for kk in range(lstack.shape[-1]):
