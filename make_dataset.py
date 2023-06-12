@@ -145,7 +145,7 @@ print(label_data_path)
 root.withdraw()
 
 root = Tk()
-root.filename =  filedialog.askdirectory(initialdir = output_data_path,title = "Select FIRST directory of IMAGE files")
+root.filename =  filedialog.askdirectory(initialdir = label_data_path,title = "Select FIRST directory of IMAGE files")
 data_path = root.filename
 print(data_path)
 root.withdraw()
@@ -158,7 +158,7 @@ while result == 'yes':
     result = messagebox.askquestion("More directories of images?", "More directories of images?", icon='warning')
     if result == 'yes':
         root = Tk()
-        root.filename =  filedialog.askdirectory(initialdir = output_data_path,title = "Select directory of image files")
+        root.filename =  filedialog.askdirectory(initialdir = data_path,title = "Select directory of image files")
         data_path = root.filename
         print(data_path)
         root.withdraw()
@@ -200,6 +200,7 @@ for w in W:
 
     try:
         os.mkdir(newdirec)
+        os.mkdir(newdirec+os.sep+'images')
     except:
         pass
 
@@ -215,6 +216,7 @@ else:
 
     try:
         os.mkdir(newdireclabels)
+        os.mkdir(newdireclabels+os.sep+'images')
     except:
         pass
 
@@ -233,6 +235,7 @@ else:
 
     else:
         ## cycle through, merge and padd/resize if need to
+        # print("Several sets of input imagery -- resizing takes place in serial (slower)")
         for file,lfile in zip(files, label_files):
 
             for f in file:
@@ -241,7 +244,7 @@ else:
 
 
 ## write padded labels to file
-label_data_path = newdireclabels
+label_data_path = newdireclabels+os.sep+'images'
 
 label_files = natsorted(glob(label_data_path+os.sep+'*.png')) + natsorted(glob(label_data_path+os.sep+'*.tif'))
 if len(label_files)<1:
@@ -252,12 +255,12 @@ W2 = []
 for w in W:
     wend = os.path.normpath(w).split(os.sep)[-1]
     w = w.replace(wend,'resized_'+wend)
-    W2.append(w)
-W = W2
-del W2
+    W2.append(w+os.sep+'images')
+# W = W2
+# del W2
 
 files = []
-for data_path in W:
+for data_path in W2:
     f = natsorted(glob(os.path.normpath(data_path)+os.sep+'*.png')) + natsorted(glob(os.path.normpath(data_path)+os.sep+'*.tif'))
     if len(f)<1:
         f = natsorted(glob(os.path.normpath(data_path)+os.sep+'images'+os.sep+'*.png')) + natsorted(glob(os.path.normpath(data_path)+os.sep+'images'+os.sep+'*.tif'))
@@ -266,51 +269,6 @@ for data_path in W:
 # number of bands x number of samples
 files = np.vstack(files).T
 print("{} sets of {} image files".format(len(W),len(files)))
-
-files = [f[0] for f in files]
-
-## if files are not in an 'images subfolder, move them now
-if not os.path.dirname(files[0]).endswith(os.sep+'images'):
-
-    try:
-        os.mkdir(data_path+os.sep+'images')
-        for file in glob(data_path+os.sep+'*.jpg')+glob(data_path+os.sep+'*.png')+glob(data_path+os.sep+'*.tif'):
-            try:
-                shutil.move(file,data_path+os.sep+'images')
-            except:
-                pass
-        data_path = data_path+os.sep+'images'
-    except:
-        pass
-
-    try:
-        os.mkdir(label_data_path+os.sep+'images')
-        for file in glob(label_data_path+os.sep+'*.png')+glob(label_data_path+os.sep+'*.tif'):
-            try:
-                shutil.move(file,label_data_path+os.sep+'images')
-            except:
-                pass
-        label_data_path = label_data_path+os.sep+'images'
-    except:
-        pass
-
-    label_files = natsorted(glob(label_data_path+os.sep+'*.png')) + natsorted(glob(label_data_path+os.sep+'*.tif'))
-    if len(label_files)<1:
-        label_files = natsorted(glob(label_data_path+os.sep+'images'+os.sep+'*.png')) +  natsorted(glob(label_data_path+os.sep+'images'+os.sep+'*.tif'))
-    print("{} label files".format(len(label_files)))
-
-    files = []
-    for data_path in W:
-        f = natsorted(glob(os.path.normpath(data_path)+os.sep+'*.png')) + natsorted(glob(os.path.normpath(data_path)+os.sep+'*.tif'))
-        if len(f)<1:
-            f = natsorted(glob(os.path.normpath(data_path)+os.sep+'images'+os.sep+'*.png')) + natsorted(glob(os.path.normpath(data_path)+os.sep+'images'+os.sep+'*.tif'))
-        files.append(f)
-
-    # number of bands x number of samples
-    files = np.vstack(files).T
-    print("{} sets of {} image files".format(len(W),len(files)))
-
-    files = [f[0] for f in files]
 
 ###================================================
 #----------------------------------------------------------
@@ -322,16 +280,39 @@ try:
 except:
     pass
 
-try:
-    os.mkdir(output_data_path+os.sep+'train_data'+os.sep+'train_images')
-    os.mkdir(output_data_path+os.sep+'train_data'+os.sep+'train_labels')
-    os.mkdir(output_data_path+os.sep+'train_data'+os.sep+'train_npzs')
-    os.mkdir(output_data_path+os.sep+'val_data'+os.sep+'val_images')
-    os.mkdir(output_data_path+os.sep+'val_data'+os.sep+'val_labels')
-    os.mkdir(output_data_path+os.sep+'val_data'+os.sep+'val_npzs')
-except:
-    pass
+if N_DATA_BANDS>3:
 
+    try:
+        os.mkdir(output_data_path+os.sep+'train_data'+os.sep+'train_labels')
+        os.mkdir(output_data_path+os.sep+'train_data'+os.sep+'train_npzs')
+        os.mkdir(output_data_path+os.sep+'val_data'+os.sep+'val_labels')
+        os.mkdir(output_data_path+os.sep+'val_data'+os.sep+'val_npzs')
+    except:
+        pass
+
+    try:
+        os.mkdir(output_data_path+os.sep+'train_data'+os.sep+'train_images')
+        os.mkdir(output_data_path+os.sep+'val_data'+os.sep+'val_images')
+    except:
+        pass
+
+    try:
+        for counter in range(len(files[0])):
+            os.mkdir(output_data_path+os.sep+'train_data'+os.sep+'train_images'+os.sep+'set'+str(counter))
+            os.mkdir(output_data_path+os.sep+'val_data'+os.sep+'val_images'+os.sep+'set'+str(counter))
+    except:
+        pass
+
+else: ##N_DATA_BANDS<=3
+    try:
+        os.mkdir(output_data_path+os.sep+'train_data'+os.sep+'train_images')
+        os.mkdir(output_data_path+os.sep+'train_data'+os.sep+'train_labels')
+        os.mkdir(output_data_path+os.sep+'train_data'+os.sep+'train_npzs')
+        os.mkdir(output_data_path+os.sep+'val_data'+os.sep+'val_images')
+        os.mkdir(output_data_path+os.sep+'val_data'+os.sep+'val_labels')
+        os.mkdir(output_data_path+os.sep+'val_data'+os.sep+'val_npzs')
+    except:
+        pass
 
 ## shuffle
 temp = list(zip(files, label_files))
@@ -339,28 +320,70 @@ random.shuffle(temp)
 files, label_files = zip(*temp)
 files, label_files = list(files), list(label_files)
 
-list_ds_images = tf.data.Dataset.list_files(files, shuffle=False)
+if N_DATA_BANDS>3:
+    list_of_list_ds_images = []
+    for counter in range(len(files[0])): 
+        list_of_list_ds_images.append(tf.data.Dataset.list_files( [f[counter] for f in files], shuffle=False))
+else:
+    list_ds_images = tf.data.Dataset.list_files(files, shuffle=False)
+
 list_ds_labels = tf.data.Dataset.list_files(label_files, shuffle=False)
 
 val_size = int(len(files) * VALIDATION_SPLIT)
-train_ds = list_ds_images.skip(val_size)
-val_ds = list_ds_images.take(val_size)
 
-train_files = []
-for i in train_ds:
-    train_files.append(i.numpy().decode().split(os.sep)[-1])
+if N_DATA_BANDS>3:
+    list_of_train_ds = []
+    list_of_val_ds = []
+    for counter in range(len(files[0])):     
+        list_of_train_ds.append(list_of_list_ds_images[counter].skip(val_size))
+        list_of_val_ds.append(list_of_list_ds_images[counter].take(val_size))
+else:
+    train_ds = list_ds_images.skip(val_size)
+    val_ds = list_ds_images.take(val_size)
 
-val_files = []
-for i in val_ds:
-    val_files.append(i.numpy().decode().split(os.sep)[-1])
+if N_DATA_BANDS>3:
+    list_of_train_file_lists = []
+    for counter in range(len(files[0])):
+        train_files = []
+        for i in list_of_train_ds[counter]:
+            train_files.append(i.numpy().decode().split(os.sep)[-1])        
+        list_of_train_file_lists.append(train_files)
 
-for i in train_files:
-    ii = i.split(os.sep)[-1]
-    shutil.copyfile(os.path.normpath(data_path)+os.sep+'images'+os.sep+i,output_data_path+os.sep+'train_data'+os.sep+'train_images'+os.sep+ii)
+    list_of_val_file_lists = []
+    for counter in range(len(files[0])):
+        val_files = []
+        for i in list_of_val_ds[counter]:
+            val_files.append(i.numpy().decode().split(os.sep)[-1])        
+        list_of_val_file_lists.append(val_files)
 
-for i in val_files:
-    ii = i.split(os.sep)[-1]
-    shutil.copyfile(os.path.normpath(data_path)+os.sep+'images'+os.sep+i,output_data_path+os.sep+'val_data'+os.sep+'val_images'+os.sep+ii)
+    for counter,train_files in enumerate(list_of_train_file_lists):
+        for i in train_files:
+            ii = i.split(os.sep)[-1]
+            # shutil.copyfile(os.path.normpath(W2[counter])+os.sep+i,output_data_path+os.sep+'train_data'+os.sep+'train_images'+os.sep+ii)
+            shutil.copyfile(os.path.normpath(W2[counter])+os.sep+i,output_data_path+os.sep+'train_data'+os.sep+'train_images'+os.sep+'set'+str(counter)+os.sep+ii)
+
+    for counter,val_files in enumerate(list_of_val_file_lists):
+        for i in val_files:
+            ii = i.split(os.sep)[-1]
+            # shutil.copyfile(os.path.normpath(data_path)+os.sep+i,output_data_path+os.sep+'val_data'+os.sep+'val_images'+os.sep+ii)
+            shutil.copyfile(os.path.normpath(W2[counter])+os.sep+i,output_data_path+os.sep+'val_data'+os.sep+'val_images'+os.sep+'set'+str(counter)+os.sep+ii)
+
+else:
+    train_files = []
+    for i in train_ds:
+        train_files.append(i.numpy().decode().split(os.sep)[-1])
+
+    val_files = []
+    for i in val_ds:
+        val_files.append(i.numpy().decode().split(os.sep)[-1])
+
+    for i in train_files:
+        ii = i.split(os.sep)[-1]
+        shutil.copyfile(os.path.normpath(data_path)+os.sep+i,output_data_path+os.sep+'train_data'+os.sep+'train_images'+os.sep+ii)
+
+    for i in val_files:
+        ii = i.split(os.sep)[-1]
+        shutil.copyfile(os.path.normpath(data_path)+os.sep+i,output_data_path+os.sep+'val_data'+os.sep+'val_images'+os.sep+ii)
 
 
 ## labels
@@ -397,20 +420,8 @@ for i in val_label_files:
 ## NON-AUGMENTED FILES
 ##========================================================
 
-#=============================
-do_viz = False
-# do_viz = True
-
-print("Creating non-augmented train subset")
-## make non-aug subset first
-# cycle through pairs of files and labels
-# for counter,(f,l) in enumerate(zip(files,label_files)):
-for counter,(f,l) in enumerate(zip(train_files,train_label_files)):
-
-    f = output_data_path+os.sep+'train_data'+os.sep+'train_images'+os.sep+f
-    l = output_data_path+os.sep+'train_data'+os.sep+'train_labels'+os.sep+l
-
-    if len(W)>1:
+def get_lists_of_images(f,l):
+    if len(f)>1:
         im=[] # read all images into a list
         for k in f:
             im.append(imread(k))
@@ -420,18 +431,39 @@ for counter,(f,l) in enumerate(zip(train_files,train_label_files)):
         except:
             im = [imread(f[0])]
 
-    datadict={}
-    im=np.dstack(im)# create a dtack which takes care of different sized inputs
-    datadict['arr_0'] = im.astype(np.uint8)
+    return np.dstack(im)# create a dtack which takes care of different sized inputs
 
-    lab = imread(l) # reac the label)
 
-    if 'REMAP_CLASSES' in locals():
-        for k in REMAP_CLASSES.items():
-            lab[lab==int(k[0])] = int(k[1])
+def do_label_filter(lstack,FILTER_VALUE,NCLASSES):
+    #print("dilating labels with a radius of {}".format(FILTER_VALUE))
+    initial_sum = np.sum(np.argmax(lstack,-1))
+    lstack_copy = lstack.copy()
+    for kk in range(lstack.shape[-1]):
+        lab = dilation(lstack[:,:,kk].astype('uint8')>0, disk(FILTER_VALUE))
+        lstack_copy[:,:,kk] = np.ceil(lab).astype(np.uint8)
+        del lab
+    final_sum = np.sum(np.argmax(lstack_copy,-1))
+    if (final_sum < initial_sum) and (NCLASSES==2): ### this ambiguity can happen in 0/1 masks (NCLASSES=2)
+        lstack_copy = lstack.copy()
+
+        for kk in range(lstack.shape[-1]):
+            lab = dilation(lstack[:,:,kk].astype('uint8')==0, disk(FILTER_VALUE))
+            lstack_copy[:,:,kk] = np.round(lab).astype(np.uint8)
+            del lab
+
+        lab = ~np.argmax(lstack_copy,-1)
+        if lab.min()<0:
+            lab -= lab.min()
     else:
-        lab[lab>NCLASSES]=NCLASSES
+        lab = np.argmax(lstack_copy,-1)
+        if lab.min()<0:
+            lab -= lab.min()
 
+    lstack = np.zeros((nx,ny,NCLASSES))
+    lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+lab[...,None]-1).astype(int) #one-hot encode 
+    return lstack   
+
+def get_lab_stack(lab, NCLASSES):
     if len(np.unique(lab))==1:
         nx,ny = lab.shape
         lstack = np.zeros((nx,ny,NCLASSES))
@@ -444,47 +476,62 @@ for counter,(f,l) in enumerate(zip(train_files,train_label_files)):
         nx,ny = lab.shape
         lstack = np.zeros((nx,ny,NCLASSES))
         lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+lab[...,None]-1).astype(int) #one-hot encode
+    return lstack
+
+#=============================
+do_viz = False
+# do_viz = True
+
+print("Creating non-augmented train subset")
+## make non-aug subset first
+# cycle through pairs of files and labels
+
+if N_DATA_BANDS>3:
+    train_files = np.vstack(list_of_train_file_lists).T 
+
+for counter,(f,l) in enumerate(zip(train_files,train_label_files)):
+
+    if N_DATA_BANDS>3:
+        ff=[]
+        for cnt in range(len(f)):
+            ff.append( output_data_path+os.sep+'train_data'+os.sep+'train_images'+os.sep+'set'+str(cnt)+os.sep+f[cnt] )
+        f = ff 
+        del ff
+    else:
+        f = output_data_path+os.sep+'train_data'+os.sep+'train_images'+os.sep+f
+    l = output_data_path+os.sep+'train_data'+os.sep+'train_labels'+os.sep+l
+
+    im = get_lists_of_images(f,l)
+
+    datadict={}
+    datadict['arr_0'] = im.astype(np.uint8)
+
+    lab = imread(l) # reac the label)
+
+    if 'REMAP_CLASSES' in locals():
+        for k in REMAP_CLASSES.items():
+            lab[lab==int(k[0])] = int(k[1])
+    else:
+        lab[lab>NCLASSES]=NCLASSES
+
+    lstack = get_lab_stack(lab, NCLASSES)
 
     if FILTER_VALUE>1:
-        #print("dilating labels with a radius of {}".format(FILTER_VALUE))
-        initial_sum = np.sum(np.argmax(lstack,-1))
-        lstack_copy = lstack.copy()
-        for kk in range(lstack.shape[-1]):
-            lab = dilation(lstack[:,:,kk].astype('uint8')>0, disk(FILTER_VALUE))
-            lstack_copy[:,:,kk] = np.ceil(lab).astype(np.uint8)
-            del lab
-        final_sum = np.sum(np.argmax(lstack_copy,-1))
-        if (final_sum < initial_sum) and (NCLASSES==2): ### this ambiguity can happen in 0/1 masks (NCLASSES=2)
-            lstack_copy = lstack.copy()
-
-            for kk in range(lstack.shape[-1]):
-                lab = dilation(lstack[:,:,kk].astype('uint8')==0, disk(FILTER_VALUE))
-                lstack_copy[:,:,kk] = np.round(lab).astype(np.uint8)
-                del lab
-
-            lab = ~np.argmax(lstack_copy,-1)
-            if lab.min()<0:
-                lab -= lab.min()
-        else:
-            lab = np.argmax(lstack_copy,-1)
-            if lab.min()<0:
-                lab -= lab.min()
-
-        lstack = np.zeros((nx,ny,NCLASSES))
-        lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+lab[...,None]-1).astype(int) #one-hot encode
+        lstack = do_label_filter(lstack,FILTER_VALUE,NCLASSES)
 
     datadict['arr_1'] = np.squeeze(lstack).astype(np.uint8)
 
     if do_viz == True:
         if counter%10 ==0:
-            plt.imshow(datadict['arr_0'])
+            if N_DATA_BANDS>3:
+                plt.imshow(datadict['arr_0'][:,:,0], cmap='gray')
+            else:
+                plt.imshow(datadict['arr_0'])
             plt.imshow(np.argmax(datadict['arr_1'], axis=-1), alpha=0.3); plt.axis('off')
             plt.savefig('ex{}.png'.format(counter),dpi=200)
 
-
     datadict['num_bands'] = im.shape[-1]
     datadict['files'] = [fi.split(os.sep)[-1] for fi in f]
-
 
     # segfile = output_data_path+os.sep+ROOT_STRING+'_noaug_nd_data_000000'+str(counter)+'.npz'
     segfile = output_data_path+os.sep+'train_data'+os.sep+'train_npzs'+os.sep+ROOT_STRING+'_noaug_nd_data_000000'+str(counter)+'.npz'
@@ -496,24 +543,25 @@ for counter,(f,l) in enumerate(zip(train_files,train_label_files)):
 print("Creating non-augmented validation subset")
 ## make non-aug subset first
 # cycle through pairs of files and labels
-# for counter,(f,l) in enumerate(zip(files,label_files)):
+if N_DATA_BANDS>3:
+    val_files = np.vstack(list_of_val_file_lists).T 
+
 for counter,(f,l) in enumerate(zip(val_files,val_label_files)):
 
-    l = output_data_path+os.sep+'val_data'+os.sep+'val_labels'+os.sep+l
-    f = output_data_path+os.sep+'val_data'+os.sep+'val_images'+os.sep+f
-
-    if len(W)>1:
-        im=[] # read all images into a list
-        for k in f:
-            im.append(imread(k))
+    if N_DATA_BANDS>3:
+        ff=[]
+        for cnt in range(len(f)):
+            ff.append( output_data_path+os.sep+'val_data'+os.sep+'val_images'+os.sep+'set'+str(cnt)+os.sep+f[cnt] )
+        f = ff 
+        del ff
     else:
-        try:
-            im = [imread(f)]
-        except:
-            im = [imread(f[0])]
+        f = output_data_path+os.sep+'val_data'+os.sep+'val_images'+os.sep+f
+
+    l = output_data_path+os.sep+'val_data'+os.sep+'val_labels'+os.sep+l
+
+    im = get_lists_of_images(f,l)
 
     datadict={}
-    im=np.dstack(im)# create a dtack which takes care of different sized inputs
     datadict['arr_0'] = im.astype(np.uint8)
 
     lab = imread(l) # reac the label)
@@ -524,58 +572,19 @@ for counter,(f,l) in enumerate(zip(val_files,val_label_files)):
     else:
         lab[lab>NCLASSES]=NCLASSES
 
-    if do_viz == True:
-            plt.imshow(im)
-            plt.imshow(lab, alpha=0.3); plt.axis('off')
-            plt.savefig('ex{}.png'.format(counter),dpi=200)
-
-
-    if len(np.unique(lab))==1:
-        nx,ny = lab.shape
-        lstack = np.zeros((nx,ny,NCLASSES))
-        try:
-            lstack[:,:,np.unique(lab)[0]]=np.ones((nx,ny))
-        except:
-            lstack[:,:,0]=np.ones((nx,ny))
-
-    else:
-        nx,ny = lab.shape
-        lstack = np.zeros((nx,ny,NCLASSES))
-        lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+lab[...,None]-1).astype(int) #one-hot encode
+    lstack = get_lab_stack(lab, NCLASSES)
 
     if FILTER_VALUE>1:
-        #print("dilating labels with a radius of {}".format(FILTER_VALUE))
-        initial_sum = np.sum(np.argmax(lstack,-1))
-        lstack_copy = lstack.copy()
-        for kk in range(lstack.shape[-1]):
-            lab = dilation(lstack[:,:,kk].astype('uint8')>0, disk(FILTER_VALUE))
-            lstack_copy[:,:,kk] = np.ceil(lab).astype(np.uint8)
-            del lab
-        final_sum = np.sum(np.argmax(lstack_copy,-1))
-        if (final_sum < initial_sum) and (NCLASSES==2): ### this ambiguity can happen in 0/1 masks (NCLASSES=2)
-            lstack_copy = lstack.copy()
-
-            for kk in range(lstack.shape[-1]):
-                lab = dilation(lstack[:,:,kk].astype('uint8')==0, disk(FILTER_VALUE))
-                lstack_copy[:,:,kk] = np.round(lab).astype(np.uint8)
-                del lab
-
-            lab = ~np.argmax(lstack_copy,-1)
-            if lab.min()<0:
-                lab -= lab.min()
-        else:
-            lab = np.argmax(lstack_copy,-1)
-            if lab.min()<0:
-                lab -= lab.min()
-
-        lstack = np.zeros((nx,ny,NCLASSES))
-        lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+lab[...,None]-1).astype(int) #one-hot encode
+        lstack = do_label_filter(lstack,FILTER_VALUE,NCLASSES)
 
     datadict['arr_1'] = np.squeeze(lstack).astype(np.uint8)
 
     if do_viz == True:
         if counter%10 ==0:
-            plt.imshow(datadict['arr_0'])
+            if N_DATA_BANDS>3:
+                plt.imshow(datadict['arr_0'][:,:,0], cmap='gray')
+            else:
+                plt.imshow(datadict['arr_0'])            
             plt.imshow(np.argmax(datadict['arr_1'], axis=-1), alpha=0.3); plt.axis('off')
             plt.savefig('ex{}.png'.format(counter),dpi=200)
 
@@ -589,6 +598,10 @@ for counter,(f,l) in enumerate(zip(val_files,val_label_files)):
     del datadict#, im, lstack
 
 ###================================
+
+##========================================================
+## READ, VERIFY and PLOT NON-AUGMENTED FILES
+##========================================================
 
 #-----------------------------------
 def load_npz(example):
@@ -621,10 +634,6 @@ def read_seg_dataset_multiclass(example):
     return image, label, file
 
 ###================================
-
-##========================================================
-## READ, VERIFY and PLOT NON-AUGMENTED FILES
-##========================================================
 
 filenames = tf.io.gfile.glob(output_data_path+os.sep+'train_data'+os.sep+'train_npzs'+os.sep+ROOT_STRING+'_noaug*.npz')
 dataset = tf.data.Dataset.list_files(filenames, shuffle=False)
@@ -722,51 +731,49 @@ null_mask_datagen = tf.keras.preprocessing.image.ImageDataGenerator(**null_data_
 # important that each band has the same image generator
 image_datagen = tf.keras.preprocessing.image.ImageDataGenerator(**data_gen_args)
 
-
 ### here, we are only going to augment the training data
-W = [output_data_path+os.sep+'train_data'+os.sep+'train_images']
+# W = [output_data_path+os.sep+'train_data'+os.sep+'train_images']
+
+W = []
+for it in os.scandir(output_data_path+os.sep+'train_data'+os.sep+'train_images'):
+    if it.is_dir():
+        W.append(it.path)
+W = sorted(W)
 
 ## put TRAIN images in subfolders
 for counter,w in enumerate(W):
-    n_im = len(glob(w+os.sep+'*.png')+glob(w+os.sep+'*.jpg'))
+    n_im = len(glob(w+os.sep+'*.png')+glob(w+os.sep+'*.jpg')+glob(w+os.sep+'*.tif'))
     if n_im>0:
         try:
             os.mkdir(w+os.sep+'images')
         except:
             pass
-        for file in glob(w+os.sep+'*.png'):
+        for file in glob(w+os.sep+'*.png')+glob(w+os.sep+'*.jpg')+glob(w+os.sep+'*.tif'):
             try:
                 shutil.move(file,w+os.sep+'images')
             except:
                 pass
-        for file in glob(w+os.sep+'*.jpg'):
-            try:
-                shutil.move(file,w+os.sep+'images')
-            except:
-                pass
+
     n_im = len(glob(w+os.sep+'images'+os.sep+'*.*'))
 
 
 label_data_path = output_data_path+os.sep+'train_data'+os.sep+'train_labels'
 
+
 ## put label images in subfolders
-n_im = len(glob(label_data_path+os.sep+'*.png')+glob(label_data_path+os.sep+'*.jpg'))
+n_im = len(glob(label_data_path+os.sep+'*.png')+glob(label_data_path+os.sep+'*.jpg')+glob(w+os.sep+'*.tif'))
 if n_im>0:
     try:
         os.mkdir(label_data_path+os.sep+'images')
     except:
         pass
 
-for file in glob(label_data_path+os.sep+'*.jpg'):
+for file in glob(label_data_path+os.sep+'*.png')+glob(label_data_path+os.sep+'*.jpg')+glob(w+os.sep+'*.tif'):
     try:
         shutil.move(file,label_data_path+os.sep+'images')
     except:
-        pass
-for file in glob(label_data_path+os.sep+'*.png'):
-    try:
-        shutil.move(file,label_data_path+os.sep+'images')
-    except:
-        pass
+        pass   
+
 n_im = len(glob(label_data_path+os.sep+'images'+os.sep+'*.*'))
 
 
