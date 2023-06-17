@@ -315,16 +315,18 @@ else: ##N_DATA_BANDS<=3
         pass
 
 ## shuffle
-temp = list(zip(files, label_files))
-random.shuffle(temp)
-files, label_files = zip(*temp)
-files, label_files = list(files), list(label_files)
+for k in range(3):
+    temp = list(zip(files, label_files))
+    random.shuffle(temp)
+    files, label_files = zip(*temp)
+    files, label_files = list(files), list(label_files)
 
 if N_DATA_BANDS>3:
     list_of_list_ds_images = []
     for counter in range(len(files[0])): 
         list_of_list_ds_images.append(tf.data.Dataset.list_files( [f[counter] for f in files], shuffle=False))
 else:
+    files = [f[0] for f in files]
     list_ds_images = tf.data.Dataset.list_files(files, shuffle=False)
 
 list_ds_labels = tf.data.Dataset.list_files(label_files, shuffle=False)
@@ -421,7 +423,7 @@ for i in val_label_files:
 ##========================================================
 
 def get_lists_of_images(f,l):
-    if len(f)>1:
+    if type(f )== list:
         im=[] # read all images into a list
         for k in f:
             im.append(imread(k))
@@ -435,6 +437,8 @@ def get_lists_of_images(f,l):
 
 
 def do_label_filter(lstack,FILTER_VALUE,NCLASSES):
+    nx,ny,_ = lstack.shape
+
     #print("dilating labels with a radius of {}".format(FILTER_VALUE))
     initial_sum = np.sum(np.argmax(lstack,-1))
     lstack_copy = lstack.copy()
@@ -477,6 +481,15 @@ def get_lab_stack(lab, NCLASSES):
         lstack = np.zeros((nx,ny,NCLASSES))
         lstack[:,:,:NCLASSES] = (np.arange(NCLASSES) == 1+lab[...,None]-1).astype(int) #one-hot encode
     return lstack
+
+def doviz(datadict, counter, N_DATA_BANDS):
+    if counter%10 ==0:
+        if N_DATA_BANDS>3:
+            plt.imshow(datadict['arr_0'][:,:,0], cmap='gray')
+        else:
+            plt.imshow(datadict['arr_0'])            
+        plt.imshow(np.argmax(datadict['arr_1'], axis=-1), alpha=0.3); plt.axis('off')
+        plt.savefig('ex{}.png'.format(counter),dpi=200)
 
 #=============================
 do_viz = False
@@ -522,13 +535,7 @@ for counter,(f,l) in enumerate(zip(train_files,train_label_files)):
     datadict['arr_1'] = np.squeeze(lstack).astype(np.uint8)
 
     if do_viz == True:
-        if counter%10 ==0:
-            if N_DATA_BANDS>3:
-                plt.imshow(datadict['arr_0'][:,:,0], cmap='gray')
-            else:
-                plt.imshow(datadict['arr_0'])
-            plt.imshow(np.argmax(datadict['arr_1'], axis=-1), alpha=0.3); plt.axis('off')
-            plt.savefig('ex{}.png'.format(counter),dpi=200)
+        doviz(datadict, counter, N_DATA_BANDS)
 
     datadict['num_bands'] = im.shape[-1]
     datadict['files'] = [fi.split(os.sep)[-1] for fi in f]
@@ -580,14 +587,7 @@ for counter,(f,l) in enumerate(zip(val_files,val_label_files)):
     datadict['arr_1'] = np.squeeze(lstack).astype(np.uint8)
 
     if do_viz == True:
-        if counter%10 ==0:
-            if N_DATA_BANDS>3:
-                plt.imshow(datadict['arr_0'][:,:,0], cmap='gray')
-            else:
-                plt.imshow(datadict['arr_0'])            
-            plt.imshow(np.argmax(datadict['arr_1'], axis=-1), alpha=0.3); plt.axis('off')
-            plt.savefig('ex{}.png'.format(counter),dpi=200)
-
+        doviz(datadict, counter, N_DATA_BANDS)
 
     datadict['num_bands'] = im.shape[-1]
     datadict['files'] = [fi.split(os.sep)[-1] for fi in f]
@@ -732,13 +732,16 @@ null_mask_datagen = tf.keras.preprocessing.image.ImageDataGenerator(**null_data_
 image_datagen = tf.keras.preprocessing.image.ImageDataGenerator(**data_gen_args)
 
 ### here, we are only going to augment the training data
-# W = [output_data_path+os.sep+'train_data'+os.sep+'train_images']
 
 W = []
 for it in os.scandir(output_data_path+os.sep+'train_data'+os.sep+'train_images'):
     if it.is_dir():
         W.append(it.path)
 W = sorted(W)
+
+if len(W)<1:
+    W = [output_data_path+os.sep+'train_data'+os.sep+'train_images']
+
 
 ## put TRAIN images in subfolders
 for counter,w in enumerate(W):
