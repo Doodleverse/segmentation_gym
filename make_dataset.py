@@ -764,14 +764,14 @@ label_data_path = output_data_path+os.sep+'train_data'+os.sep+'train_labels'
 
 
 ## put label images in subfolders
-n_im = len(glob(label_data_path+os.sep+'*.png')+glob(label_data_path+os.sep+'*.jpg')+glob(w+os.sep+'*.tif'))
+n_im = len(glob(label_data_path+os.sep+'*.png')+glob(label_data_path+os.sep+'*.jpg')+glob(label_data_path+os.sep+'*.tif'))
 if n_im>0:
     try:
         os.mkdir(label_data_path+os.sep+'images')
     except:
         pass
 
-for file in glob(label_data_path+os.sep+'*.png')+glob(label_data_path+os.sep+'*.jpg')+glob(w+os.sep+'*.tif'):
+for file in glob(label_data_path+os.sep+'*.png')+glob(label_data_path+os.sep+'*.jpg')+glob(label_data_path+os.sep+'*.tif'):
     try:
         shutil.move(file,label_data_path+os.sep+'images')
     except:
