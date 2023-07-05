@@ -204,6 +204,11 @@ def load_npz(example):
         image = standardize(image)
         label = data['arr_1'].astype('uint8')
 
+    # if label.shape!=(TARGET_SIZE[0], TARGET_SIZE[1], NCLASSES):
+    #     print("bad label tensor")
+    #     label = np.zeros((TARGET_SIZE[0], TARGET_SIZE[1], NCLASSES)).astype('uint8')
+    #     image = np.zeros((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS)).astype('float32')
+
     return image, label
 
 
@@ -652,6 +657,16 @@ val_ds = val_ds.repeat()
 val_ds = val_ds.batch(BATCH_SIZE, drop_remainder=True) # drop_remainder will be needed on TPU
 val_ds = val_ds.prefetch(AUTO) #
 
+
+# ## check bad batches
+# L=[]
+# for counter, samples in enumerate(train_ds.take(len(train_filenames)//BATCH_SIZE)):
+#     sample_image, sample_mask = samples["pixel_values"][0], samples["labels"][0]
+#     lstack_gt = np.zeros((TARGET_SIZE[0],TARGET_SIZE[1],NCLASSES))
+#     lstack_gt[:,:,:NCLASSES+1] = (np.arange(NCLASSES) == 1+sample_mask.numpy()[...,None]-1).astype(int) 
+#     L.append(lstack_gt.shape) 
+# ## these should all the same size
+
 ### the following code is for troubleshooting, when do_viz=True
 do_viz = False
 # do_viz=True
@@ -666,7 +681,7 @@ if do_viz == True:
 
     if MODEL=='segformer':
 
-        for counter, samples in enumerate(train_ds.take(10)):
+        for counter, samples in enumerate(train_ds.take(100)):
             sample_image, sample_mask = samples["pixel_values"][0], samples["labels"][0]
             sample_image = tf.transpose(sample_image, (1, 2, 0))
             sample_mask = tf.expand_dims(sample_mask, -1)
@@ -690,7 +705,7 @@ if do_viz == True:
 
     else:
 
-        for counter, (imgs,lbls) in enumerate(train_ds.take(10)):
+        for counter, (imgs,lbls) in enumerate(train_ds.take(100)):
             for count,(im,lab) in enumerate(zip(imgs, lbls)):
                 print(im.shape)
                 if im.shape[-1]>3:
