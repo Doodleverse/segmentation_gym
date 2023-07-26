@@ -426,14 +426,28 @@ def get_lists_of_images(f,l):
     if type(f )== list:
         im=[] # read all images into a list
         for k in f:
-            im.append(imread(k))
+            tmp = imread(k)
+            try:
+                tmp = tmp[:,:,:3]
+            except:
+                tmp = np.squeeze(tmp)
+                tmp = np.dstack((tmp,tmp,tmp))[:,:,:3]
+            im.append(tmp)
     else:
+        im = imread(f)
         try:
-            im = [imread(f)]
+            im = im[:,:,:3]
         except:
-            im = [imread(f[0])]
+            im = np.squeeze(im)
+            im = np.dstack((im,im,im))[:,:,:3]     
+        # try:
+        # im = [imread(f)[:,:,:3]]
+        # except:
+        #     im = [np.dstack((imread(f), imread(f), imread(f)))[:,:,:3]]
+        # finally:
+        #     im = [imread(f[0])[:,:,:3]]
 
-    return np.dstack(im)# create a dtack which takes care of different sized inputs
+    return im #np.dstack(im)# create a dtack which takes care of different sized inputs
 
 
 def do_label_filter(lstack,FILTER_VALUE,NCLASSES):
@@ -515,6 +529,7 @@ for counter,(f,l) in enumerate(zip(train_files,train_label_files)):
     l = output_data_path+os.sep+'train_data'+os.sep+'train_labels'+os.sep+l
 
     im = get_lists_of_images(f,l)
+    # print(im.shape)
 
     datadict={}
     datadict['arr_0'] = im.astype(np.uint8)
@@ -567,6 +582,7 @@ for counter,(f,l) in enumerate(zip(val_files,val_label_files)):
     l = output_data_path+os.sep+'val_data'+os.sep+'val_labels'+os.sep+l
 
     im = get_lists_of_images(f,l)
+    # print(im.shape)
 
     datadict={}
     datadict['arr_0'] = im.astype(np.uint8)
@@ -669,6 +685,7 @@ for imgs,lbls,files in dataset.take(10):
      im = rescale_array(im.numpy(), 0, 1)
      if im.shape[-1]:
          im = im[:,:,:3]
+        #  print(im.shape)
 
      if N_DATA_BANDS==1:
          plt.imshow(im, cmap='gray')
@@ -843,25 +860,27 @@ for copy in tqdm(range(AUG_COPIES)):
         ## that means for 3+ band inputs where the extra files encode just 1 band each
         ## single bands are triplicated and the following code removes the redundancy
         ## so check for bands 0 and 1 being the same and if so, use only bans 0
-        X3 = []
-        for x in X:
-            x3=[]
-            for im in x:
-                if np.all(im[:,:,0]==im[:,:,1]):
-                    im = im[:,:,0]
-                x3.append(im)
-            X3.append(x3)
-        del X
+        # X3 = []
+        # for x in X:
+        #     x3=[]
+        #     for im in x:
+        #         if np.all(im[:,:,0]==im[:,:,1]):
+        #             im = im[:,:,0]
+        #         x3.append(im)
+        #     X3.append(x3)
+        # del X
 
         Y = Y[0]
         # wrute them to file and increment the counter
         for counter,lab in enumerate(Y):
 
-            im = np.dstack([x[counter] for x in X3])
+            im = np.dstack([x[counter] for x in X])## X3])
+            # print(im.shape)
             files = np.dstack([x[counter] for x in F])
 
             ##============================================ label
             l = np.round(lab[:,:,0]).astype(np.uint8)
+            # print(l.shape)
 
             if 'REMAP_CLASSES' in locals():
                 for k in REMAP_CLASSES.items():
@@ -937,6 +956,7 @@ for imgs,lbls,files in dataset.take(10):
      im = rescale_array(im.numpy(), 0, 1)
      if im.shape[-1]:
          im = im[:,:,:3] #just show the first 3 bands
+        #  print(im.shape)
 
      if N_DATA_BANDS==1:
          plt.imshow(im, cmap='gray')

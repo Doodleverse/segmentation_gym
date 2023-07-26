@@ -76,6 +76,9 @@ else:
     print("NCLASSES must be > 1. Use NCLASSES==2 for binary problems")
     sys.exit(2)
 
+if N_DATA_BANDS<3:
+    N_DATA_BANDS=3
+
 ##########################################
 ##### set up hardware
 #######################################
@@ -203,12 +206,6 @@ def load_npz(example):
         image = data['arr_0'].astype('uint8')
         image = standardize(image)
         label = data['arr_1'].astype('uint8')
-
-    # if label.shape!=(TARGET_SIZE[0], TARGET_SIZE[1], NCLASSES):
-    #     print("bad label tensor")
-    #     label = np.zeros((TARGET_SIZE[0], TARGET_SIZE[1], NCLASSES)).astype('uint8')
-    #     image = np.zeros((TARGET_SIZE[0], TARGET_SIZE[1], N_DATA_BANDS)).astype('float32')
-
     return image, label
 
 
@@ -252,15 +249,15 @@ def read_seg_dataset_multiclass_segformer(example):
 
     imdim = image.shape[0]
     
-    if N_DATA_BANDS==1:
-        image = tf.concat([image, image, image], axis=2)
+    # if N_DATA_BANDS==1:
+    #     image = tf.concat([image, image, image], axis=2)
 
     image = tf.transpose(image, (2, 0, 1))
 
-    if N_DATA_BANDS==1:
-        image.set_shape([3, imdim, imdim])
-    else:
-        image.set_shape([N_DATA_BANDS, imdim, imdim])
+    # if N_DATA_BANDS==1:
+    #     image.set_shape([3, imdim, imdim])
+    # else:
+    image.set_shape([N_DATA_BANDS, imdim, imdim])
     
     label.set_shape([imdim, imdim])
 
@@ -270,7 +267,7 @@ def read_seg_dataset_multiclass_segformer(example):
 
 
 #-----------------------------------
-def plotcomp_n_metrics(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,MODEL,num_batches=20):
+def plotcomp_n_metrics(ds,model,NCLASSES, DOPLOT, test_samples_fig, subset,MODEL,num_batches=10):
 
     class_label_colormap = ['#3366CC','#DC3912','#FF9900','#109618','#990099','#0099C6','#DD4477',
                             '#66AA00','#B82E2E', '#316395','#0d0887', '#46039f', '#7201a8',
