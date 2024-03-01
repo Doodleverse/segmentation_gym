@@ -6,7 +6,6 @@ https://github.com/Doodleverse/segmentation_gym/commits/main)
 ![GitHub](https://img.shields.io/github/license/Doodleverse/segmentation_gym)
 [![Wiki](https://img.shields.io/badge/discussion-active-forestgreen)](https://github.com/Doodleverse/segmentation_gym/discussions)
 
-
 ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
 ![TensorFlow](https://img.shields.io/badge/TensorFlow-%23FF6F00.svg?style=for-the-badge&logo=TensorFlow&logoColor=white)
 ![Keras](https://img.shields.io/badge/Keras-%23D00000.svg?style=for-the-badge&logo=Keras&logoColor=white)
@@ -24,8 +23,10 @@ DOI](https://img.shields.io/badge/%F0%9F%8C%8D%F0%9F%8C%8F%F0%9F%8C%8E%20EarthAr
 ## New in May 2023
 `make_datasets` (as well as `doodleverse_utils\make_mndwi_dataset` and `doodleverse_utils\make_ndwi_dataset`) now works in a new way. Before, all files were read in, shuffled, split into train and val sets, then non-augmented and augmented npz files were created for each set. This causes a potential data leak between train and validation subsets, and validation was carried out on augmented imagery. We introduced a clunky 'mode' config parameter to try to control the degree of use of augmentation.
 
-From May 29, 2023, `make_datasets` will create `train_data` and `val_data` subfolders, then copies splits of train and validation labels and images over (multiple bands of images if necessary). It makes non-augmented npzs for each, then makes augmented npzs for the training set only. This removes the potential data leak, and validation is carried out on non-augmented imagery, which is a better reflection of deployment. Like before, `make_datasets` does not make a test dataset. The test dataset is a domain/task specific problem: please make an independent test set for your problem.
+From May 29, 2023, `make_datasets`  creates `train_data` and `val_data` subfolders, then copies splits of train and validation labels and images over (multiple bands of images if necessary). It makes non-augmented npzs for each, then makes augmented npzs for the training set only. This removes the potential data leak, and validation is carried out on non-augmented imagery, which is a better reflection of deployment. Like before, `make_datasets` does not make a test dataset. The test dataset is a domain/task specific problem: please make an independent test set for your problem.
 
+## New in February 2023
+We now offer a `segformer` model option in the config file. The [Segformer](https://huggingface.co/docs/transformers/en/model_doc/segformer) is part of the Huggingface transformers library, and we adapted the [keras example](https://keras.io/examples/vision/segformer/) to work within the Segmentation Gym framework. This is a transfer-learning-only option, using the mit-b0 set of weights that are fine-tuned on a new dataset.
 
 ## 🌟 Highlights
 
@@ -76,28 +77,28 @@ We recommend a 6 part workflow:
 5. Run `train_model.py` to train a segmentation model.
 6. Run `seg_images_in_folder.py` to segment images with your newly trained model, or `ensemble_seg_images_in_folder.py` to point more than one trained model at the same imagery and ensemble the model outputs
 
-
 * Here at Doodleverse HQ we advocate training models on the augmented data encoded in the datasets, so the original data is a hold-out or test set. This is ideal because although the validation dataset (drawn from augmented data) doesn't get used to adjust model weights, it does influence model training by triggering early stopping if validation loss is not improving. Testing on an untransformed set is also a further check/reassurance of model performance and evaluation metric
 
 * Doodleverse HQ also advocates the use of `ensemble` models where possible, which requires training multiple models each with a config file, and model weights file
 
 
-## ⬇️ Installation
+## ⬇️ Installation 
+
+**(Feb. 2024 - if these instructions no longer work for you, please submit an Issue)**
 
 We advise creating a new conda environment to run the program. We recommend [miniconda](https://docs.conda.io/en/latest/miniconda.html)
 
-
 1. Create a conda environment called `gym`
 
-[OPTIONAL] First you may want to do some conda and pip housekeeping (recommended)
+[OPTIONAL] First you may want to do some conda and pip housekeeping (recommended):
 
 ```
 conda update -n base conda
-conda clean --all
-pip install --upgrade pip
+conda clean --all -y
+python -m pip install --upgrade pip 
 ```
 
-[OPTIONAL] Set mamba to the default installer:
+[OPTIONAL] Set mamba to the default installer  (recommended - it is faster and more stable):
 
 ```
 conda install -n base conda-libmamba-solver
@@ -106,92 +107,67 @@ conda config --set solver libmamba
 
 ### Windows:
 
-Try:
 
+1) you wish to use GPU for model training and the latest Tensorflow version, you now must use WSL2 and refer to the [official Tensorflow instructions](https://www.tensorflow.org/install/pip#windows-native_1). These instructions are therefore catered to WSL2 users.
+
+Install miniconda:
 ```
-conda env create --file .\install\gym.yml
-```
-
-If the above fails, and 
-
-
-1) you wish to use GPU for model training and the latest Tensorflow version, you now must use WSL2 and refer to the [official Tensorflow instructions](https://www.tensorflow.org/install/pip#windows-native_1): 
-
-```
-conda create -n gym python -y
-conda activate gym
-conda install -c conda-forge cudatoolkit=11.8.0
-python3 -m pip install nvidia-cudnn-cu11==8.6.0.163 tensorflow==2.12.*
+sudo apt-get update
+sudo apt-get install wget
+wget https://repo.anaconda.com/miniconda/Miniconda3-py39_4.12.0-Linux-x86_64.sh
+bash Miniconda3-py39_4.12.0-Linux-x86_64.sh
+bash
 ```
 
+Create the conda environment:
 ```
-mkdir -p $CONDA_PREFIX/etc/conda/activate.d
-echo 'CUDNN_PATH=$(dirname $(python -c "import nvidia.cudnn;print(nvidia.cudnn.__file__)"))' >> $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
-echo 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/:$CUDNN_PATH/lib' >> $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
-source $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
+conda create -n gym_gpu python=3.10 -y
+conda activate gym_gpu
+conda install -c conda-forge cudatoolkit=11.8.0 -y
+conda install -c nvidia cuda-nvcc -y
+
+python3 -m pip install nvidia-cudnn-cu11 tensorflow[and-cuda]
 ```
 
-Verify install:
+Verify the tensorflow GPU install:
 ```
 python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
 ```
 
-2) you do not need to use GPU for model training, use:
+For example, if you have 2 nvidia GPUs, you should see something like this:
 
 ```
-conda create -n gym python -y
-conda activate gym
-python -m pip install tensorflow==2.12.*
-```
-
-Then: 
-```
-conda install -c conda-forge scikit-image ipython tqdm pandas natsort matplotlib transformers -y
-python -m pip install doodleverse_utils 
+[PhysicalDevice(name='/physical_device:GPU:0', device_type='GPU'), PhysicalDevice(name='/physical_device:GPU:1', device_type='GPU')]
 ```
 
 
-If the above fails, try:
+If you see your GPU listed, then success! Now install the rest of the dependencies:
 
 ```
-conda create -n gym python=3.10
-conda activate gym
-conda install -c conda-forge scipy "numpy>=1.16.5, <=1.23.0" scikit-image cython ipython joblib tqdm pandas pip plotly natsort matplotlib transformers -y
-pip install torch doodleverse_utils
-conda install -c conda-forge cudatoolkit=11.2 cudnn=8.1.0
-python -m pip install "tensorflow-gpu<2.11"
-conda install cuda -c nvidia
+conda install -c conda-forge scikit-image ipython tqdm pandas natsort matplotlib -y
+python -m pip install doodleverse_utils chardet
+
+python -m pip install transformers
 ```
 
-If you don't have `git` installed, `conda install git`
+Finally, test your transformers library installation:
+
+```
+python  -c "from transformers import TFSegformerForSemanticSegmentation"
+```
+
+If the above returns no error, congratulations! You are in business.
+
+
+(and if you don't have `git` installed, `conda install git`)
 
 
 ### Linux/Ubuntu:
 
-Try:
-
-```
-conda env create --file ./install/gym.yml
-```
-
-If the above fails, and 
-
-
-1) you wish to use GPU for model training, use:
-
 ```
 conda create -n gym python -y
 conda activate gym
-conda install -c conda-forge cudatoolkit=11.8.0 -y
-python -m pip install nvidia-cudnn-cu11==8.6.0.163 tensorflow==2.12.*
-```
-
-Configure the system paths, as per the [official Tensorflow instructions](https://www.tensorflow.org/install/pip#linux_1): 
-```
-mkdir -p $CONDA_PREFIX/etc/conda/activate.d
-echo 'CUDNN_PATH=$(dirname $(python -c "import nvidia.cudnn;print(nvidia.cudnn.__file__)"))' >> $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
-echo 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/:$CUDNN_PATH/lib' >> $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
-source $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
+pip install tensorflow[and-cuda]
 ```
 
 Verify install:
@@ -199,18 +175,21 @@ Verify install:
 python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
 ```
 
-2) you do not need to use GPU for model training, use:
+For example, if you have 2 nvidia GPUs, you should see something like this:
 
 ```
-conda create -n gym python -y
-conda activate gym
-python -m pip install tensorflow==2.12.*
+[PhysicalDevice(name='/physical_device:GPU:0', device_type='GPU'), PhysicalDevice(name='/physical_device:GPU:1', device_type='GPU')]
 ```
 
-Then: 
+### Troubleshooting
+
+
+If you get conda errors you may need to configure the system paths: 
 ```
-conda install -c conda-forge scikit-image ipython tqdm pandas natsort matplotlib transformers -y
-python -m pip install doodleverse_utils 
+mkdir -p $CONDA_PREFIX/etc/conda/activate.d
+echo 'CUDNN_PATH=$(dirname $(python -c "import nvidia.cudnn;print(nvidia.cudnn.__file__)"))' >> $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
+echo 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/:$CUDNN_PATH/lib' >> $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
+source $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
 ```
 
 From [here](https://www.tensorflow.org/install/pip), you may encounter the following error:
@@ -237,28 +216,12 @@ mkdir -p $CONDA_PREFIX/lib/nvvm/libdevice
 cp $CONDA_PREFIX/lib/libdevice.10.bc $CONDA_PREFIX/lib/nvvm/libdevice/
 ```
 
-In my case, I also had to link the path to the lib folder in anaconda to `LD_LIBRARY_PATH`:
+In my case, I also had to link the path to the lib folder in miniconda to `LD_LIBRARY_PATH`:
 
 ```
 ln -sf /usr/lib/x86_64-linux-gnu/libstdc++.so.6 ~/miniconda3/envs/gym/bin/../lib/libstdc++.so.6
 ```
 
-2. Verify install (any operating system):
-
-```
-python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
-```
-
-3. Clone the repo:
-
-```
-git clone --depth 1 https://github.com/Doodleverse/segmentation_gym.git
-```
-
-(`--depth 1` means "give me only the present code, not the whole history of git commits" - this saves disk space, and time)
-
-
-### Other Troubleshooting
 If you get errors associated with loading the model weights you may need to:
 
 ```
@@ -266,6 +229,16 @@ pip install "h5py==2.10.0" --force-reinstall
 ```
 
 and just ignore any errors.
+
+
+2. Clone the repo:
+
+```
+git clone --depth 1 https://github.com/Doodleverse/segmentation_gym.git
+```
+
+(`--depth 1` means "give me only the present code, not the whole history of git commits" - this saves disk space, and time)
+
 
 
 ## How to use
@@ -279,7 +252,36 @@ Check out the [wiki](https://github.com/dbuscombe-usgs/segmentation_gym/wiki) fo
 
 ## Test Dataset
 
-A test data set, including a set of images/labels, model config files, and a dataset and models created with Gym, are available [here](https://zenodo.org/record/7677961/files/my_segmentation_gym_datasets.zip?download=1) and [described on the zenodo page](https://zenodo.org/record/7677961)
+A test data set, including a set of images/labels, model config files, and a dataset and models created with Gym, are available [here](https://zenodo.org/record/7677961/files/my_segmentation_gym_datasets.zip?download=1) and [described on the zenodo page]([https://zenodo.org/record/7677961](https://zenodo.org/records/8170543))
+
+You can train a model on the test set using the following commands:
+
+```
+wget https://zenodo.org/records/8170543/files/my_segmentation_gym_datasets_v5.zip
+sudo apt-get install unzip
+unzip my_segmentation_gym_datasets_v5.zip
+```
+
+then
+
+```
+git clone --depth 1 https://github.com/Doodleverse/segmentation_gym.git
+cd segmentation_gym
+python train_model.py
+```
+First folder to navigate to is this one
+
+![image (2)](https://github.com/Doodleverse/segmentation_gym/assets/3596509/bd5a70af-ccc9-4f9f-9519-94056681ba8b)
+
+then this one
+
+![image (3)](https://github.com/Doodleverse/segmentation_gym/assets/3596509/b6693305-215d-464c-a703-5720c639f8d9)
+
+then the 'segformer' config file
+
+![image (4)](https://github.com/Doodleverse/segmentation_gym/assets/3596509/c6b3ba88-266d-427c-af96-92cc4f2ad876)
+
+If you get an "OOM error", open the config file and reduce the `BATCH_SIZE` and try again.
 
 
 ## 💭 Feedback and Contributing
