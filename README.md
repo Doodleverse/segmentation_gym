@@ -181,6 +181,13 @@ For example, if you have 2 nvidia GPUs, you should see something like this:
 [PhysicalDevice(name='/physical_device:GPU:0', device_type='GPU'), PhysicalDevice(name='/physical_device:GPU:1', device_type='GPU')]
 ```
 
+```
+conda install -c conda-forge scikit-image ipython tqdm pandas natsort matplotlib -y
+python -m pip install doodleverse_utils chardet
+
+python -m pip install transformers
+```
+
 ### Troubleshooting
 
 
