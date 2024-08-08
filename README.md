@@ -36,7 +36,7 @@ We now offer a `segformer` model option in the config file. The [Segformer](http
 - Gym works seamlessly with [Doodler](https://github.com/Doodleverse/dash_doodler), a human-in-the loop labeling tool that will help you make training data for Gym. 
 - It would also work on any imagery in jpg or png format that has corresponding 2d greyscale integer label images (jpg or png), however acquired.
 - Gym implements models based on the U-Net. Despite being one of the "original" deep learning segmentation models (dating to [2016](https://arxiv.org/abs/1505.04597)), UNets have proven themselves enormously flexible for a wide range of image segmentation tasks and spatial regression tasks in the natural sciences. So, we expect these models, and, perhaps more importantly, the training and implementation of those models in an end-to-end pipeline, to work for a very wide variety of cases. Additional models may be added later.
-- You can read more about the models [here](https://github.com/Doodleverse/segmentation_gym/wiki/Models-in-Zoo) but be warned! We at Doodleverse HQ have discovered - often the hard way - that success is more about the data than the model. Gym helps you wrangle and tame your data, and makes your data work hard for you (nothing fancy, we just use augmentation)
+- You can read more about the models [here](https://github.com/Doodleverse/segmentation_gym/wiki/06_Models-in-Gym) but be warned! We at Doodleverse HQ have discovered - often the hard way - that success is more about the data than the model. Gym helps you wrangle and tame your data, and makes your data work hard for you (nothing fancy, we just use augmentation)
 * As well as a family of UNets, we offer a Transformer model option, using the SegFormer model architecture from HuggingFace, and the mit-b0 set of weights that are fine-tuned on a new dataset
 * This is a "tranfer-learning" option, and imagery can be any size
 
@@ -251,10 +251,10 @@ git clone --depth 1 https://github.com/Doodleverse/segmentation_gym.git
 ## How to use
 Check out the [wiki](https://github.com/dbuscombe-usgs/segmentation_gym/wiki) for a guide of how to use Gym
 
-1. Organize your files according to [this guide](https://github.com/Doodleverse/segmentation_gym/wiki/3_Directory-Structure-and-Tests)
-2. Create a configuration file according to [this guide](https://github.com/Doodleverse/segmentation_gym/wiki/4_Creation-of-%60config%60-file)
-3. Create a model-ready dataset from your pairs of images and labels. We hope you find [this guide](https://github.com/Doodleverse/segmentation_gym/wiki/Create-a-model-ready-dataset) helpful
-4. Train and evaluate an image segmentation model according to [this guide](https://github.com/Doodleverse/segmentation_gym/wiki/Train-an-image-segmentation-model)
+1. Organize your files according to [this guide](https://github.com/Doodleverse/segmentation_gym/wiki/03_Directory-Structure-and-Tests)
+2. Create a configuration file according to [this guide](https://github.com/Doodleverse/segmentation_gym/wiki/04_Creation-of-%60config%60-file)
+3. Create a model-ready dataset from your pairs of images and labels. We hope you find [this guide](https://github.com/Doodleverse/segmentation_gym/wiki/05_Create-a-model-ready-dataset) helpful
+4. Train and evaluate an image segmentation model according to [this guide](https://github.com/Doodleverse/segmentation_gym/wiki/07_Train-an-image-segmentation-model)
 5. Deploying / evaluate model on unseen sample imagery tends to be task specific. We offer basic implementation examples [here](https://github.com/Doodleverse/segmentation_gym/blob/main/seg_images_in_folder.py) as well as in Segmentation Zoo [here](https://github.com/Doodleverse/segmentation_zoo/tree/main/scripts) and [here](https://github.com/Doodleverse/segmentation_zoo/tree/main/notebooks)
 
 ## Test Dataset
