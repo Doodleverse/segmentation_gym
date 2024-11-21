@@ -3,7 +3,7 @@
 #
 # MIT License
 #
-# Copyright (c) 2021-23, Marda Science LLC
+# Copyright (c) 2021-24, Marda Science LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -615,6 +615,8 @@ except:
 
 
 np.savetxt(weights.replace('.h5','_val_files.txt'), val_files, fmt='%s')
+
+# weights = weights.replace('.h5','.weights.h5')
 
 ######################
 #### set up data throughput pipeline

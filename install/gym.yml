@@ -4,20 +4,17 @@ channels:
   - nvidia
   - defaults
 dependencies:
- - python
+ - python=3.10
  - scipy
  - numpy
  - scikit-image
- - cython
  - cuda
  - cudatoolkit=11.8.0
  - ipython
- - jupyter
  - joblib
  - tqdm
  - pandas
  - pip
- - plotly
  - natsort
  - matplotlib
  - pip:

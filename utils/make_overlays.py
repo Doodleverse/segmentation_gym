@@ -12,18 +12,20 @@ def fromhex(n):
     """ hexadecimal to integer """
     return int(n, base=16)
 
-image_path = "G:\\elwha_ortho_segmentation\\seg_zoo_model_datasets\\elwha_aerial\\v8_june2023_all\\images"
+image_path = r"D:\CDI_runup\AK_runup_timestacks\r2"
 image_path = os.path.normpath(image_path)
 
-im_files = sorted(glob(image_path+os.sep+"*.tif"))
+im_files = sorted(glob(image_path+os.sep+"*.png"))
 len(im_files)
 
 
-label_path = "G:\\elwha_ortho_segmentation\\seg_zoo_model_datasets\\elwha_aerial\\v8_june2023_all\\labels"
-label_path = os.path.normpath(label_path)
+# label_path = r"D:\CDI_runup\AK_runup_timestacks\r1\meta"
+# label_path = os.path.normpath(label_path)
 
-lab_files = sorted(glob(label_path+os.sep+"*.tif"))
-len(lab_files)
+# lab_files = sorted(glob(label_path+os.sep+"*.png"))
+# len(lab_files)
+
+lab_files = [i.replace('runup.','runup_predseg.').replace('r2\\','r2\\meta\\') for i in im_files]
 
 # 0=null, 1=water, 2=sed, 3=veg, 4=wood
 NUM_LABEL_CLASSES = 5
@@ -44,14 +46,17 @@ cmap2 = matplotlib.colors.ListedColormap(['#000000']+class_label_colormap[:NUM_L
 
 
 def do_it(im, lab, cmap):
-    l = io.imread(lab) 
-    l[l==3] = 0
-    fig = plt.figure(figsize=(6,6))
-    plt.imshow(io.imread(im))
-    plt.imshow(l, cmap=cmap, alpha=0.5, vmin=0, vmax=NUM_LABEL_CLASSES)
-    # plt.show()
-    plt.savefig(im.replace("images","overlays").replace('.tif','.png'), dpi=300, bbox_inches='tight')
-    plt.close('all')
+    try:
+        l = io.imread(lab) 
+        l[l==3] = 0
+        fig = plt.figure(figsize=(6,6))
+        plt.imshow(io.imread(im))
+        plt.imshow(l, cmap=cmap, alpha=0.5, vmin=0, vmax=NUM_LABEL_CLASSES)
+        # plt.show()
+        plt.savefig(im.replace("runup.","overlay.").replace('.png','.jpg'), dpi=300, bbox_inches='tight')
+        plt.close('all')
+    except:
+        pass
 
 # for im,lab in zip(im_files,lab_files):
     
