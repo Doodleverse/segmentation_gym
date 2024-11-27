@@ -3,7 +3,7 @@
 #
 # MIT License
 #
-# Copyright (c) 2020-23, Marda Science LLC
+# Copyright (c) 2020-24, Marda Science LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -440,14 +440,8 @@ def get_lists_of_images(f,l):
         except:
             im = np.squeeze(im)
             im = np.dstack((im,im,im))[:,:,:3]     
-        # try:
-        # im = [imread(f)[:,:,:3]]
-        # except:
-        #     im = [np.dstack((imread(f), imread(f), imread(f)))[:,:,:3]]
-        # finally:
-        #     im = [imread(f[0])[:,:,:3]]
 
-    return im #np.dstack(im)# create a dtack which takes care of different sized inputs
+    return im 
 
 
 def do_label_filter(lstack,FILTER_VALUE,NCLASSES):
@@ -555,7 +549,6 @@ for counter,(f,l) in enumerate(zip(train_files,train_label_files)):
     datadict['num_bands'] = im.shape[-1]
     datadict['files'] = [fi.split(os.sep)[-1] for fi in f]
 
-    # segfile = output_data_path+os.sep+ROOT_STRING+'_noaug_nd_data_000000'+str(counter)+'.npz'
     segfile = output_data_path+os.sep+'train_data'+os.sep+'train_npzs'+os.sep+ROOT_STRING+'_noaug_nd_data_000000'+str(counter)+'.npz'
     np.savez_compressed(segfile, **datadict)
     del datadict#, im, lstack
@@ -608,10 +601,9 @@ for counter,(f,l) in enumerate(zip(val_files,val_label_files)):
     datadict['num_bands'] = im.shape[-1]
     datadict['files'] = [fi.split(os.sep)[-1] for fi in f]
 
-    # segfile = output_data_path+os.sep+ROOT_STRING+'_noaug_nd_data_000000'+str(counter)+'.npz'
     segfile = output_data_path+os.sep+'val_data'+os.sep+'val_npzs'+os.sep+ROOT_STRING+'_noaug_nd_data_000000'+str(counter)+'.npz'
     np.savez_compressed(segfile, **datadict)
-    del datadict#, im, lstack
+    del datadict
 
 ###================================
 
@@ -855,20 +847,6 @@ for copy in tqdm(range(AUG_COPIES)):
             F.append(filenames)
             del filenames
 
-        ## for 1-band inputs, the generator will make 3-band inputs
-        ## this is so
-        ## that means for 3+ band inputs where the extra files encode just 1 band each
-        ## single bands are triplicated and the following code removes the redundancy
-        ## so check for bands 0 and 1 being the same and if so, use only bans 0
-        # X3 = []
-        # for x in X:
-        #     x3=[]
-        #     for im in x:
-        #         if np.all(im[:,:,0]==im[:,:,1]):
-        #             im = im[:,:,0]
-        #         x3.append(im)
-        #     X3.append(x3)
-        # del X
 
         Y = Y[0]
         # wrute them to file and increment the counter

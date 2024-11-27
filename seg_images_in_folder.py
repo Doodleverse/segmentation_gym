@@ -3,7 +3,7 @@
 #
 # MIT License
 #
-# Copyright (c) 2021-23, Marda Science LLC
+# Copyright (c) 2021-24, Marda Science LLC
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -42,6 +42,7 @@ profile = 'meta' # meta + predseg
 # 6. custom_resunet
 # 7. custom_satunet
 # 8. segformer (pre-trained)
+
 def get_model():
 
     if MODEL =='resunet':

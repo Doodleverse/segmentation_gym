@@ -249,14 +249,8 @@ def read_seg_dataset_multiclass_segformer(example):
 
     imdim = image.shape[0]
     
-    # if N_DATA_BANDS==1:
-    #     image = tf.concat([image, image, image], axis=2)
-
     image = tf.transpose(image, (2, 0, 1))
 
-    # if N_DATA_BANDS==1:
-    #     image.set_shape([3, imdim, imdim])
-    # else:
     image.set_shape([N_DATA_BANDS, imdim, imdim])
     
     label.set_shape([imdim, imdim])
@@ -867,7 +861,6 @@ if DO_TRAIN:
     except: 
         print("model training history could not be saved")
 
-    # if MODEL=='segformer':
     try:
         model.save_weights(weights.replace('.h5','_fullmodel.h5'))
     except:
@@ -936,3 +929,4 @@ print('Mean of Matthews Correlation Coefficients (train subset)={mean_dice:0.3f}
 print('Mean of mean Dice scores (train subset)={mean_dice:0.3f}'.format(mean_dice=np.mean(Dc)))
 print('Mean of mean KLD scores (train subset)={mean_kld:0.3f}'.format(mean_kld=np.mean(Kc)))
 
+##boom.
