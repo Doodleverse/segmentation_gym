@@ -89,7 +89,8 @@ We advise creating a new conda environment to run the program. We recommend [min
 Note that MACS are NOT SUPPORTED. Only Linux and WSL on Windows. Not sorry :)
 
 
-1. Create a conda environment called `gym`
+### Pre-requisites
+Create a conda environment called `gym`
 
 [OPTIONAL] First you may want to do some conda and pip housekeeping (recommended)
 
@@ -107,8 +108,18 @@ conda config --set solver libmamba
 ```
 
 
-1) If you wish to use GPU for model training, you now must use Linux or WSL2 (Windows Subsystem for Linux 2) on Windows and refer to the [official Tensorflow instructions](https://www.tensorflow.org/install/pip): 
+Clone the repo:
 
+```
+git clone --depth 1 https://github.com/Doodleverse/segmentation_gym.git
+```
+
+(`--depth 1` means "give me only the present code, not the whole history of git commits" - this saves disk space, and time)
+
+
+
+### WSL
+If you wish to use GPU for model training, you now must use Linux or WSL2 (Windows Subsystem for Linux 2) on Windows and refer to the [official Tensorflow instructions](https://www.tensorflow.org/install/pip): 
 
 (updated November 20, 2024)
 
@@ -118,7 +129,6 @@ conda env create --file ./install/gym.yml
 ```
 
 Test the tensorflow installation:
-
 
 ```
 conda activate gym
@@ -142,7 +152,7 @@ and try again
 python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
 ```
 
-
+#### Troubleshooting
 
 If the above fails,
 
@@ -153,7 +163,7 @@ conda activate gym
 
 ```
 conda install -c conda-forge cudatoolkit=11.8.0 -y
-python -m pip install nvidia-cudnn-cu11==8.6.0.163 tensorflow==2.12.*
+python -m pip install nvidia-cudnn-cu11==8.6.0.163 tensorflow==2.12.* transformers==4.37.*
 ```
 
 Configure the system paths, as per the [official Tensorflow instructions](https://www.tensorflow.org/install/pip#linux_1): 
@@ -164,16 +174,21 @@ echo 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CONDA_PREFIX/lib/:$CUDNN_PATH/lib
 source $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
 ```
 
+then
+```
+python -m pip install doodleverse_utils 
+```
+
+
 Verify install:
 ```
 python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
 ```
 
-
 Then: 
 ```
 conda install -c conda-forge scikit-image ipython tqdm pandas natsort matplotlib transformers -y
-python -m pip install doodleverse_utils 
+conda install -c conda-forge conda install -c conda-forge numpy=1.24.*
 ```
 
 From [here](https://www.tensorflow.org/install/pip), you may encounter the following error:
@@ -200,7 +215,7 @@ mkdir -p $CONDA_PREFIX/lib/nvvm/libdevice
 cp $CONDA_PREFIX/lib/libdevice.10.bc $CONDA_PREFIX/lib/nvvm/libdevice/
 ```
 
-In my case, I also had to link the path to the lib folder in anaconda to `LD_LIBRARY_PATH`:
+You also may have to link the path to the lib folder in anaconda to `LD_LIBRARY_PATH`:
 
 ```
 ln -sf /usr/lib/x86_64-linux-gnu/libstdc++.so.6 ~/miniconda3/envs/gym/bin/../lib/libstdc++.so.6
@@ -215,7 +230,6 @@ python -c "from transformers import TFSegformerForSemanticSegmentation"
 (this should return no errors. It may issue warnings about TensorflowRT - you can ignore those)
 
 
-#### Troubleshooting
 
 ```
 pip uninstall h5py --yes
@@ -223,16 +237,55 @@ conda install -c conda-forge h5py -y
 ```
 
 
-2. Clone the repo:
+### Linux
 
 ```
-git clone --depth 1 https://github.com/Doodleverse/segmentation_gym.git
+conda create -n gym python=3.10 -y
+conda activate gym
 ```
 
-(`--depth 1` means "give me only the present code, not the whole history of git commits" - this saves disk space, and time)
+```
+conda install -c conda-forge cudatoolkit=11.8.0 numpy=1.24.* -y
+python -m pip install nvidia-cudnn-cu11==8.6.0.163 tensorflow==2.12.* transformers==4.37.*
+```
+
+Configure the system paths, as per the [official Tensorflow instructions](https://www.tensorflow.org/install/pip#linux_1): 
+
+```
+pushd $(dirname $(python -c 'print(__import__("tensorflow").__file__)'))
+ln -svf ../nvidia/*/lib/*.so* .
+popd
+```
+
+and finally
+```
+sudo ln -sf $(find $(dirname $(dirname $(python -c "import nvidia.cuda_nvcc;         
+print(nvidia.cuda_nvcc.__file__)"))/*/bin/) -name ptxas -print -quit) $VIRTUAL_ENV/bin/ptxas
+```
+
+```
+export XLA_FLAGS=--xla_gpu_cuda_data_dir=/usr/lib/cuda
+```
+
+then
+```
+python -m pip install doodleverse_utils 
+conda install -c conda-forge scikit-image ipython tqdm pandas natsort matplotlib -y
+```
+
+Verify TF GPU install:
+```
+python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
+```
+
+Test transformers:
+```
+python -c "from transformers import TFSegformerForSemanticSegmentation"
+```
 
 
-### Other Troubleshooting
+
+#### Other Troubleshooting
 
 ```
 mkdir -p $CONDA_PREFIX/lib/nvvm/libdevice/
