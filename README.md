@@ -117,9 +117,9 @@ git clone --depth 1 https://github.com/Doodleverse/segmentation_gym.git
 (`--depth 1` means "give me only the present code, not the whole history of git commits" - this saves disk space, and time)
 
 
-
-### WSL
 If you wish to use GPU for model training, you now must use Linux or WSL2 (Windows Subsystem for Linux 2) on Windows and refer to the [official Tensorflow instructions](https://www.tensorflow.org/install/pip): 
+
+### WSL2
 
 (updated November 20, 2024)
 
@@ -185,6 +185,8 @@ Verify install:
 python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
 ```
 
+If it still does not list all of your GPUs, please make an issue using the [Issues tab](https://github.com/Doodleverse/segmentation_gym/issues)
+
 Then: 
 ```
 conda install -c conda-forge scikit-image ipython tqdm pandas natsort matplotlib transformers -y
@@ -230,7 +232,6 @@ python -c "from transformers import TFSegformerForSemanticSegmentation"
 (this should return no errors. It may issue warnings about TensorflowRT - you can ignore those)
 
 
-
 ```
 pip uninstall h5py --yes
 conda install -c conda-forge h5py -y
@@ -239,17 +240,24 @@ conda install -c conda-forge h5py -y
 
 ### Linux
 
+(updated November 20, 2024)
+
+
 ```
-conda create -n gym python=3.10 -y
+conda env create --file ./install/gym.yml
+```
+
+Test the tensorflow installation:
+
+```
 conda activate gym
 ```
 
 ```
-conda install -c conda-forge cudatoolkit=11.8.0 numpy=1.24.* -y
-python -m pip install nvidia-cudnn-cu11==8.6.0.163 tensorflow==2.12.* transformers==4.37.*
+python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
 ```
 
-Configure the system paths, as per the [official Tensorflow instructions](https://www.tensorflow.org/install/pip#linux_1): 
+This should list all of your GPUs. If it does not, configure the system paths, as per the [official Tensorflow instructions](https://www.tensorflow.org/install/pip#linux_1): 
 
 ```
 pushd $(dirname $(python -c 'print(__import__("tensorflow").__file__)'))
@@ -267,15 +275,28 @@ print(nvidia.cuda_nvcc.__file__)"))/*/bin/) -name ptxas -print -quit) $VIRTUAL_E
 export XLA_FLAGS=--xla_gpu_cuda_data_dir=/usr/lib/cuda
 ```
 
+and try again:
+
+```
+python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
+```
+
+If it still does not list all of your GPUs, do this:
+
+```
+conda create -n gym python=3.10 -y
+conda activate gym
+```
+
+```
+conda install -c conda-forge cudatoolkit=11.8.0 numpy=1.24.* -y
+python -m pip install nvidia-cudnn-cu11==8.6.0.163 tensorflow==2.12.* transformers==4.37.*
+```
+
 then
 ```
 python -m pip install doodleverse_utils 
 conda install -c conda-forge scikit-image ipython tqdm pandas natsort matplotlib -y
-```
-
-Verify TF GPU install:
-```
-python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
 ```
 
 Test transformers:
@@ -283,6 +304,36 @@ Test transformers:
 python -c "from transformers import TFSegformerForSemanticSegmentation"
 ```
 
+Verify TF GPU install:
+```
+python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
+```
+
+This should list all of your GPUs. If it does not, configure the system paths, as per the [official Tensorflow instructions](https://www.tensorflow.org/install/pip#linux_1): 
+
+```
+pushd $(dirname $(python -c 'print(__import__("tensorflow").__file__)'))
+ln -svf ../nvidia/*/lib/*.so* .
+popd
+```
+
+and finally
+```
+sudo ln -sf $(find $(dirname $(dirname $(python -c "import nvidia.cuda_nvcc;         
+print(nvidia.cuda_nvcc.__file__)"))/*/bin/) -name ptxas -print -quit) $VIRTUAL_ENV/bin/ptxas
+```
+
+```
+export XLA_FLAGS=--xla_gpu_cuda_data_dir=/usr/lib/cuda
+```
+
+and try again:
+
+```
+python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
+```
+
+If it still does not list all of your GPUs, please make an issue using the [Issues tab](https://github.com/Doodleverse/segmentation_gym/issues)
 
 
 #### Other Troubleshooting
