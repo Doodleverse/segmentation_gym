@@ -240,7 +240,9 @@ conda install -c conda-forge h5py -y
 
 ### Linux
 
-(updated November 20, 2024)
+(updated December 13, 2024)
+
+Tested using Ubuntu 24.04. It is possible these instructions also work on WSL
 
 
 ```
