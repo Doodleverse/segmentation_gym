@@ -1,0 +1,27 @@
+services:
+  segmentation_gym:
+    build:
+      context: .
+      dockerfile: dockerfile
+    image: segmentation_gym  # Important: Use the same image name as in your docker build command
+    runtime: nvidia
+    stdin_open: true
+    tty: true
+    command: /bin/bash
+    volumes:
+      - type: bind
+        source: /home/sharon/gym/segmentation_gym/my_segmentation_gym_datasets
+        target: /gym/my_segmentation_gym_datasets
+      - type: bind
+        source: /home/sharon/gym/segmentation_gym/my_segmentation_gym_datasets_v5
+        target: /gym/my_segmentation_gym_datasets_v5
+      - type: bind
+        source: /home/sharon/gym/segmentation_gym/model_from_scratch_test_v5
+        target: /gym/model_from_scratch_test_v5
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
