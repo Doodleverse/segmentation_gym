@@ -1,0 +1,35 @@
+[project]
+name = "segmentation_gym"
+requires-python = "==3.10"
+version = "0.1.0"
+dependencies = ["nvidia-cudnn-cu11>=9.7.1.26,<10"]
+
+# This tells pixi that CUDA is required to run this environment and thus allows the pixi env to access GPU
+# Note this means the cuda drivers have to be available add build time
+# This means having access to __cuda virtual packages
+[tool.pixi.system-requirements]
+cuda = "11.5"
+
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+
+[tool.pixi.project]
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[tool.pixi.pypi-dependencies]
+segmentation_gym = { path = ".", editable = true }
+
+[tool.pixi.dependencies]
+tensorflow = "==2.12.1"
+transformers = ">=4.48.3,<5"
+tqdm = ">=4.67.1,<5"
+ipython = ">=8.23.0,<9"
+pandas = ">=2.2.3,<3"
+natsort = ">=8.4.0,<9"
+matplotlib = ">=3.9.1,<4"
+scikit-image = ">=0.25.0,<0.26"
+cudatoolkit = ">=11.5.0,<12"
+doodleverse-utils = ">=0.0.39,<0.0.40"
+joblib = ">=1.4.2,<2"
