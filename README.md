@@ -88,6 +88,37 @@ We advise creating a new conda environment to run the program. We recommend [min
 
 Note that MACS are NOT SUPPORTED. Only Linux and WSL on Windows. Not sorry :)
 
+## Installation Method #1 : Pixi (Recommended)
+Note: These instructions apply to Linux or WSL ONLY.
+1. Install Pixi for your preferred shell
+ - Follow the instructions on [how to install Pixi](https://pixi.sh/latest/advanced/installation/)
+ - You can find more details about how to use Pixi here: https://2320sharon.github.io/reproducible_environments_guide/pixi/installation/
+2. Git Clone Segmentation Gym
+```
+git clone --depth 1 https://github.com/Doodleverse/segmentation_gym.git
+```
+
+(`--depth 1` means "give me only the present code, not the whole history of git commits" - this saves disk space, and time)
+
+
+3. Open your shell and change directories (cd) to the Segmentation Gym folder
+```
+cd segmentation_gym
+```
+4. Install the environment 
+```
+pixi install --frozen
+```
+5. Open Pixi Shell
+```
+pixi shell --frozen
+```
+
+
+## Installation Method #2: Conda
+
+
+
 
 ### Pre-requisites
 Create a conda environment called `gym`
