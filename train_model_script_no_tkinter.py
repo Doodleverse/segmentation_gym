@@ -897,6 +897,28 @@ if config['DO_TRAIN']:
     print('.....................................')
     print('Training model ...')
     tf.config.run_functions_eagerly(True)
+
+
+    # --- Patch keras.utils to add unpack_x_y_sample_weight ---
+
+    def unpack_x_y_sample_weight(data):
+        if isinstance(data, (tuple, list)):
+            if len(data) == 3:
+                return data
+            elif len(data) == 2:
+                return data[0], data[1], None
+            else:
+                raise ValueError("Expected 2 or 3 elements in data tuple.")
+        return data, None, None
+
+    # Inject into keras.utils
+    import keras.utils
+    import types
+
+    keras.utils.unpack_x_y_sample_weight = unpack_x_y_sample_weight
+
+
+
     history = model.fit(train_ds, steps_per_epoch=steps_per_epoch, epochs=config['MAX_EPOCHS'],
                         validation_data=val_ds, validation_steps=validation_steps, initial_epoch=config['INITIAL_EPOCH'],
                         callbacks=callbacks)

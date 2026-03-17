@@ -524,8 +524,12 @@ for counter,(f,l) in enumerate(zip(train_files,train_label_files)):
 
     im = get_lists_of_images(f,l)
     # print(im.shape)
-
+    
     datadict={}
+    
+    datadict['num_bands'] = im.shape[-1]
+    datadict['files'] = [fi.split(os.sep)[-1] for fi in f]
+    
     datadict['arr_0'] = im.astype(np.uint8)
 
     lab = imread(l) # reac the label)
@@ -546,8 +550,7 @@ for counter,(f,l) in enumerate(zip(train_files,train_label_files)):
     if do_viz == True:
         doviz(datadict, counter, N_DATA_BANDS)
 
-    datadict['num_bands'] = im.shape[-1]
-    datadict['files'] = [fi.split(os.sep)[-1] for fi in f]
+
 
     segfile = output_data_path+os.sep+'train_data'+os.sep+'train_npzs'+os.sep+ROOT_STRING+'_noaug_nd_data_000000'+str(counter)+'.npz'
     np.savez_compressed(segfile, **datadict)

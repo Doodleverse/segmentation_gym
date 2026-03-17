@@ -33,3 +33,6 @@ scikit-image = ">=0.25.0,<0.26"
 cudatoolkit = ">=11.5.0,<12"
 doodleverse-utils = ">=0.0.39,<0.0.40"
 joblib = ">=1.4.2,<2"
+cudatoolkit-dev = ">=11.7.0,<12"
+
+

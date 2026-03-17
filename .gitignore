@@ -3,3 +3,10 @@ unet/*report.txt
 unet/__pycache__/*
 unet/future_functions/*
 unet/src/__pycache__/*
+# pixi environments
+.pixi
+cuda*
+*report.txt
+pixi*
+libdevice*
+*Zone*
